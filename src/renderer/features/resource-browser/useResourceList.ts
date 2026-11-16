@@ -15,13 +15,30 @@ export interface ResourceListState {
   loadMore: () => Promise<void>;
 }
 
+function mergeByUid(items: KubeObject[]): KubeObject[] {
+  const byUid = new Map<string, KubeObject>();
+  for (const item of items) {
+    const key = item.metadata?.uid ?? `${item.metadata?.namespace}/${item.metadata?.name}`;
+    byUid.set(key, item);
+  }
+  return [...byUid.values()];
+}
+
+/**
+ * Resource listing with multiple namespace scopes.
+ *
+ * `namespaces = []` means "all namespaces". A single namespace uses the normal
+ * paged list + resourceVersion watch. Several namespaces are fetched in
+ * parallel and each namespace gets its own watch; the merged list is presented
+ * as one table (Radar-style), with the Namespace column visible.
+ */
 export function useResourceList(options: {
   clusterId: string;
   resource: ApiResourceInfo | undefined;
-  namespace: string;
+  namespaces: string[];
   refreshSeconds: number;
 }): ResourceListState {
-  const { clusterId, resource, namespace, refreshSeconds } = options;
+  const { clusterId, resource, namespaces, refreshSeconds } = options;
   const [items, setItems] = useState<KubeObject[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +49,16 @@ export function useResourceList(options: {
   const [listEpoch, setListEpoch] = useState(0);
 
   const generation = useRef(0);
-  const subscriptionRef = useRef<string | null>(null);
+  const subscriptions = useRef<string[]>([]);
   const resourceVersionRef = useRef<string | undefined>(undefined);
+  const loadedOnce = useRef(false);
 
-  const scope = resource?.namespaced && namespace !== "all" ? namespace : undefined;
   const apiVersion = resource?.apiVersion;
   const kind = resource?.kind;
+  const scopes: Array<string | undefined> =
+    !resource?.namespaced || namespaces.length === 0 ? [undefined] : namespaces;
+  const scopeKey = `${resource?.apiVersion ?? ""}|${resource?.kind ?? ""}|${[...namespaces].sort().join(",")}`;
+  const multiple = scopes.length > 1;
 
   const fetchPage = useCallback(
     async (token: string | undefined, silent: boolean) => {
@@ -45,29 +66,53 @@ export function useResourceList(options: {
       const current = ++generation.current;
       if (!silent) setLoading(true);
       try {
-        const result = await call(
-          api.resources.list({
-            clusterId,
-            apiVersion,
-            kind,
-            namespace: scope,
-            limit: 2000,
-            continueToken: token,
-          }),
-        );
-        if (current !== generation.current) return;
-        setError(null);
-        setContinueToken(result.continueToken);
-        const hadVersion = Boolean(resourceVersionRef.current);
-        resourceVersionRef.current = result.resourceVersion;
-        setItems((previous) => (token ? [...previous, ...result.items] : result.items));
-        setTotal(
-          token
-            ? null
-            : result.items.length + (result.remainingItemCount ?? 0),
-        );
+        if (scopes.length === 1) {
+          const result = await call(
+            api.resources.list({
+              clusterId,
+              apiVersion,
+              kind,
+              namespace: scopes[0],
+              limit: 2000,
+              continueToken: token,
+            }),
+          );
+          if (current !== generation.current) return;
+          resourceVersionRef.current = result.resourceVersion ?? undefined;
+          setError(null);
+          setContinueToken(result.continueToken);
+          setItems((previous) => (token ? [...previous, ...result.items] : result.items));
+          setTotal(token ? null : result.items.length + (result.remainingItemCount ?? 0));
+          if (!token && !loadedOnce.current) {
+            loadedOnce.current = true;
+            setListEpoch((value) => value + 1);
+          }
+        } else {
+          const results = await Promise.all(
+            scopes.map((scope) =>
+              call(
+                api.resources.list({
+                  clusterId,
+                  apiVersion,
+                  kind,
+                  namespace: scope,
+                  limit: 1000,
+                }),
+              ),
+            ),
+          );
+          if (current !== generation.current) return;
+          resourceVersionRef.current = undefined;
+          setError(null);
+          setContinueToken(undefined);
+          setItems(mergeByUid(results.flatMap((result) => result.items)));
+          setTotal(results.reduce((sum, result) => sum + result.items.length + (result.remainingItemCount ?? 0), 0));
+          if (!loadedOnce.current) {
+            loadedOnce.current = true;
+            setListEpoch((value) => value + 1);
+          }
+        }
         setLastUpdated(Date.now());
-        if (!token && !hadVersion) setListEpoch((value) => value + 1);
       } catch (fetchError) {
         if (current !== generation.current) return;
         setError(errorText(fetchError));
@@ -75,33 +120,27 @@ export function useResourceList(options: {
         if (current === generation.current) setLoading(false);
       }
     },
-    [clusterId, apiVersion, kind, resource, scope],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [clusterId, apiVersion, kind, resource, scopeKey],
   );
 
-  const refresh = useCallback(
-    async (silent = false) => {
-      await fetchPage(undefined, silent);
-    },
-    [fetchPage],
-  );
+  const refresh = useCallback(async (silent = false) => fetchPage(undefined, silent), [fetchPage]);
 
   const loadMore = useCallback(async () => {
     if (!continueToken) return;
     await fetchPage(continueToken, true);
   }, [continueToken, fetchPage]);
 
-  // Reset table data when the user switches kind or namespace.
   useEffect(() => {
     setItems([]);
     setContinueToken(undefined);
     setTotal(null);
     setLastUpdated(null);
     resourceVersionRef.current = undefined;
+    loadedOnce.current = false;
     setListEpoch(0);
-  }, [clusterId, apiVersion, kind, scope]);
+  }, [clusterId, apiVersion, kind, scopeKey]);
 
-  // Initial load + polling. Polling reconciles any watch events that were
-  // missed while the connection was reconnecting.
   useEffect(() => {
     if (!resource) {
       setItems([]);
@@ -110,35 +149,39 @@ export function useResourceList(options: {
     }
     void refresh(false);
     if (!refreshSeconds) return;
-    const timer = window.setInterval(() => {
-      void refresh(true);
-    }, refreshSeconds * 1000);
+    const timer = window.setInterval(() => void refresh(true), refreshSeconds * 1000);
     return () => window.clearInterval(timer);
   }, [resource, refresh, refreshSeconds]);
 
-  // Live watch on the same scope.
+  // Live watches: one per scope so multi-namespace views stay live too.
   useEffect(() => {
-    if (!resource || !apiVersion || !kind || !resourceVersionRef.current) {
+    if (!resource || !apiVersion || !kind) {
+      setWatchState("off");
+      return;
+    }
+    if (!multiple && !resourceVersionRef.current) {
       setWatchState("off");
       return;
     }
 
-    const subscriptionId = `watch-${clusterId}-${apiVersion}-${kind}-${scope ?? "all"}-${Math.random().toString(36).slice(2, 7)}`;
-    const previousSubscription = subscriptionRef.current;
-    subscriptionRef.current = subscriptionId;
+    const ids = scopes.map(
+      (_, index) =>
+        `watch-${clusterId}-${apiVersion}-${kind}-${scopes[index] ?? "all"}-${Math.random().toString(36).slice(2, 7)}`,
+    );
+    const previous = subscriptions.current;
+    subscriptions.current = ids;
     let disposed = false;
-
     setWatchState("connecting");
 
     const off = api.resources.onWatchEvent((payload: WatchEventPayload) => {
-      if (payload.subscriptionId !== subscriptionId || disposed) return;
+      if (disposed || !ids.includes(payload.subscriptionId)) return;
       if (payload.type === "ERROR") {
         setWatchState("error");
         return;
       }
       setWatchState("live");
       const object = payload.object;
-      if (!object?.metadata?.uid && !object?.metadata?.name) return;
+      if (!object?.metadata?.name) return;
 
       setItems((current) => {
         const index = current.findIndex(
@@ -164,30 +207,30 @@ export function useResourceList(options: {
       setLastUpdated(Date.now());
     });
 
-    void api.resources
-      .watch({
-        subscriptionId,
-        clusterId,
-        apiVersion,
-        kind,
-        namespace: scope,
-        resourceVersion: resourceVersionRef.current,
-      })
-      .catch((watchError) => {
-        if (disposed) return;
-        setWatchState("error");
-        console.warn("[watch] failed", errorText(watchError));
-      });
+    ids.forEach((subscriptionId, index) => {
+      void api.resources
+        .watch({
+          subscriptionId,
+          clusterId,
+          apiVersion,
+          kind,
+          namespace: scopes[index],
+          resourceVersion: multiple ? undefined : resourceVersionRef.current,
+        })
+        .catch((watchError) => {
+          if (disposed) return;
+          setWatchState("error");
+          console.warn("[watch] failed", errorText(watchError));
+        });
+    });
 
     return () => {
       disposed = true;
       off();
-      void api.resources.unwatch(subscriptionId).catch(() => undefined);
-      if (previousSubscription && previousSubscription !== subscriptionId) {
-        void api.resources.unwatch(previousSubscription).catch(() => undefined);
-      }
+      for (const id of [...ids, ...previous]) void api.resources.unwatch(id).catch(() => undefined);
     };
-  }, [clusterId, apiVersion, kind, scope, resource, listEpoch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusterId, apiVersion, kind, scopeKey, resource, multiple, listEpoch]);
 
   return {
     items,

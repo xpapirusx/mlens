@@ -35,8 +35,11 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Discovers contexts from `~/.kube/config` and `KUBECONFIG`.
 - Imports additional kubeconfig files (file picker) or pasted YAML.
 - Multiple kubeconfig sources, favourites and recent clusters.
-- Concurrent cluster sessions; switching clusters preserves namespace, selected
-  kind, search/sort/filters, sidebar state, open details and terminal tabs.
+- Cluster tabs at the top; open-resource tabs inside a cluster.
+- Concurrent cluster sessions; switching clusters preserves namespace scope,
+  selected kind, search/sort/filters, sidebar state, open resource tabs and live
+  terminal PTYs.
+- Multiple namespace selection per cluster (all, one, or several).
 - Health, latency, Kubernetes version, context and API server in the UI.
 - Per-cluster isolation: each cluster has its own Kubernetes client/auth context
   in the main process.
@@ -49,8 +52,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   Events, PV/PVC, StorageClasses, ServiceAccounts, Roles/Bindings,
   ClusterRoles/Bindings, HPAs, PDBs, CRDs and every served custom resource.
 - Live watch + polling, freshness indicator, counts, search, sorting, per-column
-  filters, namespace filters, sortable columns, column picker, bulk-free dense
-  table with keyboard navigation.
+  filters, namespace filters, sortable columns, drag-to-resize columns (double-click
+  to reset), horizontal scrolling, column picker and keyboard navigation.
+- Multi-select mode with bulk delete and confirmation.
 - Row context menu: details, YAML, logs, exec, scale, restart, copy kubectl
   command, delete.
 - Create any discovered kind from YAML with server-side dry-run.
@@ -58,14 +62,20 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 ### Resource details
 
 Overview / Details / YAML / Events / Logs / Related / Metrics inside a resizable
-Freelens-style drawer. Kind-specific Pod, workload, Service, Ingress, Node, data,
-storage, HPA, CRD and generic CRD renderers. Real events, real streaming logs,
-real related-resource resolution. Secrets reveal only on request.
+Freelens-style drawer. Header actions for logs, attach/exec, YAML, port forward,
+delete, refresh and close. Kind-specific Pod, workload, Service, Ingress, Node,
+data, storage, HPA, CRD and generic CRD renderers. Pod Overview includes a Ports
+table with one-click forwarding. Real events, real streaming logs, real
+related-resource resolution. Secrets reveal only on request.
 
 ### Terminal
 
-- Real local shells through node-pty, in a bottom dock with tabs.
+- Real local shells through node-pty, in a bottom dock with tabs. The shell
+  receives a context-pinned, 0600 KUBECONFIG for the open cluster (and its
+  selected namespace), so `kubectl` starts on the right context.
 - Real Kubernetes pod exec over the exec WebSocket (no kubectl), with TTY resize.
+- Port forwarding over the Kubernetes WebSocket protocol: loopback listener,
+  live forwards panel, start/stop, no kubectl process.
 - xterm.js search, copy/paste, Radar console theme.
 
 ### Design system
@@ -138,8 +148,10 @@ src/renderer
 
 ## Known limitations
 
-- No extension system, Helm, port-forward, topology, timeline or GitOps-specific
-  views yet. CRDs (including Argo/Flux) appear as generic resources.
+- No extension system, Helm, topology, timeline or GitOps-specific views yet.
+  CRDs (including Argo/Flux) appear under a nested Custom Resources tree as
+  generic resources.
+- Port forwarding is TCP loopback (127.0.0.1), one port per forward, no UDP.
 - Metrics are live metrics-server values only; no historical Prometheus charts.
 - Forward navigation is disabled; back covers the details history and catalog.
 - Write actions are not pre-filtered by RBAC; the Kubernetes error is shown when

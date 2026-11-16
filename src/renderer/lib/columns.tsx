@@ -1141,7 +1141,8 @@ export function visibleColumns(columns: ColumnDef[], hidden: Set<string>): Colum
   return columns.filter((column) => !hidden.has(column.key));
 }
 
-export function formatColumnWidth(column: ColumnDef): string {
+export function formatColumnWidth(column: ColumnDef, override?: number): string {
+  if (override) return `${override}px`;
   if (column.flex) return "minmax(220px, 1.6fr)";
   return `${column.width ?? 140}px`;
 }

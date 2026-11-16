@@ -19,9 +19,16 @@ interface ResourceTableProps {
   onOpen: (object: KubeObject) => void;
   onContextMenu: (object: KubeObject, event: React.MouseEvent) => void;
   onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
+  columnWidths: Record<string, number>;
+  onResizeColumn: (key: string, width: number) => void;
+  onResetColumnWidth: (key: string) => void;
   filterableKeys: Set<string>;
   loading: boolean;
   emptyState?: React.ReactNode;
+  selectionMode?: boolean;
+  selectedKeys?: Set<string>;
+  onToggleRow?: (object: KubeObject) => void;
+  onToggleAll?: () => void;
 }
 
 export function ResourceTable({
@@ -34,9 +41,16 @@ export function ResourceTable({
   onOpen,
   onContextMenu,
   onFilterColumn,
+  columnWidths,
+  onResizeColumn,
+  onResetColumnWidth,
   filterableKeys,
   loading,
   emptyState,
+  selectionMode = false,
+  selectedKeys = new Set<string>(),
+  onToggleRow,
+  onToggleAll,
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
@@ -56,8 +70,16 @@ export function ResourceTable({
     setHighlight(-1);
   }, [columns]);
 
-  const gridTemplate = columns.map((column) => formatColumnWidth(column)).join(" ");
-  const minWidth = columns.reduce((sum, column) => sum + (column.flex ? 240 : (column.width ?? 140)), 0);
+  const gridTemplate = `${selectionMode ? "40px " : ""}${columns
+    .map((column) => formatColumnWidth(column, columnWidths[column.key]))
+    .join(" ")}`;
+  const minWidth =
+    (selectionMode ? 40 : 0) +
+    columns.reduce(
+      (sum, column) => sum + (columnWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
+      0,
+    );
+  const allSelected = rows.length > 0 && rows.every((row) => selectedKeys.has(row.metadata?.uid ?? `${row.metadata?.namespace}/${row.metadata?.name}`));
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -98,6 +120,17 @@ export function ResourceTable({
           className="sticky top-0 z-10 grid border-b border-theme-border bg-theme-base"
           style={{ gridTemplateColumns: gridTemplate, height: 40 }}
         >
+          {selectionMode ? (
+            <div className="flex items-center justify-center border-r-subtle">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={() => onToggleAll?.()}
+                title="Select all visible rows"
+                className="h-3.5 w-3.5 rounded border-theme-border accent-skyhook-500"
+              />
+            </div>
+          ) : null}
           {columns.map((column, index) => {
             const active = sort?.key === column.key;
             const filterable = filterableKeys.has(column.key);
@@ -139,6 +172,35 @@ export function ResourceTable({
                     <ListFilter className="h-3 w-3" />
                   </button>
                 ) : null}
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
+                  title="Drag to resize · double-click to reset"
+                  onClick={(event) => event.stopPropagation()}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    onResetColumnWidth(column.key);
+                  }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const startX = event.clientX;
+                    const startWidth =
+                      columnWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+                    const onMove = (moveEvent: PointerEvent) => {
+                      onResizeColumn(column.key, Math.max(72, Math.round(startWidth + moveEvent.clientX - startX)));
+                    };
+                    const onUp = () => {
+                      window.removeEventListener("pointermove", onMove);
+                      window.removeEventListener("pointerup", onUp);
+                    };
+                    window.addEventListener("pointermove", onMove);
+                    window.addEventListener("pointerup", onUp);
+                  }}
+                >
+                  <div className="mx-auto h-4 w-px bg-theme-border opacity-0 transition-opacity group-hover/th:opacity-100" />
+                </div>
               </div>
             );
           })}
@@ -178,7 +240,8 @@ export function ResourceTable({
                   }}
                   onClick={() => {
                     setHighlight(virtualRow.index);
-                    onOpen(object);
+                    if (selectionMode) onToggleRow?.(object);
+                    else onOpen(object);
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -186,6 +249,22 @@ export function ResourceTable({
                     onContextMenu(object, event);
                   }}
                 >
+                  {selectionMode ? (
+                    <div
+                      className="flex items-center justify-center border-r-subtle"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleRow?.(object);
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedKeys.has(object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`)}
+                        readOnly
+                        className="h-3.5 w-3.5 rounded border-theme-border accent-skyhook-500"
+                      />
+                    </div>
+                  ) : null}
                   {columns.map((column, index) => (
                     <div
                       key={column.key}

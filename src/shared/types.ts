@@ -203,6 +203,10 @@ export interface LocalTerminalRequest {
   cols: number;
   rows: number;
   env?: Record<string, string>;
+  /** When set, the shell receives a per-cluster KUBECONFIG. */
+  clusterId?: ClusterId;
+  /** Optional namespace override baked into that kubeconfig context. */
+  namespace?: string;
 }
 
 export interface TerminalDataPayload {
@@ -303,6 +307,24 @@ export interface AppInfo {
   node: string;
   platform: string;
   arch: string;
+}
+
+export interface PortForwardRequest {
+  clusterId: ClusterId;
+  namespace: string;
+  pod: string;
+  remotePort: number;
+  localPort?: number;
+}
+
+export interface PortForwardInfo {
+  id: string;
+  clusterId: ClusterId;
+  namespace: string;
+  pod: string;
+  remotePort: number;
+  localPort: number;
+  startedAt: number;
 }
 
 export interface NamespaceInfo {

@@ -1,4 +1,5 @@
-import { KubeConfig } from "@kubernetes/client-node";
+import { KubeConfig, dumpYaml } from "@kubernetes/client-node";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ClusterId, ClusterSummary, KubeconfigSource } from "@shared/types";
@@ -124,6 +125,30 @@ export class KubeconfigManager {
     }
     kubeConfig.setCurrentContext(contextName);
     return { id, kubeconfigPath, contextName, kubeConfig };
+  }
+
+  /**
+   * Write a context-pinned kubeconfig for a local shell. The user's own file is
+   * never modified: we export a copy with `current-context` (and optionally the
+   * namespace) set to the mLens session.
+   */
+  writeTerminalKubeconfig(id: ClusterId, directory: string, namespace?: string): string {
+    const resolved = this.resolve(id);
+    const kubeConfig = resolved.kubeConfig;
+    kubeConfig.makePathsAbsolute(path.dirname(resolved.kubeconfigPath));
+    const context = kubeConfig.getContextObject(resolved.contextName);
+    if (context && namespace) {
+      // getContextObject returns the live object in `contexts`; mutating it is
+      // enough. addContext() would throw a duplicate-context error.
+      (context as { namespace?: string }).namespace = namespace;
+    }
+    const exported = JSON.parse(kubeConfig.exportConfig()) as Record<string, unknown>;
+    const yaml = dumpYaml(exported);
+    const hash = createHash("sha256").update(`${id}|${namespace ?? ""}`).digest("hex").slice(0, 16);
+    fs.mkdirSync(directory, { recursive: true });
+    const target = path.join(directory, `context-${hash}.yaml`);
+    fs.writeFileSync(target, yaml, { mode: 0o600 });
+    return target;
   }
 
   addContent(content: string, directory: string, fileName?: string): KubeconfigSource {

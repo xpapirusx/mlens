@@ -1,4 +1,5 @@
-import { Box, Cpu, Database, FileSliders, Info, Network, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Cpu, Database, FileSliders, Info, Network, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Button } from "../../design-system/components/Button";
 import type { ApiResourceInfo } from "@shared/types";
 import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory, titleCase } from "../../lib/format";
@@ -11,6 +12,7 @@ export interface OverviewProps {
   object: AnyObject;
   resource: ApiResourceInfo;
   onNavigate: (kind: string, name: string, namespace?: string) => void;
+  onPortForward?: (port: number) => void;
 }
 
 function ResourceLink({
@@ -80,7 +82,7 @@ export function OverviewTab(props: OverviewProps) {
   }
 }
 
-function PodOverview({ object, resource, onNavigate }: OverviewProps) {
+function PodOverview({ object, onNavigate, onPortForward }: OverviewProps) {
   const containerStatuses = [
     ...(object.status?.initContainerStatuses ?? []),
     ...(object.status?.containerStatuses ?? []),
@@ -206,6 +208,46 @@ function PodOverview({ object, resource, onNavigate }: OverviewProps) {
         </div>
       </DetailSection>
 
+      {(() => {
+        const ports = ((object.spec?.containers ?? []) as Array<Record<string, any>>).flatMap((container) =>
+          ((container.ports ?? []) as Array<Record<string, any>>).map((port) => ({
+            container: container.name,
+            name: port.name as string | undefined,
+            port: Number(port.containerPort),
+            protocol: (port.protocol as string) ?? "TCP",
+          })),
+        );
+        if (ports.length === 0) return null;
+        return (
+          <DetailSection title="Ports" icon={<Network />} count={ports.length}>
+            <div className="overflow-hidden rounded-md border border-theme-border">
+              <div className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] gap-2 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+                <span>Container</span>
+                <span>Name</span>
+                <span>Port</span>
+                <span>Protocol</span>
+                <span />
+              </div>
+              {ports.map((port, index) => (
+                <div
+                  key={`${port.container}-${port.port}-${index}`}
+                  className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] items-center gap-2 border-b-subtle px-2 py-1.5 text-[11px] last:border-0"
+                >
+                  <span className="truncate font-mono text-theme-text-secondary">{port.container}</span>
+                  <span className="truncate text-theme-text-secondary">{port.name ?? "—"}</span>
+                  <span className="font-mono text-theme-text-primary">{port.port}</span>
+                  <span className="text-theme-text-secondary">{port.protocol}</span>
+                  <Button size="xs" variant="ghost" onClick={() => onPortForward?.(port.port)}>
+                    <Plug className="h-3 w-3" />
+                    Forward
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </DetailSection>
+        );
+      })()}
+
       <DetailSection
         title="Conditions"
         icon={<ShieldCheck />}
@@ -245,20 +287,60 @@ function PodOverview({ object, resource, onNavigate }: OverviewProps) {
         </div>
       </DetailSection>
 
-      <DetailSection title="Tolerations & affinity" icon={<Settings2 />} defaultOpen={false}>
+      <DetailSection title="Scheduling" icon={<Settings2 />} defaultOpen={false}>
         <PropertyList>
-          <Property label="Node selector" value={
-            Object.entries(object.spec?.nodeSelector ?? {}).map(([k, v]) => `${k}=${v}`).join(", ") || "–"
-          } />
-          <Property label="Tolerations" value={object.spec?.tolerations?.length ?? 0} />
-          <Property label="Affinity" value={object.spec?.affinity ? "configured" : "none"} />
-          <Property label="Resource" value={resource.apiVersion} mono />
+          <Property
+            label="Node selector"
+            value={
+              Object.keys(object.spec?.nodeSelector ?? {}).length ? (
+                <span className="flex flex-wrap gap-1">
+                  {Object.entries(object.spec.nodeSelector as Record<string, string>).map(([key, value]) => (
+                    <span key={key} className="badge-sm status-unknown font-mono">
+                      {key}={value}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                "–"
+              )
+            }
+          />
+          <Property label="Priority class" value={object.spec?.priorityClassName ?? "–"} />
         </PropertyList>
+      </DetailSection>
+
+      <DetailSection title="Tolerations" icon={<ShieldCheck />} defaultOpen={false} count={object.spec?.tolerations?.length ?? 0}>
+        {(object.spec?.tolerations ?? []).length === 0 ? (
+          <div className="text-xs text-theme-text-tertiary">No tolerations.</div>
+        ) : (
+          <div className="space-y-1">
+            {(object.spec.tolerations as Array<Record<string, any>>).map((toleration, index) => (
+              <div
+                key={`${toleration.key ?? "*"}-${index}`}
+                className="grid grid-cols-[minmax(0,1.4fr)_84px_minmax(0,1fr)_96px] items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2 py-1 text-[11px]"
+              >
+                <span className="truncate font-mono text-theme-text-primary" title={toleration.key}>
+                  {toleration.key ?? "*"}
+                </span>
+                <span className="text-theme-text-tertiary">{toleration.operator ?? "Equal"}</span>
+                <span className="truncate font-mono text-theme-text-secondary" title={toleration.value}>
+                  {toleration.value ?? "–"}
+                </span>
+                <span className="badge-sm status-unknown justify-self-start">{toleration.effect ?? "All"}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Affinity" icon={<Settings2 />} defaultOpen={false} count={object.spec?.affinity ? 1 : 0}>
         {object.spec?.affinity ? (
-          <div className="mt-2 card-inner">
+          <div className="min-w-0 overflow-x-auto rounded-md border border-theme-border-subtle p-2">
             <NestedObject value={object.spec.affinity} />
           </div>
-        ) : null}
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">No affinity rules.</div>
+        )}
       </DetailSection>
     </div>
   );

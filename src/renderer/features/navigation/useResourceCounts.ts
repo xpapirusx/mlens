@@ -1,31 +1,36 @@
 import { useEffect, useRef, useState } from "react";
-import type { ApiResourceInfo, ResourceCountResult } from "@shared/types";
-import { resourceCountKey } from "@shared/keys";
+import type { ApiResourceInfo } from "@shared/types";
 import { api, errorText } from "../../lib/api";
 
+export type CountMap = Record<string, number | null>;
+
 export interface ResourceCounts {
-  counts: Record<string, ResourceCountResult>;
+  counts: CountMap;
   loading: boolean;
   error: string | null;
   refresh: () => void;
 }
 
+const countKey = (apiVersion: string, kind: string): string => `${apiVersion}|${kind}`;
+
 /**
- * Sidebar counts are fetched with limit=1 and `remainingItemCount`, so a
- * cluster with 100+ kinds costs 100 tiny list calls rather than full lists.
+ * Sidebar counts use limit=1 + metadata.remainingItemCount, so a cluster with
+ * 200 kinds costs 200 tiny calls instead of full lists. With several selected
+ * namespaces each kind is counted per namespace and summed.
  */
 export function useResourceCounts(options: {
   clusterId: string;
-  namespace: string;
+  namespaces: string[];
   resources: ApiResourceInfo[];
   refreshSeconds: number;
 }): ResourceCounts {
-  const { clusterId, namespace, resources, refreshSeconds } = options;
-  const [counts, setCounts] = useState<Record<string, ResourceCountResult>>({});
+  const { clusterId, namespaces, resources, refreshSeconds } = options;
+  const [counts, setCounts] = useState<CountMap>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const generation = useRef(0);
+  const scopeKey = [...namespaces].sort().join(",");
 
   useEffect(() => {
     if (resources.length === 0) return;
@@ -33,19 +38,34 @@ export function useResourceCounts(options: {
     setLoading(true);
     setError(null);
 
+    const requests: Array<{ apiVersion: string; kind: string; namespace?: string }> = [];
+    for (const resource of resources) {
+      if (!resource.namespaced || namespaces.length === 0) {
+        requests.push({ apiVersion: resource.apiVersion, kind: resource.kind });
+      } else {
+        for (const namespace of namespaces) {
+          requests.push({ apiVersion: resource.apiVersion, kind: resource.kind, namespace });
+        }
+      }
+    }
+
     void api.resources
-      .counts({
-        clusterId,
-        resources: resources.map((resource) => ({
-          apiVersion: resource.apiVersion,
-          kind: resource.kind,
-          namespace: resource.namespaced && namespace !== "all" ? namespace : undefined,
-        })),
-      })
+      .counts({ clusterId, resources: requests })
       .then((results) => {
         if (current !== generation.current) return;
-        const next: Record<string, ResourceCountResult> = {};
-        for (const result of results) next[result.key] = result;
+        const sums = new Map<string, { value: number; failed: boolean }>();
+        for (const result of results) {
+          const [clusterIdPart, apiVersion, kind, namespace] = result.key.split("|");
+          if (clusterIdPart !== clusterId) continue;
+          void namespace;
+          const key = countKey(apiVersion, kind);
+          const entry = sums.get(key) ?? { value: 0, failed: false };
+          if (result.error) entry.failed = true;
+          else entry.value += result.count;
+          sums.set(key, entry);
+        }
+        const next: CountMap = {};
+        for (const [key, entry] of sums) next[key] = entry.failed && entry.value === 0 ? null : entry.value;
         setCounts(next);
         setLoading(false);
       })
@@ -56,16 +76,13 @@ export function useResourceCounts(options: {
       });
 
     if (!refreshSeconds) return;
-    // Counts are cheap (limit=1 + remainingItemCount) but there can be 200+
-    // kinds. Refresh them at most once a minute and never while the window is
-    // hidden.
     const interval = Math.max(60, refreshSeconds) * 1000;
     const timer = window.setInterval(() => {
       if (document.hidden) return;
       setNonce((value) => value + 1);
     }, interval);
     return () => window.clearInterval(timer);
-  }, [clusterId, namespace, resources, refreshSeconds, nonce]);
+  }, [clusterId, resources, refreshSeconds, scopeKey, nonce]);
 
   return {
     counts,
@@ -75,19 +92,6 @@ export function useResourceCounts(options: {
   };
 }
 
-export function countFor(
-  counts: Record<string, ResourceCountResult>,
-  clusterId: string,
-  resource: ApiResourceInfo,
-  namespace: string,
-): number | null {
-  const key = resourceCountKey(
-    clusterId,
-    resource.apiVersion,
-    resource.kind,
-    resource.namespaced && namespace !== "all" ? namespace : undefined,
-  );
-  const entry = counts[key];
-  if (!entry || entry.error) return null;
-  return entry.count;
+export function countFor(counts: CountMap, resource: ApiResourceInfo): number | null {
+  return counts[countKey(resource.apiVersion, resource.kind)] ?? null;
 }

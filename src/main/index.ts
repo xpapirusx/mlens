@@ -11,9 +11,13 @@ import { SettingsStore } from "./settings/store";
 import { KubeconfigManager } from "./kubernetes/kubeconfig";
 import { ClusterManager } from "./kubernetes/cluster-manager";
 import { PtyManager } from "./terminal/pty-manager";
+import { PortForwardManager } from "./kubernetes/port-forwards";
 import { registerIpc } from "./ipc/register";
 
 const { app, BrowserWindow, Menu, nativeTheme, shell } = electron;
+
+process.on("uncaughtException", (error) => console.error("[main uncaught]", error));
+process.on("unhandledRejection", (error) => console.error("[main unhandled]", error));
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -22,6 +26,7 @@ let mainWindow: BrowserWindowType | null = null;
 let settings: SettingsStore;
 let clusters: ClusterManager;
 let terminals: PtyManager;
+let portForwards: PortForwardManager;
 
 function buildMenu(): void {
   const isMac = process.platform === "darwin";
@@ -168,12 +173,14 @@ if (!singleInstance) {
     const kubeconfigs = new KubeconfigManager(settings);
     clusters = new ClusterManager(kubeconfigs, settings);
     terminals = new PtyManager();
+    portForwards = new PortForwardManager((id) => clusters.connection(id));
 
     registerIpc({
       settings,
       kubeconfigs,
       clusters,
       terminals,
+      portForwards,
       getWindow: () => mainWindow,
     });
 
@@ -199,6 +206,7 @@ if (!singleInstance) {
   });
 
   app.on("before-quit", () => {
+    portForwards?.closeAll();
     clusters?.disposeAll();
     terminals?.closeAll();
   });

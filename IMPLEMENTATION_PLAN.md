@@ -52,6 +52,8 @@ configuration).
 | Connect / disconnect | **Done** | Per-cluster `KubeConfig`, health, latency |
 | Kubernetes version + namespaces | **Done** | Real API calls |
 | Multiple simultaneous clusters | **Done** | One mounted workspace per visited cluster (hidden when inactive); switching preserves scroll, drawer, filters and live PTYs |
+| Cluster tabs / open-resource tabs | **Done** | Top cluster tabs (close = disconnect) and per-cluster resource tabs with back stack |
+| Multiple namespace scopes | **Done** | All / one / several; merged lists, per-namespace watches, summed counts |
 | Application shell (Freelens layout) | **Done** | Sidebar, sibling tabs, dock, drawer, status bar |
 | Sidebar resource catalog | **Done** | Dynamic discovery incl. CRDs; counts; collapse; filter |
 | Radar design system | **Done** | Tokens, typography, badges, tables, menus, terminal theme |
@@ -72,24 +74,26 @@ configuration).
 | Dynamic CRD columns | **Done** | `additionalPrinterColumns` from CRDs |
 | Search | **Done** | All visible values + labels; `/` shortcut; regex mode |
 | Per-column filters | **Done** | Distinct-value popovers, include multi-select, counts |
-| Namespace scope | **Done** | All namespaces + per namespace; system namespace toggle |
+| Namespace scope | **Done** | All / one / several namespaces; merged rows, per-namespace watches, summed counts; system namespace toggle |
 | Sorting | **Done** | asc → desc → none, per kind |
 | Column visibility | **Done** | Per kind; default-hidden columns |
+| Column resizing + horizontal scroll | **Done** | Drag header divider; double-click resets; table scrolls when wider than viewport |
+| Multi-select + bulk delete | **Done** | Checkbox mode, select-visible, confirmation listing selected objects |
 | Status indicators | **Done** | Kind-aware status mapping, Radar status badges |
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
 | Context menu actions | **Done** | Details, YAML, logs, exec, scale, restart, copy kubectl, delete |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
-| Large-list paging | **Done** | Continue token + “Load more” |
+| Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
 | Metrics columns (CPU/memory in table) | **Not started** | Metrics API is used in details; table columns are not wired yet |
 
 ### Resource details
 
 | Feature | Status | Notes |
 |---|---|---|
-| Lens drawer mechanics | **Done** | Right panel, resizable, expand, back stack, Escape |
+| Lens drawer mechanics | **Done** | Right panel, resizable, expand, back stack, action toolbar (logs/exec/YAML/port-forward/delete/close), Escape |
 | Radar content and tabs | **Done** | Overview / Details / YAML / Events / Logs / Related / Metrics |
-| Pod overview | **Done** | Status, IPs, QoS, SA, containers, conditions, volumes, scheduling |
+| Pod overview | **Done** | Freelens-style sections with aligned property rows: status, containers, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
 | Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
@@ -103,13 +107,14 @@ configuration).
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
 | Metrics tab | **Partial** | Real metrics-server values for Pod/Node; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
+| Port forwarding | **Done** | Loopback TCP forward over Kubernetes WebSocket; verified HTTP 200 from a real pod; active forwards panel |
 
 ### Terminal
 
 | Feature | Status | Notes |
 |---|---|---|
 | xterm.js embedded terminal | **Done** | Radar palette, search, copy/paste, resize |
-| Local shell via node-pty | **Done** | Verified `echo` round-trip in the packaged build |
+| Local shell via node-pty | **Done** | Verified `echo`; shell gets KUBECONFIG for the open cluster + namespace |
 | Kubernetes pod exec | **Done** | Verified interactive `echo MLENS_EXEC_OK` in a real pod |
 | Multiple terminal tabs | **Done** | Mounted simultaneously; state preserved |
 | Terminal search | **Done** | Finder UI, next/previous |
@@ -143,7 +148,6 @@ configuration).
 - [ ] GitOps views (Argo/Flux CRDs already appear as generic resources).
 - [ ] Prometheus metrics and historical charts.
 - [ ] Cluster audit / policy reports.
-- [ ] Port forwarding.
 - [ ] Node shell.
 - [ ] Multi-window.
 - [ ] Extension API.
@@ -174,6 +178,11 @@ configuration).
 | YAML tab | Pass (real object, Monaco highlight) |
 | Logs tab | Pass (real streaming logs) |
 | Local PTY | Pass (`MLENS_PTY_OK`) |
+| Terminal cluster context | Pass — `kubectl config current-context` = open cluster; namespace = selected namespace |
+| Port forward | Pass — localhost tunnel returned HTTP 200 from a real pod |
+| Multi-namespace | Pass — 2 namespaces merged; Namespace column shown; no per-request errors |
+| Column resize | Pass — Name column changed 240→360px; horizontal overflow scrolls |
+| Multi-select | Pass — 2 rows selected, bulk bar + delete confirmation |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
 | Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg` built; packaged app launches, sees 98 contexts, connects and runs a PTY |
@@ -187,7 +196,7 @@ configuration).
    node-pty asar unpacking and notarization.
 2. **Capability-aware write actions** using SelfSubjectAccessReview.
 3. **Metrics columns** and optional Prometheus history.
-4. **Port forwarding and Helm**, both TypeScript-only.
+4. **Helm** (release secrets parsed in TypeScript, no Helm binary).
 5. **Topology/Timeline**, reusing Related + watch data.
 6. **Automated tests**: unit tests for status/format/columns, integration tests
    against `kind`, Playwright Electron smoke tests.

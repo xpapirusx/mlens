@@ -5,6 +5,7 @@ import {
   Home,
   Minus,
   Moon,
+  Plug,
   Settings,
   Square,
   SquareTerminal,
@@ -18,14 +19,16 @@ import { cn } from "../lib/cn";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { api } from "../lib/api";
 
-const isMac = navigator.userAgent.includes("Mac OS X");
+const isMac = window.mlens.platform === "darwin";
 
 export function TopBar({
   activeClusterId,
   onOpenPalette,
+  onOpenPortForwards,
 }: {
   activeClusterId: string | null;
   onOpenPalette: () => void;
+  onOpenPortForwards: () => void;
 }) {
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
@@ -68,7 +71,7 @@ export function TopBar({
     <header
       className={cn(
         "app-drag relative z-40 flex h-11 shrink-0 items-center gap-1.5 border-b border-theme-border bg-theme-base",
-        isMac && "pl-[76px]",
+        isMac && "pl-[84px]",
         !isMac && "pl-2",
         "pr-2",
       )}
@@ -76,7 +79,7 @@ export function TopBar({
         if (!isMac) void api.app.maximize();
       }}
     >
-      <div className="app-no-drag flex items-center gap-0.5">
+      <div className="app-no-drag flex shrink-0 items-center gap-0.5">
         <Tooltip content="Catalog (home)">
           <button type="button" className="shell-icon-button" onClick={() => setActiveCluster(null)} title="Catalog (home)" aria-label="Catalog">
             <Home className="h-4 w-4" />
@@ -124,7 +127,7 @@ export function TopBar({
         </div>
       ) : null}
 
-      <div className="app-no-drag flex flex-1 justify-center px-2">
+      <div className="app-no-drag flex min-w-0 flex-1 justify-center px-2">
         <button
           type="button"
           onClick={onOpenPalette}
@@ -136,7 +139,20 @@ export function TopBar({
         </button>
       </div>
 
-      <div className="app-no-drag flex items-center gap-0.5">
+      <div className="app-no-drag flex shrink-0 items-center gap-0.5">
+        {activeClusterId ? (
+          <Tooltip content="Port forwards">
+            <button
+              type="button"
+              className="shell-icon-button"
+              onClick={onOpenPortForwards}
+              title="Port forwards"
+              aria-label="Port forwards"
+            >
+              <Plug className="h-4 w-4" />
+            </button>
+          </Tooltip>
+        ) : null}
         {activeClusterId ? (
           <Tooltip content="New terminal">
             <button

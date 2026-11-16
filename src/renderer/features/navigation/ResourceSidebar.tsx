@@ -13,7 +13,7 @@ import {
 import type { ClusterSummary } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore } from "../../stores/session-store";
-import { buildResourceGroups, filterGroups, isListable } from "../../lib/catalog";
+import { buildResourceGroups, filterGroups, isListable, type ResourceGroup } from "../../lib/catalog";
 import { kindColor, kindLabel, getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { CountBadge } from "../../design-system/components/Badge";
@@ -38,7 +38,7 @@ export function ResourceSidebar({
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const selectKind = useSessionStore((state) => state.selectKind);
   const toggleGroup = useSessionStore((state) => state.toggleGroup);
-  const setNamespace = useSessionStore((state) => state.setNamespace);
+  const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const disconnect = useCatalogStore((state) => state.disconnect);
@@ -54,13 +54,93 @@ export function ResourceSidebar({
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
   const counts = useResourceCounts({
     clusterId,
-    namespace: session?.namespace ?? "all",
+    namespaces: session?.selectedNamespaces ?? [],
     resources: resources.filter(isListable),
     refreshSeconds: active ? refreshSeconds : 0,
   });
 
   const selected = session?.selectedKind;
   const isFavorite = settings?.favorites.includes(clusterId) ?? false;
+  const searching = search.trim().length > 0;
+
+  const totalCount = (list: typeof resources): number | null => {
+    let total = 0;
+    let found = false;
+    for (const resource of list) {
+      if (!isListable(resource)) continue;
+      const count = countFor(counts.counts, resource);
+      if (count !== null) {
+        total += count;
+        found = true;
+      }
+    }
+    return found ? total : null;
+  };
+
+  const renderKindRow = (resource: (typeof resources)[number], depth = 0) => {
+    const Icon = getKindIcon(resource.kind, resource.group);
+    const active = selected?.apiVersion === resource.apiVersion && selected?.kind === resource.kind;
+    const count = countFor(counts.counts, resource);
+    return (
+      <button
+        key={`${resource.apiVersion}/${resource.kind}`}
+        type="button"
+        onClick={() => selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind })}
+        title={`${resource.apiVersion} ${resource.kind}${resource.isCrd ? " (CRD)" : ""}`}
+        className={cn(
+          "group flex w-full items-center gap-2 rounded-md py-[5px] pr-2 text-left text-[13px] transition-colors",
+          depth > 0 ? "pl-6" : "pl-2",
+          active
+            ? "selection-strong selection-text"
+            : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
+        )}
+      >
+        <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
+        <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
+        {count !== null ? <CountBadge active={active}>{count}</CountBadge> : null}
+      </button>
+    );
+  };
+
+  const renderGroup = (group: ResourceGroup, depth = 0) => {
+    const expanded = searching
+      ? true
+      : (session?.expandedGroups[group.id] ?? group.id !== "custom");
+    const GroupIcon = group.icon;
+    const kindCount = group.children
+      ? group.children.reduce((sum, child) => sum + child.resources.length, 0)
+      : group.resources.length;
+    const aggregate = group.children
+      ? totalCount(group.children.flatMap((child) => child.resources))
+      : totalCount(group.resources);
+
+    return (
+      <div key={group.id} className={cn("mb-0.5", depth > 0 && "mt-0.5")}>
+        <button
+          type="button"
+          onClick={() => toggleGroup(clusterId, group.id)}
+          className={cn(
+            "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
+            depth > 0 ? "pl-4" : "pl-1.5",
+          )}
+        >
+          {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+          <GroupIcon className={cn("shrink-0", depth > 0 ? "h-3 w-3" : "h-3.5 w-3.5")} />
+          <span className="truncate">{group.title}</span>
+          <span className="ml-auto shrink-0 font-mono text-[9px] font-normal text-theme-text-disabled">
+            {aggregate ?? kindCount}
+          </span>
+        </button>
+        {expanded ? (
+          <div className="space-y-0.5">
+            {group.children
+              ? group.children.map((child) => renderGroup(child, depth + 1))
+              : group.resources.map((resource) => renderKindRow(resource, depth > 0 ? 1 : 0))}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   const onDisconnect = async () => {
     await disconnect(clusterId);
@@ -141,7 +221,7 @@ export function ResourceSidebar({
                 onClick={() => {
                   void call(api.clusters.namespaces(clusterId))
                     .then((namespaces) => {
-                      setNamespace(clusterId, "all");
+                      setSelectedNamespaces(clusterId, []);
                       toast.info("Namespaces refreshed", `${namespaces.length} namespaces`);
                     })
                     .catch((error) => toast.error("Cannot refresh namespaces", String(error)));
@@ -187,54 +267,7 @@ export function ResourceSidebar({
           </div>
         ) : null}
 
-        {filtered.map((group) => {
-          const expanded = session?.expandedGroups[group.id] ?? true;
-          const GroupIcon = group.icon;
-          return (
-            <div key={group.id} className="mb-0.5">
-              <button
-                type="button"
-                onClick={() => toggleGroup(clusterId, group.id)}
-                className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary"
-              >
-                {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                <GroupIcon className="h-3.5 w-3.5" />
-                <span className="truncate">{group.title}</span>
-                <span className="ml-auto font-mono text-[9px] font-normal text-theme-text-disabled">
-                  {group.resources.length}
-                </span>
-              </button>
-              {expanded ? (
-                <div className="mt-0.5 space-y-0.5">
-                  {group.resources.map((resource) => {
-                    const Icon = getKindIcon(resource.kind, resource.group);
-                    const active =
-                      selected?.apiVersion === resource.apiVersion && selected?.kind === resource.kind;
-                    const count = countFor(counts.counts, clusterId, resource, session?.namespace ?? "all");
-                    return (
-                      <button
-                        key={`${resource.apiVersion}/${resource.kind}`}
-                        type="button"
-                        onClick={() => selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind })}
-                        title={`${resource.apiVersion} ${resource.kind}${resource.isCrd ? " (CRD)" : ""}`}
-                        className={cn(
-                          "group flex w-full items-center gap-2 rounded-md px-2 py-[5px] text-left text-[13px] transition-colors",
-                          active
-                            ? "selection-strong selection-text"
-                            : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
-                        )}
-                      >
-                        <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
-                        <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
-                        {count !== null ? <CountBadge active={active}>{count}</CountBadge> : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+        {filtered.map((group) => renderGroup(group))}
 
         {session?.discoveryError ? (
           <div className="mx-1 mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">

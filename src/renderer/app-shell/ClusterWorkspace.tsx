@@ -4,6 +4,7 @@ import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { ResourceSidebar } from "../features/navigation/ResourceSidebar";
 import { PageTabs } from "../features/resource-browser/PageTabs";
+import { ResourceTabs } from "../features/resource-details/ResourceTabs";
 import { ResourceBrowser } from "../features/resource-browser/ResourceBrowser";
 import { ResourceDetails } from "../features/resource-details/ResourceDetails";
 import { TerminalDock } from "../features/terminal/TerminalDock";
@@ -111,6 +112,7 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <ResourceTabs clusterId={clusterId} />
         <PageTabs clusterId={clusterId} resources={session.resources} />
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <ResourceBrowser clusterId={clusterId} active={active} />

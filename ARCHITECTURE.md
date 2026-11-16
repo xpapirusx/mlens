@@ -71,6 +71,7 @@ src/
       resource-watcher.ts        resilient watch loop (reconnects, bookmarks)
       log-streams.ts             pod log streaming with abort + text decoding
       exec-sessions.ts           Kubernetes exec WebSocket + resize
+      port-forwards.ts           loopback TCP → Kubernetes port-forward WebSocket
     terminal/pty-manager.ts      real local shells via node-pty
   preload/
     index.ts                     contextBridge implementation
@@ -85,7 +86,8 @@ src/
       catalog/                   welcome + cluster catalog + paste import
       navigation/                cluster sidebar, resource counts
       resource-browser/          Radar-style table, filters, dialogs
-      resource-details/          Radar-style drawer + renderers
+      resource-details/          Radar-style drawer, resource tabs + renderers
+      port-forward/              start dialog + active forwards panel
       terminal/                  xterm view + terminal dock
       settings/                  settings dialog
     design-system/
@@ -198,7 +200,16 @@ The result drives the sidebar, kind picker, tables and CRD printer columns. Ther
 is no hard-coded “supported resources” list: a CRD installed a minute ago appears
 after discovery refresh.
 
-### 4.5 Lists, watches, counts
+### 4.5 Multiple namespace scopes
+
+A session stores `selectedNamespaces: string[]`; empty means all namespaces. The
+renderer fetches each scope independently and merges rows by UID, starts one
+watch per scope, and sums sidebar counts per kind. Exactly one selected namespace
+is a normal paged list with a resourceVersion watch; several namespaces hide the
+paging control and cap each scope at 1000 rows for the first iteration. The
+Namespace column is shown whenever the scope is not exactly one namespace.
+
+### 4.6 Lists, watches, counts
 
 - **List**: raw REST with `limit`, `continue`, `labelSelector`, `fieldSelector`,
   scoped to a namespace when the kind is namespaced. 2000 items per page; the UI
@@ -213,7 +224,7 @@ after discovery refresh.
   parallel. A 150-kind cluster costs 150 tiny list calls instead of full lists.
   Failures are surfaced as “counts unavailable”, never as zero.
 
-### 4.6 Mutations
+### 4.7 Mutations
 
 - **Delete**: `DELETE` with `DeleteOptions` and background propagation.
 - **Scale**: merge patch `spec.replicas`.
@@ -229,7 +240,7 @@ RBAC failures (401/403) and 404s are translated into clear messages. Write
 controls are still shown for read-only users, but the server's error is presented
 instead of silently doing nothing; capability-aware scoping is on the roadmap.
 
-### 4.7 Logs
+### 4.8 Logs
 
 `Log.log(namespace, pod, container, writable, { follow, previous, tailLines,
 timestamps })` writes to a `Writable` that forwards decoded UTF-8 chunks over IPC.
@@ -237,7 +248,7 @@ Stopping aborts the request. The viewer caps retained text at ~1.5 MB, buffers
 chunks every 160 ms to avoid render storms, and only auto-scrolls while the user
 is at the bottom.
 
-### 4.8 Pod exec
+### 4.9 Pod exec
 
 `Exec.exec(...)` is used with a custom `Writable` stdout that exposes
 `rows`/`columns` and emits `resize`; the library's `TerminalSizeQueue` turns those
@@ -245,11 +256,37 @@ events into `v4.channel.k8s.io` resize frames. stdin is a `PassThrough` fed by
 xterm. Text is decoded with a streaming `TextDecoder` so multi-byte glyphs are not
 split across chunks. Status frames and socket closes both terminate the session.
 
-### 4.9 Local terminals
+### 4.10 Local terminals and cluster context
 
 `PtyManager` spawns `$SHELL` (or configured shell) via node-pty with
 `TERM=xterm-256color`, `COLORTERM=truecolor`, `TERM_PROGRAM=mLens`, a real cwd and
 window size. Resize is forwarded; page reload/unmount closes the PTY.
+
+For a cluster terminal, `KubeconfigManager.writeTerminalKubeconfig()` exports a
+copy of the resolved kubeconfig with `current-context` and (when exactly one
+namespace is selected) the context namespace applied, writes it mode `0600`
+under `<userData>/terminal-kubeconfigs`, and injects `KUBECONFIG`,
+`MLENS_CLUSTER` and `MLENS_NAMESPACE` into the PTY environment. The user's own
+kubeconfig is never modified. This is the same user-visible behaviour as
+Freelens' per-cluster terminal, without a proxy binary.
+
+### 4.11 Port forwarding
+
+`PortForwardManager` implements the Kubernetes WebSocket port-forward protocol
+(`v4.channel.k8s.io`) directly:
+
+1. A `net.Server` listens on `127.0.0.1:<local>` (0 = free port).
+2. Every accepted TCP connection opens a WebSocket to
+   `/api/v1/namespaces/<ns>/pods/<pod>/portforward?ports=<remote>`.
+3. Auth and TLS come from the same `RequestContext` path as REST requests.
+4. The server sends a channel+2-byte-little-endian-port handshake on channels 0
+   (data) and 1 (errors); the client strips it and forwards raw bytes, prefixing
+   outgoing data with the channel byte only.
+5. Stop closes the listener, sockets and tunnels; cluster disconnect stops only
+   that cluster's forwards; app quit stops all.
+
+No kubectl process and no SPDY implementation are involved. Limits: TCP only,
+one port per forward, loopback bind.
 
 node-pty's prebuilt `spawn-helper` must be executable; `scripts/postinstall.cjs`
 enforces that because `pnpm --ignore-scripts` (used in some CI setups) skips
@@ -289,7 +326,9 @@ deliberately not stored: list data is fetched live and reconciled by watch/poll.
 
 Freelens preserves cluster state by keeping every cluster iframe alive. mLens
 does the equivalent in React: `AppShell` mounts one `ClusterWorkspace` per
-visited session and hides inactive ones with `display: none`. Hidden workspaces
+visited session and hides inactive ones with `display: none`. The cluster tab
+strip switches those workspaces; the open-resource strip switches the active
+drawer tab within a workspace. Hidden workspaces
 keep their tables, scroll positions, drawers and terminal xterm instances
 mounted; polling is disabled while inactive, but watch streams stay connected.
 Terminal tabs are therefore never unmounted on a cluster switch, so running

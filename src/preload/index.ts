@@ -22,6 +22,8 @@ import type {
   LogRequest,
   NamespaceInfo,
   PodContainerInfo,
+  PortForwardInfo,
+  PortForwardRequest,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -42,6 +44,7 @@ function on<T>(channel: string, callback: (payload: T) => void): () => void {
 }
 
 const api: MlensApi = {
+  platform: process.platform,
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo) as Promise<AppInfo>,
     openExternal: (url) => ipcRenderer.invoke(IPC.appOpenExternal, url) as Promise<void>,
@@ -86,6 +89,12 @@ const api: MlensApi = {
   pods: {
     containers: (clusterId: ClusterId, namespace: string, name: string) =>
       ipcRenderer.invoke(IPC.podContainers, clusterId, namespace, name) as Promise<PodContainerInfo[]>,
+  },
+  portForward: {
+    start: (request: PortForwardRequest) =>
+      ipcRenderer.invoke(IPC.portForwardStart, request) as Promise<PortForwardInfo>,
+    stop: (id: string) => ipcRenderer.invoke(IPC.portForwardStop, id) as Promise<void>,
+    list: () => ipcRenderer.invoke(IPC.portForwardList) as Promise<PortForwardInfo[]>,
   },
   logs: {
     start: (request: LogRequest) => ipcRenderer.invoke(IPC.logsStart, request) as Promise<void>,

@@ -11,10 +11,11 @@ export interface KindState {
   sort: { key: string; direction: "asc" | "desc" } | null;
   filters: Record<string, string[]>;
   hiddenColumns: string[];
+  columnWidths: Record<string, number>;
 }
 
 export type TerminalTarget =
-  | { type: "local"; cwd?: string }
+  | { type: "local"; cwd?: string; clusterId?: ClusterId; namespace?: string }
   | {
       type: "pod";
       clusterId: ClusterId;
@@ -44,13 +45,14 @@ export interface ClusterSession {
   namespaces: string[];
   resources: ApiResourceInfo[];
   discoveryError?: string;
-  namespace: string;
+  selectedNamespaces: string[];
   selectedKind: { apiVersion: string; kind: string } | null;
   kindStates: Record<string, KindState>;
   expandedGroups: Record<string, boolean>;
   sidebarWidth: number;
   details: DetailsState | null;
   detailsHistory: ResourceKey[];
+  resourceTabs: ResourceKey[];
   dock: {
     open: boolean;
     height: number;
@@ -64,7 +66,7 @@ interface SessionStore {
   ensureSession: (id: ClusterId) => ClusterSession;
   initialize: (id: ClusterId) => Promise<void>;
   dispose: (id: ClusterId) => void;
-  setNamespace: (id: ClusterId, namespace: string) => void;
+  setSelectedNamespaces: (id: ClusterId, namespaces: string[]) => void;
   selectKind: (id: ClusterId, kind: { apiVersion: string; kind: string }) => void;
   kindState: (id: ClusterId, apiVersion: string, kind: string) => KindState;
   updateKindState: (
@@ -78,6 +80,8 @@ interface SessionStore {
   openDetails: (id: ClusterId, ref: ResourceKey) => void;
   setDetailsTab: (id: ClusterId, tab: DetailTab) => void;
   closeDetails: (id: ClusterId) => void;
+  activateResource: (id: ClusterId, ref: ResourceKey) => void;
+  closeResourceTab: (id: ClusterId, ref: ResourceKey) => void;
   detailsBack: (id: ClusterId) => void;
   refreshDetails: (id: ClusterId) => void;
   openTerminal: (id: ClusterId, target: TerminalTarget) => void;
@@ -92,22 +96,24 @@ const emptyKindState = (): KindState => ({
   sort: null,
   filters: {},
   hiddenColumns: [],
+  columnWidths: {},
 });
 
-function createSession(id: ClusterId, namespace = "all", sidebarWidth = 236, dockHeight = 340): ClusterSession {
+function createSession(id: ClusterId, selectedNamespaces: string[] = [], sidebarWidth = 236, dockHeight = 340): ClusterSession {
   return {
     clusterId: id,
     status: "idle",
     info: null,
     namespaces: [],
     resources: [],
-    namespace,
+    selectedNamespaces,
     selectedKind: null,
     kindStates: {},
     expandedGroups: {},
     sidebarWidth,
     details: null,
     detailsHistory: [],
+    resourceTabs: [],
     dock: { open: false, height: dockHeight, tabs: [], activeTabId: null },
   };
 }
@@ -119,6 +125,15 @@ const PREFERRED_KINDS = [
 ];
 
 export const kindKey = (apiVersion: string, kind: string): string => `${apiVersion}|${kind}`;
+
+export function sameRef(a: ResourceKey, b: ResourceKey): boolean {
+  return (
+    a.apiVersion === b.apiVersion &&
+    a.kind === b.kind &&
+    a.namespace === b.namespace &&
+    a.name === b.name
+  );
+}
 
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: {},
@@ -167,7 +182,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             namespaces: namespaces.map((entry) => entry.name),
             resources,
             discoveryError,
-            namespace: state.sessions[id].namespace === "all" ? "all" : state.sessions[id].namespace,
+            selectedNamespaces: state.sessions[id].selectedNamespaces,
             selectedKind:
               state.sessions[id].selectedKind ??
               (preferred ? { apiVersion: preferred.apiVersion, kind: preferred.kind } : null),
@@ -193,9 +208,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
   },
 
-  setNamespace: (id, namespace) => {
+  setSelectedNamespaces: (id, namespaces) => {
     set((state) => ({
-      sessions: { ...state.sessions, [id]: { ...state.sessions[id], namespace } },
+      sessions: { ...state.sessions, [id]: { ...state.sessions[id], selectedNamespaces: namespaces } },
     }));
   },
 
@@ -233,7 +248,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
-      const expanded = session.expandedGroups[group] ?? true;
+      // Match the renderer default: only the Custom Resources parent starts
+      // collapsed.
+      const expanded = session.expandedGroups[group] ?? group !== "custom";
       return {
         sessions: {
           ...state.sessions,
@@ -259,6 +276,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         session.details.ref.namespace === ref.namespace &&
         session.details.ref.name === ref.name;
       const history = session.details && !same ? [session.details.ref, ...session.detailsHistory].slice(0, 25) : session.detailsHistory;
+      const exists = session.resourceTabs.some((tab) => sameRef(tab, ref));
       return {
         sessions: {
           ...state.sessions,
@@ -266,6 +284,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ...session,
             details: { ref, tab: session.details?.tab ?? "overview" },
             detailsHistory: history,
+            resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
           },
         },
       };
@@ -286,9 +305,62 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   closeDetails: (id) => {
-    set((state) => ({
-      sessions: { ...state.sessions, [id]: { ...state.sessions[id], details: null } },
-    }));
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session?.details) return state;
+      const active = session.details.ref;
+      const tabs = session.resourceTabs.filter((tab) => !sameRef(tab, active));
+      const next = tabs[tabs.length - 1] ?? null;
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            resourceTabs: tabs,
+            details: next ? { ...session.details, ref: next } : null,
+          },
+        },
+      };
+    });
+  },
+
+  activateResource: (id, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const exists = session.resourceTabs.some((tab) => sameRef(tab, ref));
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            details: { ref, tab: session.details?.tab ?? "overview" },
+            resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
+          },
+        },
+      };
+    });
+  },
+
+  closeResourceTab: (id, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const index = session.resourceTabs.findIndex((tab) => sameRef(tab, ref));
+      const tabs = session.resourceTabs.filter((tab) => !sameRef(tab, ref));
+      const isActive = session.details ? sameRef(session.details.ref, ref) : false;
+      const fallback = tabs[Math.max(0, index - 1)] ?? tabs[0] ?? null;
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            resourceTabs: tabs,
+            details: isActive ? (fallback ? { ...session.details!, ref: fallback } : null) : session.details,
+          },
+        },
+      };
+    });
   },
 
   detailsBack: (id) => {
@@ -299,7 +371,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return {
         sessions: {
           ...state.sessions,
-          [id]: { ...session, details: { ...session.details, ref: previous }, detailsHistory: rest },
+          [id]: {
+            ...session,
+            details: { ...session.details, ref: previous },
+            detailsHistory: rest,
+            resourceTabs: session.resourceTabs.some((tab) => sameRef(tab, previous))
+              ? session.resourceTabs
+              : [...session.resourceTabs, previous],
+          },
         },
       };
     });
@@ -318,10 +397,20 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
   },
 
-  openTerminal: (id, target) => {
+  openTerminal: (id, requestedTarget) => {
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
+      const target: TerminalTarget =
+        requestedTarget.type === "local"
+          ? {
+              ...requestedTarget,
+              clusterId: requestedTarget.clusterId ?? id,
+              namespace:
+                requestedTarget.namespace ??
+                (session.selectedNamespaces.length === 1 ? session.selectedNamespaces[0] : undefined),
+            }
+          : requestedTarget;
       const existing = session.dock.tabs.find((tab) => {
         if (tab.target.type !== target.type) return false;
         if (tab.target.type === "pod" && target.type === "pod") {

@@ -22,12 +22,14 @@ import type { SettingsStore } from "../settings/store";
 import type { KubeconfigManager } from "../kubernetes/kubeconfig";
 import type { ClusterManager } from "../kubernetes/cluster-manager";
 import type { PtyManager } from "../terminal/pty-manager";
+import type { PortForwardManager } from "../kubernetes/port-forwards";
 
 interface Dependencies {
   settings: SettingsStore;
   kubeconfigs: KubeconfigManager;
   clusters: ClusterManager;
   terminals: PtyManager;
+  portForwards: PortForwardManager;
   getWindow: () => BrowserWindowType | null;
 }
 
@@ -41,7 +43,7 @@ function assertObject<T>(value: unknown, name: string): T {
   return value as T;
 }
 
-export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWindow }: Dependencies): void {
+export function registerIpc({ settings, kubeconfigs, clusters, terminals, portForwards, getWindow }: Dependencies): void {
   const send = (channel: string, payload: unknown): void => {
     const window = getWindow();
     if (window && !window.isDestroyed()) window.webContents.send(channel, payload);
@@ -125,9 +127,11 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
 
   // ── Cluster sessions ──────────────────────────────────────────
   ipcMain.handle(IPC.clusterConnect, (_event, id: unknown) => clusters.connect(assertString(id, "cluster id")));
-  ipcMain.handle(IPC.clusterDisconnect, (_event, id: unknown) =>
-    clusters.disconnect(assertString(id, "cluster id")),
-  );
+  ipcMain.handle(IPC.clusterDisconnect, async (_event, id: unknown) => {
+    const clusterId = assertString(id, "cluster id");
+    portForwards.stopCluster(clusterId);
+    await clusters.disconnect(clusterId);
+  });
   ipcMain.handle(IPC.clusterHealth, (_event, id: unknown) => clusters.health(assertString(id, "cluster id")));
   ipcMain.handle(IPC.clusterNamespaces, (_event, id: unknown) => clusters.namespaces(assertString(id, "cluster id")));
 
@@ -166,6 +170,19 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
     clusters.restart(assertObject<RestartRequest>(raw, "request")),
   );
 
+  ipcMain.handle(IPC.portForwardStart, (_event, raw: unknown) => {
+    const request = assertObject<import("@shared/types").PortForwardRequest>(raw, "request");
+    if (!Number.isInteger(request.remotePort) || request.remotePort <= 0 || request.remotePort > 65535) {
+      throw new Error("Remote port must be between 1 and 65535");
+    }
+    if (request.localPort !== undefined && (!Number.isInteger(request.localPort) || request.localPort < 0 || request.localPort > 65535)) {
+      throw new Error("Local port must be between 0 and 65535");
+    }
+    return portForwards.start(request);
+  });
+  ipcMain.handle(IPC.portForwardStop, (_event, id: unknown) => portForwards.stop(assertString(id, "port forward id")));
+  ipcMain.handle(IPC.portForwardList, () => portForwards.list());
+
   ipcMain.handle(IPC.podContainers, (_event, clusterId: unknown, namespace: unknown, name: unknown) =>
     clusters.podContainers(
       assertString(clusterId, "cluster id"),
@@ -201,13 +218,27 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
   ipcMain.handle(IPC.execClose, (_event, id: unknown) => clusters.exec.close(String(id)));
 
   // ── Local terminals ───────────────────────────────────────────
-  ipcMain.handle(IPC.terminalCreate, (_event, raw: unknown) =>
-    terminals.create(
-      assertObject<LocalTerminalRequest>(raw, "request"),
+  ipcMain.handle(IPC.terminalCreate, (_event, raw: unknown) => {
+    const request = assertObject<LocalTerminalRequest>(raw, "request");
+    if (request.clusterId) {
+      const kubeconfigPath = kubeconfigs.writeTerminalKubeconfig(
+        request.clusterId,
+        path.join(app.getPath("userData"), "terminal-kubeconfigs"),
+        request.namespace,
+      );
+      request.env = {
+        ...request.env,
+        KUBECONFIG: kubeconfigPath,
+        MLENS_CLUSTER: request.clusterId,
+        ...(request.namespace ? { MLENS_NAMESPACE: request.namespace } : {}),
+      };
+    }
+    return terminals.create(
+      request,
       (payload) => send(IPC.terminalData, payload),
       (payload) => send(IPC.terminalExit, payload),
-    ),
-  );
+    );
+  });
   ipcMain.handle(IPC.terminalInput, (_event, id: unknown, data: unknown) =>
     terminals.input(assertString(id, "session id"), String(data ?? "")),
   );

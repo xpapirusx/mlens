@@ -21,6 +21,8 @@ import type {
   LogRequest,
   NamespaceInfo,
   PodContainerInfo,
+  PortForwardInfo,
+  PortForwardRequest,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -65,6 +67,10 @@ export const IPC = {
   resourcesWatchEvent: "kube:resources-watch-event",
   podContainers: "kube:pod-containers",
 
+  portForwardStart: "kube:portforward-start",
+  portForwardStop: "kube:portforward-stop",
+  portForwardList: "kube:portforward-list",
+
   logsStart: "kube:logs-start",
   logsStop: "kube:logs-stop",
   logsChunk: "kube:logs-chunk",
@@ -90,6 +96,8 @@ export const IPC = {
 } as const;
 
 export interface MlensApi {
+  /** process.platform of the desktop process; used for native window chrome. */
+  platform: string;
   app: {
     info(): Promise<AppInfo>;
     openExternal(url: string): Promise<void>;
@@ -125,6 +133,11 @@ export interface MlensApi {
   };
   pods: {
     containers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]>;
+  };
+  portForward: {
+    start(request: PortForwardRequest): Promise<PortForwardInfo>;
+    stop(id: string): Promise<void>;
+    list(): Promise<PortForwardInfo[]>;
   };
   logs: {
     start(request: LogRequest): Promise<void>;

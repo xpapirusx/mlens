@@ -156,7 +156,13 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
           });
       } else {
         void api.terminal
-          .create({ sessionId, cols, rows })
+          .create({
+            sessionId,
+            cols,
+            rows,
+            clusterId: target.type === "local" ? target.clusterId : undefined,
+            namespace: target.type === "local" ? target.namespace : undefined,
+          })
           .then(({ shell }) => {
             setStatus("ready");
             terminal.write(`\x1b[38;5;244m[${shell} on ${navigator.platform}]\x1b[0m\r\n`);

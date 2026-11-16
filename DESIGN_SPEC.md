@@ -64,9 +64,12 @@ not ship a Go backend.
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Top bar · 44px · drag region · home/back · cluster pill · search · ⚙ │
+├──────────────────────────────────────────────────────────────────────┤
+│ Cluster tabs · 36px · open clusters, close = disconnect              │
 ├──────┬───────────────────────────────────────────────────────────────┤
 │      │ Cluster frame                                                 │
 │ Hot  │ ┌────────────┬──────────────────────────────────────────────┐ │
+│      │ │            │ Open-resource tabs · 32px                    │ │
 │ bar  │ │ Sidebar    │ Sibling resource tabs (36px)                 │ │
 │ 54px │ │ 236px      │ ┌──────────────────────────────────────────┐ │ │
 │      │ │ resizable  │ │ Resource browser (Radar table)           │ │ │
@@ -139,14 +142,29 @@ The bar is the window drag region; every control is `no-drag`.
   and tooltip.
 - Bottom: import kubeconfig, settings.
 
+### 2.3a Cluster tabs and open-resource tabs
+
+- A 36px cluster tab strip sits directly under the top bar. Each visited cluster
+  keeps a tab with a health dot; the close button disconnects that cluster and
+  removes its workspace. `+` returns to the catalog. The strip is hidden when no
+  session exists.
+- Inside a cluster, a 32px open-resource strip appears above the sibling-kind
+  tabs. Every resource opened from a table, relation or command palette adds a
+  tab (`name` + kind). Tabs switch the details drawer, keep a 25-entry back
+  stack, and close with X (closing the active tab selects its neighbour).
+- Inactive cluster workspaces stay mounted (CSS-hidden), exactly like Freelens'
+  hidden cluster frames, so scroll, drawer state and live PTYs survive switching.
+
 ### 2.4 Cluster sidebar
 
 - Cluster header: avatar + health dot, cluster name, Kubernetes version and
   context, overflow menu (favourite, copy context, refresh namespaces, settings,
   catalog, disconnect).
 - Resource filter input.
-- Groups in Freelens order: Workloads, Network, Configuration, Storage, Access
-  Control, Cluster, Scaling, Other, then one group per CRD API group.
+- Groups follow Freelens order: **Cluster, Workloads, Config, Network, Storage,
+  Access Control, Scaling, Other**, then **Custom Resources**. Custom Resources
+  is a parent group whose children are CRD API groups; both levels collapse
+  independently.
 - Group rows are collapsible and show the number of kinds; kind rows show icon,
   display name and a server count.
 - Counts are lower-bound-aware and never invented: unavailable counts are blank;
@@ -178,8 +196,9 @@ contains a single kind.
 - Default width 560px; draggable 460px → 74% of the window; expand button morphs
   to nearly full width.
 - Header: kind outline pill, status badge, API version, back-to-previous-resource,
-  refresh, pod exec (Pods only), expand, close. Below: name, copy, namespace,
-  age.
+  refresh, logs, attach/exec (Pods), YAML edit, port forward (Pods), delete,
+  expand, close. Below: name, copy, namespace, age. Delete always asks for
+  confirmation. This follows Freelens' action-in-drawer-header pattern.
 - Tabs: **Overview, Details, YAML, Events, Logs, Related, Metrics**.
 - `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
 - Opening another row replaces the content and pushes the previous resource onto
@@ -298,9 +317,15 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Per-column filters open from the funnel in the header or the toolbar. A column
   is filterable when it has 2–60 distinct values. Filters are include-only
   multi-select with value counts.
+- Column widths are draggable from the header divider (minimum 72px, double-click
+  resets). The table keeps a horizontal scroll range when the sum exceeds the
+  viewport.
+- Selection mode adds a checkbox column, select-all-visible, a selection bar and
+  bulk delete with an explicit confirmation listing the selected objects.
 - Sorting cycles ascending → descending → none; default is name ascending.
-- Namespaces: “All namespaces” + per-namespace scope; system namespaces hidden by
-  default and toggleable in settings.
+- Namespaces: all, one, or **several** at once. Multi-selection merges lists and
+  watches per namespace, sums sidebar counts, and shows the Namespace column.
+  System namespaces are hidden by default and toggleable in the picker or settings.
 - Column visibility is per kind, persisted in the session; default-hidden
   columns (Pod IP, QoS, images…) are declared per kind.
 - Rows open details on click and a context menu on right click (details, YAML,
@@ -313,7 +338,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 
 - **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
   account, containers (image, readiness, restarts, requests/limits, ports),
-  conditions, volumes, scheduling. Workloads: replicas, rollout state,
+  a **Ports** table with per-port forwarding, conditions, volumes, scheduling
+  (node selector, tolerations and affinity rendered as aligned rows, not raw
+  overflowing JSON). Workloads: replicas, rollout state,
   conditions, container template. Node: capacity/allocatable bars, conditions,
   system info, taints. Plus Services, Ingresses, ConfigMap/Secret (with explicit
   reveal), storage, CRDs, HPA, Jobs, events, generic CRDs.
@@ -330,12 +357,23 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   the panel says exactly that. No synthetic numbers; historical charts are not
   implemented.
 
+### 3.6a Port forwarding
+
+- A Pod action opens a start dialog (local port 0 = free port, pod port), creates a
+  loopback listener and tunnels through the Kubernetes WebSocket
+  port-forward protocol. The ports table exposes one-click Forward buttons.
+- A **Port forwards** panel in the top bar lists every active forward across
+  clusters with local/remote ports, start time, open-in-browser and stop.
+- Stops automatically when the cluster is disconnected or the app quits.
+
 ### 3.7 Terminal and logs
 
 - xterm.js surface `#0F172A`, foreground `#E2E8F0`, cursor `#60A5FA`, Radar ANSI
   palette, 13px DM Mono, line-height 1.2, 5000-line scrollback.
-- Local shells are real PTYs via node-pty; pod shells are real Kubernetes exec
-  over WebSocket with resize frames.
+- Local shells are real PTYs via node-pty and receive a per-cluster KUBECONFIG
+  (context + selected namespace) generated with 0600 permissions, so kubectl and
+  Helm clients inside the shell target the open cluster. Pod shells are real
+  Kubernetes exec over WebSocket with resize frames.
 - Logs are DOM text (not xterm), DM Mono 11px, numbered, with a forced dark
   palette, matching Radar's “console is not chrome” rule.
 
@@ -373,7 +411,7 @@ These are stated so they are not mistaken for finished features:
 - **No extension system** (Freelens extensions are out of scope).
 - **No route-level back/forward history** across resource kinds; the forward
   button is disabled, and back covers details history → catalog.
-- **No Helm, port-forward, topology, timeline, GitOps or audit views** yet.
+- **No Helm, topology, timeline, GitOps or audit views** yet.
 - **No Prometheus history charts**; only live metrics-server values.
 - **No multi-window** support; Freelens also assumes one main window.
 - **No iframe-per-cluster** isolation; sessions are isolated in the main process

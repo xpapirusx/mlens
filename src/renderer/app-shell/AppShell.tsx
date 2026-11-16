@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Blocks } from "lucide-react";
 import { TopBar } from "./TopBar";
+import { ClusterTabs } from "./ClusterTabs";
 import { Hotbar } from "./Hotbar";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
 import { ClusterWorkspace } from "./ClusterWorkspace";
 import { CatalogPage } from "../features/catalog/CatalogPage";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
+import { PortForwardsPanel } from "../features/port-forward/PortForwardDialog";
 import { ToastViewport } from "../design-system/components/Toast";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
@@ -28,6 +30,7 @@ export function AppShell() {
   const openTerminal = useSessionStore((state) => state.openTerminal);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [forwardsOpen, setForwardsOpen] = useState(false);
 
   useEffect(() => {
     void loadSettings();
@@ -93,7 +96,12 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-theme-base text-theme-text-primary">
-      <TopBar activeClusterId={activeClusterId} onOpenPalette={() => setPaletteOpen(true)} />
+      <TopBar
+        activeClusterId={activeClusterId}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onOpenPortForwards={() => setForwardsOpen(true)}
+      />
+      <ClusterTabs />
       <div className="flex min-h-0 flex-1">
         <Hotbar activeClusterId={activeClusterId} />
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -114,6 +122,7 @@ export function AppShell() {
       </div>
       <StatusBar activeClusterId={activeClusterId} />
       <SettingsDialog />
+      <PortForwardsPanel open={forwardsOpen} onClose={() => setForwardsOpen(false)} />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

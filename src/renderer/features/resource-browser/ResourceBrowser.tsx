@@ -4,6 +4,7 @@ import {
   Copy,
   FileCode,
   ListFilter,
+  ListChecks,
   LoaderCircle,
   Pause,
   Play,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import type { KubeObject } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore, type DetailTab } from "../../stores/session-store";
+import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
 import { findResource } from "../../lib/catalog";
 import { getColumnsForKind, sortObjects, type ColumnDef } from "../../lib/columns";
 import { getKindIcon, kindLabel } from "../../lib/icons";
@@ -36,8 +37,12 @@ import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
 
 interface DialogState {
-  type: "create" | "scale" | "delete" | "restart";
+  type: "create" | "scale" | "delete" | "restart" | "bulk-delete";
   object?: KubeObject;
+}
+
+function rowKey(object: KubeObject): string {
+  return object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`;
 }
 
 export function ResourceBrowser({ clusterId, active }: { clusterId: string; active: boolean }) {
@@ -45,7 +50,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const updateKindState = useSessionStore((state) => state.updateKindState);
-  const setNamespace = useSessionStore((state) => state.setNamespace);
+  const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
   const openDetails = useSessionStore((state) => state.openDetails);
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const openTerminal = useSessionStore((state) => state.openTerminal);
@@ -56,21 +61,22 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     [session?.resources, session?.selectedKind],
   );
 
-  const namespace = session?.namespace ?? "all";
+  const selectedNamespaces = session?.selectedNamespaces ?? [];
   const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
-  const list = useResourceList({ clusterId, resource, namespace, refreshSeconds });
+  const list = useResourceList({ clusterId, resource, namespaces: selectedNamespaces, refreshSeconds });
 
-  const kindState = session && resource
+  const kindState: KindState = session && resource
     ? (session.kindStates[`${resource.apiVersion}|${resource.kind}`] ?? {
         search: "",
         regex: false,
         sort: null,
         filters: {},
         hiddenColumns: [],
+        columnWidths: {},
       })
-    : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [] };
+    : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [], columnWidths: {} };
 
-  const showNamespace = Boolean(resource?.namespaced && namespace === "all");
+  const showNamespace = Boolean(resource?.namespaced && selectedNamespaces.length !== 1);
   const columns = useMemo(
     () => (resource ? getColumnsForKind(resource, showNamespace) : []),
     [resource, showNamespace],
@@ -159,6 +165,8 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -178,6 +186,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     // Filters may reference columns hidden by a kind switch.
     if (filterPanel && !filterData.has(filterPanel.key)) setFilterPanel(null);
   }, [filterPanel, filterData]);
+
+  useEffect(() => {
+    setSelectedKeys(new Set());
+  }, [kindStateKey, selectedNamespaces.join(",")]);
 
   if (!session) return null;
 
@@ -241,6 +253,68 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       });
     } catch (error) {
       toast.error("Cannot open pod shell", errorText(error));
+    }
+  };
+
+  const toggleRowSelection = (object: KubeObject) => {
+    const key = rowKey(object);
+    setSelectedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAllSelection = () => {
+    setSelectedKeys((current) => {
+      const visibleKeys = sorted.map(rowKey);
+      const allSelected = visibleKeys.every((key) => current.has(key));
+      if (allSelected) {
+        const next = new Set(current);
+        for (const key of visibleKeys) next.delete(key);
+        return next;
+      }
+      return new Set([...current, ...visibleKeys]);
+    });
+  };
+
+  const selectedObjects = sorted.filter((object) => selectedKeys.has(rowKey(object)));
+
+  const deleteSelected = async () => {
+    if (!resource || selectedObjects.length === 0) return;
+    setBusy(true);
+    let deleted = 0;
+    const failures: string[] = [];
+    for (const object of selectedObjects) {
+      try {
+        await call(
+          api.resources.delete({
+            clusterId,
+            apiVersion: resource.apiVersion,
+            kind: resource.kind,
+            namespace: object.metadata?.namespace,
+            name: object.metadata?.name,
+            propagationPolicy: "Background",
+          }),
+        );
+        deleted += 1;
+      } catch (deleteError) {
+        failures.push(`${object.metadata?.name}: ${errorText(deleteError)}`);
+      }
+    }
+    setBusy(false);
+    setDialog(null);
+    setSelectedKeys(new Set());
+    setSelectionMode(false);
+    await list.refresh(true);
+    if (failures.length === 0) {
+      toast.success(`${deleted} ${resource.kind}${deleted === 1 ? "" : "s"} deleted`);
+    } else {
+      toast.error(
+        `Deleted ${deleted}, failed ${failures.length}`,
+        failures.slice(0, 4).join("\n"),
+      );
     }
   };
 
@@ -358,8 +432,8 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           {resource.namespaced ? (
             <NamespacePicker
               namespaces={session.namespaces}
-              value={namespace}
-              onChange={(next) => setNamespace(clusterId, next)}
+              value={selectedNamespaces}
+              onChange={(next) => setSelectedNamespaces(clusterId, next)}
               showSystemNamespaces={settings?.showSystemNamespaces ?? false}
               onShowSystemNamespacesChange={(show) => void updateSettings({ showSystemNamespaces: show })}
             />
@@ -410,6 +484,18 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
           <button
             type="button"
+            onClick={() => {
+              setSelectionMode((value) => !value);
+              setSelectedKeys(new Set());
+            }}
+            className={cn("shell-icon-button", selectionMode && "is-active")}
+            title={selectionMode ? "Exit selection mode" : "Select multiple resources"}
+          >
+            <ListChecks className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
             onClick={() => void list.refresh(false)}
             className="shell-icon-button"
             title="Refresh now"
@@ -425,6 +511,47 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           </Button>
         </div>
       </div>
+
+      {selectionMode ? (
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
+          <span className="font-medium text-accent-text">{selectedKeys.size} selected</span>
+          <button
+            type="button"
+            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={toggleAllSelection}
+          >
+            {sorted.length > 0 && sorted.every((row) => selectedKeys.has(rowKey(row))) ? "Clear visible" : "Select visible"}
+          </button>
+          <button
+            type="button"
+            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={() => setSelectedKeys(new Set())}
+          >
+            Clear
+          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button
+              variant="danger"
+              size="xs"
+              disabled={selectedKeys.size === 0}
+              onClick={() => setDialog({ type: "bulk-delete" })}
+            >
+              <Trash2 className="h-3 w-3" />
+              Delete selected
+            </Button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-theme-text-tertiary hover:text-theme-text-primary"
+              onClick={() => {
+                setSelectionMode(false);
+                setSelectedKeys(new Set());
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {activeFilterChips.length > 0 ? (
         <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-theme-border bg-theme-base/60 px-3">
@@ -482,7 +609,20 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onOpen={(object) => openTab(object)}
           onContextMenu={(object, event) => setMenu({ object, x: event.clientX, y: event.clientY })}
           onFilterColumn={openFilter}
+          columnWidths={kindState.columnWidths}
+          onResizeColumn={(key, width) =>
+            setKindPatch({ columnWidths: { ...kindState.columnWidths, [key]: width } })
+          }
+          onResetColumnWidth={(key) => {
+            const next = { ...kindState.columnWidths };
+            delete next[key];
+            setKindPatch({ columnWidths: next });
+          }}
           filterableKeys={new Set(filterData.keys())}
+          selectionMode={selectionMode}
+          selectedKeys={selectedKeys}
+          onToggleRow={toggleRowSelection}
+          onToggleAll={toggleAllSelection}
           loading={list.loading}
           emptyState={
             <EmptyState
@@ -634,7 +774,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         onClose={() => setDialog(null)}
         clusterId={clusterId}
         resource={resource}
-        namespace={namespace}
+        namespace={selectedNamespaces.length === 1 ? selectedNamespaces[0] : "default"}
         onCreated={() => void list.refresh(true)}
       />
 
@@ -664,6 +804,33 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             <p className="mt-2 text-xs text-theme-text-tertiary">
               Dependents use the Background propagation policy. This action cannot be undone.
             </p>
+          </>
+        }
+      />
+
+      <ConfirmActionDialog
+        open={dialog?.type === "bulk-delete"}
+        onClose={() => setDialog(null)}
+        onConfirm={() => void deleteSelected()}
+        title={`Delete ${selectedObjects.length} ${resource.kind}${selectedObjects.length === 1 ? "" : "s"}`}
+        confirmLabel="Delete selected"
+        danger
+        busy={busy}
+        description={
+          <>
+            <p>
+              Permanently delete <span className="font-medium text-theme-text-primary">{selectedObjects.length}</span>{" "}
+              resource{selectedObjects.length === 1 ? "" : "s"}? This cannot be undone.
+            </p>
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-theme-border bg-theme-base p-2 font-mono text-[11px]">
+              {selectedObjects.slice(0, 50).map((object) => (
+                <li key={rowKey(object)} className="truncate">
+                  {object.metadata?.namespace ? `${object.metadata.namespace}/` : ""}
+                  {object.metadata?.name}
+                </li>
+              ))}
+              {selectedObjects.length > 50 ? <li>…and {selectedObjects.length - 50} more</li> : null}
+            </ul>
           </>
         }
       />

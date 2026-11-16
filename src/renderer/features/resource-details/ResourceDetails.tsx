@@ -10,8 +10,11 @@ import {
   ListTree,
   Maximize2,
   Minimize2,
+  Plug,
   RefreshCw,
+  ScrollText,
   SquareTerminal,
+  Trash2,
   X,
 } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
@@ -24,6 +27,8 @@ import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
 import { InlineError } from "../../design-system/components/EmptyState";
 import { Button } from "../../design-system/components/Button";
+import { ConfirmActionDialog } from "../resource-browser/ResourceDialogs";
+import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
 import { Tabs } from "../../design-system/components/Tabs";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
@@ -68,6 +73,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [width, setWidth] = useState(560);
   const [expanded, setExpanded] = useState(false);
   const [resizing, setResizing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [forwardPort, setForwardPort] = useState<number | null>(null);
 
   useEffect(() => {
     setExpanded(false);
@@ -128,6 +136,30 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     }
   };
 
+  const deleteResource = async () => {
+    if (!object || !resource) return;
+    setDeleting(true);
+    try {
+      await call(
+        api.resources.delete({
+          clusterId,
+          apiVersion: details.ref.apiVersion,
+          kind: details.ref.kind,
+          namespace: details.ref.namespace,
+          name: details.ref.name,
+          propagationPolicy: "Background",
+        }),
+      );
+      toast.success(`${details.ref.kind} deleted`, details.ref.name);
+      setConfirmDelete(false);
+      closeDetails(clusterId);
+    } catch (error) {
+      toast.error("Delete failed", errorText(error));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const status = object ? resourceStatus(object, details.ref.kind) : null;
   const Icon = getKindIcon(details.ref.kind, resource?.group);
   const isPod = details.ref.kind === "Pod";
@@ -183,11 +215,45 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             >
               <RefreshCw className={cn("h-3.5 w-3.5", data.loading && "animate-spin")} />
             </button>
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-6"
+              onClick={() => setDetailsTab(clusterId, "logs")}
+              title="Logs"
+            >
+              <ScrollText className="h-3.5 w-3.5" />
+            </button>
             {isPod ? (
-              <button type="button" className="shell-icon-button h-6 w-6" onClick={() => void openShell()} title="Exec into pod">
+              <button type="button" className="shell-icon-button h-6 w-6" onClick={() => void openShell()} title="Attach / exec into pod">
                 <SquareTerminal className="h-3.5 w-3.5" />
               </button>
             ) : null}
+            {isPod ? (
+              <button
+                type="button"
+                className="shell-icon-button h-6 w-6"
+                onClick={() => setForwardPort(8080)}
+                title="Port forward"
+              >
+                <Plug className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-6"
+              onClick={() => setDetailsTab(clusterId, "yaml")}
+              title="Edit YAML"
+            >
+              <FileCode className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-6 text-theme-text-tertiary hover:text-red-500"
+              onClick={() => setConfirmDelete(true)}
+              title="Delete resource"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
@@ -279,7 +345,12 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         ) : (
           <>
             {tab === "overview" ? (
-              <OverviewTab object={object} resource={resource ?? fallbackResource(details.ref)} onNavigate={navigate} />
+              <OverviewTab
+                object={object}
+                resource={resource ?? fallbackResource(details.ref)}
+                onNavigate={navigate}
+                onPortForward={(port) => setForwardPort(port)}
+              />
             ) : null}
             {tab === "details" ? <DetailsTab object={object} /> : null}
             {tab === "yaml" ? (
@@ -314,6 +385,38 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         <span className="font-mono">{resource?.plural ?? details.ref.kind}</span>
         <span className="ml-auto">{data.loading ? "Refreshing…" : "Live data"}</span>
       </div>
+
+      {isPod && details.ref.namespace && object ? (
+        <StartPortForwardDialog
+          open={forwardPort !== null}
+          onClose={() => setForwardPort(null)}
+          clusterId={clusterId}
+          namespace={details.ref.namespace}
+          pod={details.ref.name}
+          defaultRemotePort={forwardPort ?? undefined}
+        />
+      ) : null}
+
+      <ConfirmActionDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => void deleteResource()}
+        title={`Delete ${details.ref.kind}`}
+        confirmLabel="Delete resource"
+        danger
+        busy={deleting}
+        description={
+          <>
+            <p>
+              Delete <span className="font-medium text-theme-text-primary">{details.ref.name}</span>
+              {details.ref.namespace ? ` in ${details.ref.namespace}` : ""}? This cannot be undone.
+            </p>
+            <p className="mt-2 text-xs text-theme-text-tertiary">
+              Dependents are removed with the Background propagation policy.
+            </p>
+          </>
+        }
+      />
     </aside>
   );
 }

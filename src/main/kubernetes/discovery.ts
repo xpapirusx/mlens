@@ -80,6 +80,7 @@ const WORKLOAD_KINDS = new Set([
   "DaemonSet",
   "ReplicaSet",
   "ReplicationController",
+  "ControllerRevision",
   "Job",
   "CronJob",
 ]);
@@ -108,6 +109,7 @@ const STORAGE_KINDS = new Set([
   "CSIDriver",
   "CSINode",
   "VolumeAttachment",
+  "CSIStorageCapacity",
 ]);
 
 const ACCESS_KINDS = new Set([
@@ -130,6 +132,11 @@ const CLUSTER_KINDS = new Set([
   "PriorityClass",
   "MutatingWebhookConfiguration",
   "ValidatingWebhookConfiguration",
+  "ValidatingAdmissionPolicy",
+  "ValidatingAdmissionPolicyBinding",
+  "CertificateSigningRequest",
+  "FlowSchema",
+  "PriorityLevelConfiguration",
 ]);
 
 const SCALING_KINDS = new Set([
