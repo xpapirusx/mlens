@@ -215,7 +215,7 @@ export class ClusterManager {
         const result = await kubeRequest<RawList<KubeObject>>(
           connection.kc,
           buildApiPath(info.apiVersion, info.plural, info.namespaced ? resource.namespace : undefined),
-          { query: { limit: 200 }, timeoutMs: 20_000 },
+          { query: { limit: 1 }, timeoutMs: 20_000 },
         );
         const remaining = result.metadata?.remainingItemCount;
         const count = (result.items?.length ?? 0) + (remaining ?? 0);

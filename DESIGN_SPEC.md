@@ -148,9 +148,21 @@ src/
 
 ### Механика (Freelens)
 
+Эталонные компоненты Freelens (структурные ссылки, не копирование):
+
+- Shell: `packages/core/src/renderer/components/cluster-manager/cluster-manager.tsx` (TopBar + `#lens-views` + HotbarMenu + StatusBar), `cluster-view.tsx`, `cluster-frame-handler.ts` (каждый кластер — собственный DOM-subtree/фрейм-контекст).
+- Layout: `renderer/components/layout/main-layout.tsx` (sidebar + resizable anchor + contents), `sidebar.tsx`, `sidebar-item.tsx`, `top-bar/`, `tab-layout.tsx`.
+- Hotbar: `renderer/components/hotbar/hotbar-menu.tsx` — левый rail иконок кластеров.
+- Dock (вкладки снизу): `renderer/components/dock/dock.tsx`, `dock-tabs.tsx`, `dock-tab-store/` — store вкладок с kind + payload (terminal, logs, edit-resource).
+- Welcome: `renderer/components/welcome/welcome.tsx` + расширяемый список пунктов меню; Add cluster: `add-cluster/add-cluster.tsx`; каталог: `catalog/` + `favorites/`.
+- Навигация: кастомный роутер (`packages/routing`, не react-router) — route-инъекции с `path` + component, `renderer/navigation/navigate`, history для back/forward.
+- Main: `main/kubeconfig-manager/` (несколько kubeconfig), `main/cluster-enumeration/` (enumeration contexts), `main/catalog/` + `catalog-sync-to-renderer/` (каталог в main, синк в renderer по IPC), `main/shell-session/` (node-pty).
+
+Отличия mLens от Freelens (осознанные упрощения): вместо MobX + ogre-tools DI — Zustand и прямые модули; вместо per-cluster HTTPS-прокси — прямые IPC-вызовы через `ClusterSession`; вместо SCSS-модулей — Tailwind 4 + CSS-токены. Структурные роли компонентов сохраняются 1:1.
+
 - **Welcome Screen** — стартовая страница без кластера: каталог, избранное, недавние, добавление kubeconfig (диалог/путь), быстрый connect, настройки.
 - **Cluster page** — после подключения: hotbar + sidebar с деревом ресурсов, tab strip с открытыми ресурсами, dock.
-- **Вкладки** — клик по ресурсу в таблице открывает вкладку; вкладки переключаются, закрываются (×), дубли не создаются; back-навигация внутри истории; состояние вкладок переживает переключение кластера.
+- **Вкладки** — по модели Freelens: открытие ресурса создаёт запись в tab store (kind + payload), а не маршрут; вкладки переключаются, закрываются (×), дубли не создаются; back/forward через history навигации; состояние вкладок переживает переключение кластера (per-cluster frame-контекст как `cluster-frame-handler.ts`).
 - **Sidebar** — Lens-группировка: Cluster / Workloads (Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs) / Network (Services, Ingresses, NetworkPolicies) / Config (ConfigMaps, Secrets) / Storage (PV, PVC, StorageClasses) / Security/RBAC (SA, Roles, Bindings, ClusterRoles) / Policy (HPA, PDB) / Cluster (Nodes, Namespaces, Events) / **Custom Resources** (динамически из Discovery).
 - **Контекстные меню** — правый клик на ресурсе: Edit YAML, Delete, Scale, Restart, Logs, Exec, Copy Name.
 - **Dock** — панель снизу для терминала и логов, ресайз мышью, сворачивание, несколько вкладок.
@@ -181,8 +193,18 @@ src/
 
 ### Типографика
 
-- UI: **DM Sans Variable** (400/500/600), 12–14px базовые размеры, компактные line-height.
+- UI: **DM Sans Variable** (400/500/600), base `line-height: 1.5`.
 - Данные/моно: **DM Mono** — имена ресурсов, age, IP, счётчики, YAML, терминал.
+- Таблицы (по Radar): заголовки `12px / 500 / uppercase / tracking-wide`; ячейки `14px` (`text-sm`); бейджи `12px / 500`.
+- Радиусы: `0.375rem` (badge), `0.5rem`, `0.625rem`, `0.875rem` (buttons/dialogs) — намеренно «круглее» дефолтов Tailwind.
+- Отступы: ячейки таблиц `px-4 py-3`, `gap-1.5`, поля страниц `px-6`.
+
+### Семантика статусов (двухслойная, по Radar)
+
+1. CSS-классы (`components.css`): `.status-healthy` (emerald), `.status-degraded` (amber), `.status-alert` (orange — между warning и error), `.status-unhealthy` (red), `.status-neutral` (sky — намеренные состояния: suspended, scaled-to-0, completed), `.status-unknown` (gray).
+2. JS-карта `badge-colors.ts`: running/active/succeeded/bound/ready → success; pending/progressing/suspended/waiting → warning; failed/crashloopbackoff/imagepullbackoff/evicted/oomkilled → error; completed/terminated → info. Severity-dot: emerald/amber/orange/red/sky-500.
+3. Бейдж: inline-flex, padding `0.125rem 0.5rem`, 12px/500, radius `0.375rem`, border 0.5px.
+4. Цвета K8s kind'ов (`--color-k8s-*`): pod `#84cc16`, deployment `#10b981`, service `#3b82f6`, ingress `#8b5cf6`, configmap `#f59e0b`, secret `#ef4444`, hpa `#ec4899`, job `#a855f7`, cronjob `#d946ef` и т.д.
 
 ### Терминал
 
@@ -200,18 +222,24 @@ Button, IconButton, Badge/StatusDot, Tooltip, Menu/Dropdown, Tabs, Input, Select
 
 ### Таблица
 
-- Виртуализованная плотная таблица (`@tanstack/react-virtual`), высота строки ~32px, hover/selected состояния, моноширинный шрифт для идентификаторов.
-- Колонки по типу ресурса (по образцу Radar):
-  - **Pods:** Status · Name · Namespace · Ready · Restarts · Node · Age · IP
-  - **Deployments:** Status · Name · Namespace · Ready · Up-to-date · Available · Age
-  - **Nodes:** Status · Name · Roles · Version · CPU · Memory · Age
-  - и т.д. — конфигурация колонок декларативная, per resource kind.
-- **Status** — цветной dot + короткий текст (Running/Pending/Failed/Succeeded/Unknown), семантика Radar.
-- **Age** — компактный человекочитаемый формат (`5m`, `3d12h`).
+Эталон: `packages/k8s-ui/src/components/resources/ResourcesView.tsx` (главный референс-файл Radar) + `SortableTh`, `Badge`, `MiddleEllipsis`, `resource-utils.ts`.
+
+- Виртуализованная таблица (`table-layout: fixed`, явные `<col>` ширины из Tailwind-классов: `w-24`→96px … `w-96`→384px; Name-колонка гибкая, min 200px; min-width колонки вычисляется по ширине заголовка, cap 320px).
+- Плотность: header `px-4 py-3 text-xs uppercase`; ячейки `px-4 py-3 text-sm` → **высота строки ~45–48px**; hover через `transition-colors`; длинные имена — middle-ellipsis + кнопка copy на hover.
+- Колонки по типу ресурса (curated, из `KNOWN_COLUMNS` Radar):
+  - **Pods:** Name · Namespace (192px) · Containers (128px, квадратики готовности per-container с tooltip) · Status (160px) · CPU (usage/limit) · Memory · Restarts (112px) · GPU/Pod IP (скрытые) · Node (176px) · Age (96px)
+  - **Deployments:** Name · Namespace · Status · Ready (ready/desired) · Up-to-date · Available · Images (192px) · Age
+  - **Nodes:** Name · Status (176px) · Roles (112px) · CPU · Memory · Pods (running/allocatable) · Conditions · Taints · Version · Age
+  - **CRD/unknown:** Name · Namespace · Status · Age + рендер `additionalPrinterColumns` из CRD.
+- **Status** — severity-dot + бейдж по семантике из раздела 6.
+- **Age** — k8s-стиль (`5m`, `3d`, `2y`), `formatAge`/`formatDuration`.
 
 ### Панель над таблицей
 
-- Поиск (по имени/лейблам), фильтр по namespace (мультивыбор + «All»), сортировка кликом по заголовку, счётчик ресурсов, индикатор live-обновления (watch), кнопка обновления, кнопка «Create/Edit YAML».
+- Поиск с режимом plain/regex (toggle), per-column faceted фильтры (появляются при 2–30 уникальных значениях; namespace без капа, node ≤200), режимы include/exclude, removable filter pills (`ActiveFilterBar`), спец-фильтр проблем Pod'ов (CrashLoopBackOff, ImagePullBackOff, OOMKilled…).
+- Сортировка: клик по заголовку asc → desc → none; иконки `ChevronUp/Down` при активной сортировке, dim `ArrowUpDown` как hint; состояние сортировки персистится per kind; дефолт — age desc.
+- Namespace-скоуп — на уровне приложения (switcher в topbar, `?namespaces=` передаётся во все запросы).
+- Счётчик ресурсов, индикатор live-обновления (watch), кнопка обновления, ColumnPicker.
 
 ### Данные
 
@@ -227,8 +255,13 @@ Button, IconButton, Badge/StatusDot, Tooltip, Menu/Dropdown, Tabs, Input, Select
 
 ### Общая структура
 
-- Заголовок: имя (моно), kind, namespace, статус-бейдж, age, кнопки действий (Edit YAML, Delete, контекстные действия по kind).
-- Секции/подвкладки (компактные, по образцу Radar): **Overview** · **YAML** · **Events** · **Logs** (для pod-подобных) · **Related** · **Conditions**.
+Эталон: `packages/k8s-ui/src/components/shared/DetailShell.tsx` + `ResourceRendererDispatch.tsx` + `ResourceActionsBar.tsx`.
+
+- **DetailShell**: строка breadcrumb → identity-заголовок (title + actions) → опциональный subheader (сводка статуса) → underline tab strip (активная вкладка: `text-primary + border-b-2 brand`, `py-2 px-3 text-sm`) → контент. Вкладки авто-компактятся (drop иконок) через ResizeObserver.
+- Заголовок: имя (моно, middle-ellipsis), kind, namespace, статус-бейдж, age, кнопки действий (Edit YAML, Delete, Restart, Scale…).
+- Секции/подвкладки: **Overview** · **YAML** · **Events** · **Logs** (для pod-подобных) · **Related** · **Conditions**.
+- Events: бейджи Normal=emerald / Warning=amber (`EVENT_TYPE_COLORS`).
+- YAML: Monaco + monaco-yaml — `EditableYamlView` (edit/apply с diff), read-only — shiki `CodeViewer`, изменения — `UnifiedDiff`.
 
 ### Pod Details
 
@@ -250,8 +283,9 @@ Monaco в режиме YAML: read-only viewer с переключением в �
 
 ## 9. Terminal
 
-- **Внешний вид — Radar:** тёмная консольная поверхность, DM Mono, компактный chrome, ANSI-палитра из токенов.
+- **Внешний вид — Radar:** тёмная консольная поверхность, DM Mono, компактный chrome, ANSI-палитра из токенов; xterm позиционируется absolute-fill контейнера.
 - **Интеграция — Freelens:** терминал живёт в dock как вкладка, доступен из hotbar и из Pod Details (Exec).
+- Эталон Radar: `packages/k8s-ui/src/components/dock/BottomDock.tsx`, `TerminalTab.tsx` (exec), `LocalTerminalTab.tsx`, `TerminalSearchBar.tsx` (search addon), `terminalKeys.ts`, multiline paste confirm.
 - Реализация: `node-pty` в main (`pty-manager.ts`), xterm.js + addons (fit, search, web-links) в renderer, данные через IPC (`terminal:*`, `exec:*`).
 - Возможности: несколько вкладок, локальный shell, pod exec (выбор контейнера), copy/paste, resize, поиск, hotkeys.
 
@@ -263,7 +297,18 @@ Monaco в режиме YAML: read-only viewer с переключением в �
 - **Подключение:** `clusterConnect` создаёт изолированную `ClusterSession` (собственный kubeconfig-объект, client, watchers). Health-check, список namespaces, версия кластера.
 - **Discovery:** `/apis` + `/api` → все ресурсы, включая CRD; группировка для sidebar.
 - **CRUD:** list/get/delete/apply/scale/restart — через `@kubernetes/client-node` и прямые HTTP-вызовы.
-- **Watch:** подписки с ресинком, события пушатся в renderer.
+- **Watch:** подписки с ресинком, события пушатся в renderer. (Отличие от Radar: там polling 30–60s через REST; mLens использует нативный K8s watch через IPC — функционально эквивалентно, но без HTTP-бэкенда.)
+
+---
+
+## 10.1. Эталонные файлы Radar (приложение А)
+
+Тема/токены: `packages/k8s-ui/src/theme/variables.css` ⭐, `tailwind-theme.css` ⭐, `components.css` ⭐, `web/src/index.css` ⭐ (fonts, breakpoints, radii, xterm/scrollbar).
+Таблицы: `components/resources/ResourcesView.tsx` ⭐, `ResourcesSidebar.tsx`, `ColumnPickerList.tsx`, `column-order.ts`, `ActiveFilterBar.tsx`, `resource-utils.ts`, `ui/Badge.tsx`, `ui/SortableTh.tsx`, `ui/MiddleEllipsis.tsx`.
+Детали: `shared/DetailShell.tsx` ⭐, `ResourceRendererDispatch.tsx`, `ResourceActionsBar.tsx`, `EditableYamlView.tsx`, `ui/CodeViewer.tsx`, `ui/EmptyState.tsx`.
+Логи/терминал: `logs/LogsViewer.tsx`, `LogCore.tsx`, `log-palette.ts`, `dock/BottomDock.tsx`, `TerminalTab.tsx`.
+Статусы: `utils/badge-colors.ts` ⭐.
+Навигация (только визуальный стиль): `web/src/components/nav/`, `scope-pill/`, `namespace-switcher/`.
 - **Logs:** потоковые, с фильтрацией по контейнеру, previous logs.
 - **Exec:** websocket exec через client, мультиплексированный в IPC-сессию.
 

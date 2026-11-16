@@ -99,6 +99,17 @@ export function formatCpu(millicores?: number): string {
   return `${Math.round(millicores)}m`;
 }
 
+export function formatDurationSeconds(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "–";
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`.replace(" 0s", "");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
 export function truncateMiddle(value: string, max = 48): string {
   if (value.length <= max) return value;
   const half = Math.floor((max - 1) / 2);
