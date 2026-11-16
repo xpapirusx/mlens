@@ -5,7 +5,6 @@ import {
   Home,
   Minus,
   Moon,
-  Plus,
   Settings,
   Square,
   SquareTerminal,
@@ -13,12 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore } from "../../stores/session-store";
-import { cn } from "../../lib/cn";
-import { Tooltip } from "../../design-system/components/Tooltip";
-import { api } from "../../lib/api";
-import { toast } from "../../design-system/components/Toast";
+import { useCatalogStore } from "../stores/catalog-store";
+import { useSessionStore } from "../stores/session-store";
+import { cn } from "../lib/cn";
+import { Tooltip } from "../design-system/components/Tooltip";
+import { api } from "../lib/api";
 
 const isMac = navigator.userAgent.includes("Mac OS X");
 

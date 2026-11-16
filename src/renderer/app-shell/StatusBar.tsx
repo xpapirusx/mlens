@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { CircleCheck, CircleExclamationPoint, LoaderCircle } from "lucide-react";
 import type { AppInfo } from "@shared/types";
-import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore } from "../../stores/session-store";
-import { api } from "../../lib/api";
-import { cn } from "../../lib/cn";
+import { useCatalogStore } from "../stores/catalog-store";
+import { useSessionStore } from "../stores/session-store";
+import { api } from "../lib/api";
+import { cn } from "../lib/cn";
 
 export function StatusBar({ activeClusterId }: { activeClusterId: string | null }) {
   const settings = useCatalogStore((state) => state.settings);
@@ -35,7 +35,7 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
           <span className="h-1.5 w-1.5 rounded-full bg-theme-text-disabled" />
         )}
         {activeCluster ? activeCluster.name : "No active cluster"}
-        {connected && clusterHealth?.latencyMs !== undefined ? (
+        {connected && clusterHealth?.latencyMs ? (
           <span className="font-mono text-theme-text-disabled">{clusterHealth.latencyMs}ms</span>
         ) : null}
       </span>

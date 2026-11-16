@@ -2,7 +2,7 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 import { Regex, Search, X } from "lucide-react";
 import { cn } from "../../lib/cn";
 
-interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> {
+interface SearchInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "onChange" | "value" | "size"> {
   value: string;
   onChange: (value: string) => void;
   regex?: boolean;

@@ -1,5 +1,6 @@
-import * as monaco from "monaco-editor";
-import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
+import * as monaco from "monaco-editor/editor/editor.api";
+import "monaco-editor/languages/definitions/yaml/register.js";
+import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 
 // Monaco runs its language services in a worker. YAML highlighting is token
 // based, so the generic editor worker is all mLens needs (no CDN, no LSP).

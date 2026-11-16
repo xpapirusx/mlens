@@ -1,0 +1,555 @@
+import { useMemo, useState } from "react";
+import {
+  Blocks,
+  ChevronRight,
+  Clock,
+  Copy,
+  FolderOpen,
+  LogOut,
+  Plus,
+  RefreshCw,
+  Server,
+  Settings,
+  Star,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import type { ClusterSummary } from "@shared/types";
+import { useCatalogStore } from "../../stores/catalog-store";
+import { useSessionStore } from "../../stores/session-store";
+import { useAppInfo } from "../../lib/use-app-info";
+import { cn } from "../../lib/cn";
+import { formatRelativeTime, basename } from "../../lib/format";
+import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
+import { Button } from "../../design-system/components/Button";
+import { SearchInput } from "../../design-system/components/SearchInput";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
+import { Modal } from "../../design-system/components/Modal";
+import { EmptyState } from "../../design-system/components/EmptyState";
+import { Spinner } from "../../design-system/components/Spinner";
+import { toast } from "../../design-system/components/Toast";
+import { api, call, errorText } from "../../lib/api";
+
+type CatalogView = "all" | "favorites" | "recent" | { source: string };
+
+export function CatalogPage() {
+  const clusters = useCatalogStore((state) => state.clusters);
+  const sources = useCatalogStore((state) => state.sources);
+  const settings = useCatalogStore((state) => state.settings);
+  const health = useCatalogStore((state) => state.health);
+  const loading = useCatalogStore((state) => state.loadingCatalog);
+  const catalogError = useCatalogStore((state) => state.catalogError);
+  const loadCatalog = useCatalogStore((state) => state.loadCatalog);
+  const importViaDialog = useCatalogStore((state) => state.importViaDialog);
+  const removeKubeconfig = useCatalogStore((state) => state.removeKubeconfig);
+  const openSettings = useCatalogStore((state) => state.openSettings);
+  const updateSettings = useCatalogStore((state) => state.updateSettings);
+  const sessions = useSessionStore((state) => state.sessions);
+  const info = useAppInfo();
+
+  const [view, setView] = useState<CatalogView>("all");
+  const [search, setSearch] = useState("");
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteYaml, setPasteYaml] = useState("");
+  const [pasteName, setPasteName] = useState("pasted-kubeconfig");
+  const [busy, setBusy] = useState(false);
+
+  const favorites = settings?.favorites ?? [];
+
+  const filtered = useMemo(() => {
+    let list = clusters;
+    if (view === "favorites") list = list.filter((cluster) => favorites.includes(cluster.id));
+    else if (typeof view === "object") list = list.filter((cluster) => cluster.kubeconfigPath === view.source);
+    else if (view === "recent") {
+      const order = new Map((settings?.recentClusters ?? []).map((entry, index) => [entry.id, index]));
+      list = list
+        .filter((cluster) => order.has(cluster.id))
+        .sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
+    }
+    const term = search.trim().toLowerCase();
+    if (term) {
+      list = list.filter((cluster) =>
+        [cluster.name, cluster.context, cluster.server, cluster.kubeconfigPath]
+          .join(" ")
+          .toLowerCase()
+          .includes(term),
+      );
+    }
+    return list;
+  }, [clusters, favorites, view, search, settings?.recentClusters]);
+
+  const connectedCount = clusters.filter((cluster) => sessions[cluster.id]?.status === "connected").length;
+
+  const toggleFavorite = (id: string) => {
+    void updateSettings({
+      favorites: favorites.includes(id) ? favorites.filter((entry) => entry !== id) : [...favorites, id],
+    });
+  };
+
+  const paste = async () => {
+    setBusy(true);
+    try {
+      const source = await call(api.clusters.addKubeconfigContent(pasteYaml, pasteName));
+      await loadCatalog();
+      setPasteOpen(false);
+      setPasteYaml("");
+      toast.success("Kubeconfig imported", `${source.contextCount} contexts added`);
+    } catch (error) {
+      toast.error("Import failed", errorText(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusOf = (cluster: ClusterSummary) => {
+    const session = sessions[cluster.id];
+    if (session?.status === "connected") return { text: cluster.name && session.info ? `v${session.info.version}` : "Connected", tone: "connected" as const };
+    if (session?.status === "connecting") return { text: "Connecting…", tone: "connecting" as const };
+    if (session?.status === "error" || health[cluster.id]?.status === "error") return { text: "Error", tone: "error" as const };
+    if (health[cluster.id]?.status === "disconnected") return { text: "Disconnected", tone: "idle" as const };
+    return { text: "Not connected", tone: "idle" as const };
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      <aside className="flex w-52 shrink-0 flex-col border-r border-theme-border bg-theme-sidebar">
+        <div className="flex h-10 items-center gap-2 border-b border-theme-border px-3">
+          <Blocks className="h-4 w-4 text-accent-text" />
+          <span className="text-[12px] font-semibold text-theme-text-primary">Catalog</span>
+        </div>
+        <div className="space-y-0.5 p-1.5">
+          <NavRow
+            icon={<Server className="h-3.5 w-3.5" />}
+            label="All clusters"
+            count={clusters.length}
+            active={view === "all"}
+            onClick={() => setView("all")}
+          />
+          <NavRow
+            icon={<Star className="h-3.5 w-3.5" />}
+            label="Favorites"
+            count={favorites.length}
+            active={view === "favorites"}
+            onClick={() => setView("favorites")}
+          />
+          <NavRow
+            icon={<Clock className="h-3.5 w-3.5" />}
+            label="Recent"
+            count={settings?.recentClusters.length ?? 0}
+            active={view === "recent"}
+            onClick={() => setView("recent")}
+          />
+        </div>
+
+        <div className="mt-2 flex items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+          <span>Kubeconfigs</span>
+          <button
+            type="button"
+            className="rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+            title="Import kubeconfig"
+            onClick={() => void importViaDialog()}
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1.5 pb-2">
+          {sources.map((source) => (
+            <button
+              key={source.path}
+              type="button"
+              onClick={() => setView({ source: source.path })}
+              className={cn(
+                "group flex w-full items-start gap-1.5 rounded-md px-1.5 py-1.5 text-left transition-colors",
+                typeof view === "object" && view.source === source.path
+                  ? "selection-strong selection-text"
+                  : "text-theme-text-secondary hover:bg-theme-hover/70",
+              )}
+              title={source.path}
+            >
+              <FolderOpen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-text-tertiary" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[11px]">{basename(source.path)}</span>
+                <span className="block truncate text-[9px] text-theme-text-disabled">
+                  {source.error ? "invalid" : `${source.contextCount} contexts`}
+                  {source.isDefault ? " · default" : ""}
+                </span>
+              </span>
+              <button
+                type="button"
+                title="Remove kubeconfig from catalog"
+                className="mt-0.5 hidden rounded p-0.5 text-theme-text-tertiary hover:text-red-500 group-hover:block"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void removeKubeconfig(source.path);
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </button>
+          ))}
+          {sources.length === 0 ? (
+            <div className="px-2 py-2 text-[10px] text-theme-text-disabled">No kubeconfig sources.</div>
+          ) : null}
+        </div>
+
+        <div className="border-t border-theme-border p-2">
+          <Button size="sm" variant="secondary" className="w-full justify-center" onClick={() => setPasteOpen(true)}>
+            <Upload className="h-3.5 w-3.5" />
+            Paste kubeconfig
+          </Button>
+        </div>
+      </aside>
+
+      <div className="min-h-0 flex-1 overflow-y-auto bg-theme-base">
+        <div className="border-b border-theme-border bg-gradient-to-b from-theme-surface to-theme-base px-6 py-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-skyhook-400 to-skyhook-800 text-white shadow-theme-md">
+              <Blocks className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-semibold text-theme-text-primary">Welcome to mLens</h1>
+              <p className="mt-0.5 max-w-2xl text-[12px] leading-relaxed text-theme-text-secondary">
+                A desktop Kubernetes IDE. Clusters come from your kubeconfig files — nothing is uploaded,
+                and every cluster keeps its own session, tabs and navigation.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="hidden items-center gap-4 rounded-lg border border-theme-border bg-theme-surface px-3 py-2 text-center sm:flex">
+                <Stat label="Clusters" value={clusters.length} />
+                <span className="h-6 w-px bg-theme-border" />
+                <Stat label="Connected" value={connectedCount} tone="success" />
+                <span className="h-6 w-px bg-theme-border" />
+                <Stat label="Kubeconfigs" value={sources.length} />
+              </div>
+              <Button variant="primary" onClick={() => void importViaDialog()}>
+                <Upload className="h-3.5 w-3.5" />
+                Import kubeconfig
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 border-b border-theme-border px-6 py-2.5">
+          <h2 className="text-[13px] font-semibold text-theme-text-primary">
+            {view === "all"
+              ? "All clusters"
+              : view === "favorites"
+                ? "Favorite clusters"
+                : view === "recent"
+                  ? "Recent clusters"
+                  : basename(view.source)}
+          </h2>
+          <span className="font-mono text-[10px] text-theme-text-tertiary">{filtered.length}</span>
+          {typeof view === "object" ? (
+            <button
+              type="button"
+              className="text-[10px] text-theme-text-tertiary hover:text-theme-text-primary"
+              onClick={() => setView("all")}
+            >
+              clear
+            </button>
+          ) : null}
+          <div className="ml-auto flex w-72 items-center gap-2">
+            <SearchInput value={search} onChange={setSearch} placeholder="Search clusters…" shortcut="" />
+            <button
+              type="button"
+              className="shell-icon-button"
+              title="Refresh catalog"
+              onClick={() => void loadCatalog()}
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </button>
+            <button
+              type="button"
+              className="shell-icon-button"
+              title="Settings"
+              onClick={() => openSettings(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {catalogError ? (
+          <div className="m-6 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400">
+            {catalogError}
+          </div>
+        ) : null}
+
+        {clusters.length === 0 && !loading ? (
+          <EmptyState
+            icon={<Server />}
+            title="No Kubernetes contexts found"
+            description="mLens reads kubeconfig files from ~/.kube/config and the KUBECONFIG environment variable. Import a file or paste a kubeconfig to get started — kubectl and Node.js are not required."
+            action={
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={() => void importViaDialog()}>
+                  <Upload className="h-3.5 w-3.5" />
+                  Import kubeconfig
+                </Button>
+                <Button variant="secondary" onClick={() => setPasteOpen(true)}>
+                  Paste kubeconfig
+                </Button>
+              </div>
+            }
+          />
+        ) : (
+          <div className="px-4 py-3">
+            <div className="overflow-hidden rounded-lg border border-theme-border bg-theme-surface">
+              <div className="grid grid-cols-[minmax(220px,1.4fr)_110px_90px_minmax(160px,1fr)_150px_130px_88px] items-center gap-2 border-b border-theme-border bg-theme-base px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-theme-text-tertiary">
+                <span>Cluster</span>
+                <span>Status</span>
+                <span>Version</span>
+                <span>Kubeconfig</span>
+                <span>Namespace</span>
+                <span>Last opened</span>
+                <span className="text-right">Actions</span>
+              </div>
+              {filtered.map((cluster) => {
+                const status = statusOf(cluster);
+                const session = sessions[cluster.id];
+                const isFavorite = favorites.includes(cluster.id);
+                const recent = settings?.recentClusters.find((entry) => entry.id === cluster.id);
+                const connected = session?.status === "connected";
+                return (
+                  <div
+                    key={cluster.id}
+                    className="group grid cursor-pointer grid-cols-[minmax(220px,1.4fr)_110px_90px_minmax(160px,1fr)_150px_130px_88px] items-center gap-2 border-b-subtle px-3 py-2 last:border-0 hover:bg-theme-hover/40"
+                    onClick={() => void openCluster(cluster.id)}
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold text-white"
+                        style={{
+                          background: `linear-gradient(135deg, hsl(${(cluster.name.charCodeAt(0) * 37) % 360} 45% 42%), hsl(${(cluster.name.charCodeAt(0) * 37 + 40) % 360} 48% 30%))`,
+                        }}
+                      >
+                        {cluster.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1 truncate text-[13px] font-medium text-theme-text-primary">
+                          {cluster.name}
+                          {cluster.isCurrentContext ? (
+                            <span className="badge-sm status-neutral">current</span>
+                          ) : null}
+                        </div>
+                        <div className="truncate font-mono text-[10px] text-theme-text-tertiary" title={cluster.server}>
+                          {cluster.server || cluster.context}
+                        </div>
+                      </div>
+                      {cluster.error ? (
+                        <span className="badge-sm status-unhealthy">invalid</span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          status.tone === "connected"
+                            ? "bg-emerald-500"
+                            : status.tone === "error"
+                              ? "bg-red-500"
+                              : status.tone === "connecting"
+                                ? "animate-pulse bg-amber-500"
+                                : "bg-theme-text-disabled",
+                        )}
+                      />
+                      <span className="truncate text-[11px] text-theme-text-secondary">{status.text}</span>
+                    </div>
+
+                    <span className="font-mono text-[11px] text-theme-text-tertiary">
+                      {session?.info?.version ? `v${session.info.version}` : "—"}
+                    </span>
+
+                    <span className="truncate text-[11px] text-theme-text-secondary" title={cluster.kubeconfigPath}>
+                      {basename(cluster.kubeconfigPath)}
+                    </span>
+
+                    <span className="truncate font-mono text-[11px] text-theme-text-tertiary">
+                      {cluster.defaultNamespace}
+                    </span>
+
+                    <span className="text-[11px] text-theme-text-tertiary">
+                      {recent ? formatRelativeTime(new Date(recent.openedAt).toISOString()) : "—"}
+                    </span>
+
+                    <div className="flex items-center justify-end gap-0.5" onClick={(event) => event.stopPropagation()}>
+                      <button
+                        type="button"
+                        title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                        className={cn(
+                          "rounded p-1 text-theme-text-tertiary opacity-0 transition-opacity hover:bg-theme-hover hover:text-amber-500 group-hover:opacity-100",
+                          isFavorite && "text-amber-500 opacity-100",
+                        )}
+                        onClick={() => toggleFavorite(cluster.id)}
+                      >
+                        <Star className={cn("h-3.5 w-3.5", isFavorite && "fill-current")} />
+                      </button>
+                      <Menu
+                        width={220}
+                        align="end"
+                        trigger={({ toggle }) => (
+                          <button
+                            type="button"
+                            className="rounded p-1 text-theme-text-tertiary opacity-0 hover:bg-theme-hover hover:text-theme-text-primary group-hover:opacity-100"
+                            onClick={toggle}
+                            title="Cluster actions"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      >
+                        {({ close }) => (
+                          <>
+                            <MenuLabel>{cluster.name}</MenuLabel>
+                            <MenuItem
+                              icon={<Server className="h-3.5 w-3.5" />}
+                              onClick={() => {
+                                void openCluster(cluster.id);
+                                close();
+                              }}
+                            >
+                              {connected ? "Open cluster" : "Connect and open"}
+                            </MenuItem>
+                            <MenuItem
+                              icon={<Copy className="h-3.5 w-3.5" />}
+                              onClick={() => {
+                                void navigator.clipboard.writeText(cluster.context);
+                                toast.success("Context copied");
+                                close();
+                              }}
+                            >
+                              Copy context
+                            </MenuItem>
+                            <MenuSeparator />
+                            {connected ? (
+                              <MenuItem
+                                icon={<LogOut className="h-3.5 w-3.5" />}
+                                danger
+                                onClick={() => {
+                                  void disconnectCluster(cluster.id);
+                                  close();
+                                }}
+                              >
+                                Disconnect
+                              </MenuItem>
+                            ) : null}
+                            <MenuItem
+                              icon={<Trash2 className="h-3.5 w-3.5" />}
+                              danger
+                              onClick={() => {
+                                void removeKubeconfig(cluster.kubeconfigPath);
+                                close();
+                              }}
+                            >
+                              Remove kubeconfig source
+                            </MenuItem>
+                          </>
+                        )}
+                      </Menu>
+                      {loading ? <Spinner className="ml-1" /> : null}
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && clusters.length > 0 ? (
+                <div className="px-3 py-10 text-center text-xs text-theme-text-tertiary">
+                  No clusters match this view.
+                </div>
+              ) : null}
+            </div>
+            <p className="mt-3 text-[10px] leading-relaxed text-theme-text-disabled">
+              mLens {info?.version ?? "0.1.0"} · design system inspired by Skyhook Radar (Apache-2.0) · shell
+              structure inspired by Freelens (MIT). Contexts are read directly from kubeconfig; credentials never
+              leave this machine.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <Modal
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        width={760}
+        title="Paste a kubeconfig"
+        subtitle="The content is validated, written with 0600 permissions under the mLens data directory, and added to the catalog."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setPasteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" disabled={!pasteYaml.trim() || busy} onClick={() => void paste()}>
+              {busy ? "Importing…" : "Import kubeconfig"}
+            </Button>
+          </>
+        }
+      >
+        <label className="text-[11px] font-medium text-theme-text-secondary" htmlFor="paste-name">
+          File name
+        </label>
+        <input
+          id="paste-name"
+          value={pasteName}
+          onChange={(event) => setPasteName(event.target.value)}
+          className="mt-1 mb-3 h-8 w-full rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
+        />
+        <label className="text-[11px] font-medium text-theme-text-secondary" htmlFor="paste-yaml">
+          Kubeconfig YAML
+        </label>
+        <textarea
+          id="paste-yaml"
+          value={pasteYaml}
+          onChange={(event) => setPasteYaml(event.target.value)}
+          placeholder={"apiVersion: v1\nkind: Config\nclusters:\n  - cluster: ..."}
+          spellCheck={false}
+          className="mt-1 h-64 w-full resize-none rounded-md border border-theme-border bg-theme-base p-2 font-mono text-[11px] leading-relaxed text-theme-text-primary placeholder:text-theme-text-disabled focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
+        />
+      </Modal>
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: "success" }) {
+  return (
+    <div className="min-w-12">
+      <div className={cn("text-[15px] font-semibold", tone === "success" ? "text-emerald-600 dark:text-emerald-400" : "text-theme-text-primary")}>
+        {value}
+      </div>
+      <div className="text-[9px] uppercase tracking-wide text-theme-text-tertiary">{label}</div>
+    </div>
+  );
+}
+
+function NavRow({
+  icon,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count?: number;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition-colors",
+        active
+          ? "selection-strong selection-text"
+          : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
+      )}
+    >
+      <span className="flex h-4 w-4 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count !== undefined ? (
+        <span className="rounded bg-theme-elevated px-1 font-mono text-[9px] text-theme-text-tertiary">{count}</span>
+      ) : null}
+    </button>
+  );
+}

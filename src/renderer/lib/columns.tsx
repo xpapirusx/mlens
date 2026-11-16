@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { Copy } from "lucide-react";
-import type { ApiResourceInfo, KubeObject } from "@shared/types";
+import type { ApiResourceInfo } from "@shared/types";
 import { formatAge, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
 import { resourceStatus, toneClass } from "./status";
 import { cn } from "./cn";
 
-export type AnyObject = KubeObject & Record<string, any>;
+export type AnyObject = any;
 
 export interface ColumnDef {
   key: string;
@@ -189,7 +189,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "restarts",
           label: "Restarts",
-          width: 88,
+          width: 104,
           align: "right",
           sortable: true,
           value: (object) =>

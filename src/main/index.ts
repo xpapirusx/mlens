@@ -1,13 +1,21 @@
-import { app, BrowserWindow, Menu, nativeTheme, shell, type BrowserWindow as BrowserWindowType } from "electron";
+import electron from "electron";
+import type { BrowserWindow as BrowserWindowType } from "electron";
+
+// Electron's ESM `electron` module only exposes main-process named exports at
+// runtime through the default export. A static named import fails at link time
+// (the same constraint Freelens documents in its electron-vite config).
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { IPC } from "@shared/ipc";
 import { SettingsStore } from "./settings/store";
 import { KubeconfigManager } from "./kubernetes/kubeconfig";
 import { ClusterManager } from "./kubernetes/cluster-manager";
 import { PtyManager } from "./terminal/pty-manager";
 import { registerIpc } from "./ipc/register";
-import { IPC } from "@shared/ipc";
 
+const { app, BrowserWindow, Menu, nativeTheme, shell } = electron;
+
+console.log("[mlens] module body");
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 
@@ -109,9 +117,14 @@ function createWindow(): void {
     },
   });
 
+  console.log("[mlens] creating BrowserWindow");
   mainWindow.once("ready-to-show", () => {
+    console.log("[mlens] ready-to-show");
     mainWindow?.show();
   });
+  mainWindow.webContents.on("render-process-gone", (_e, d) => console.log("[mlens] renderer gone", d));
+  mainWindow.webContents.on("did-fail-load", (_e, code, desc) => console.log("[mlens] load fail", code, desc));
+  mainWindow.webContents.on("console-message", (_e, level, message) => console.log("[renderer]", level, message));
 
   const notifyWindowState = (): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -144,7 +157,9 @@ function createWindow(): void {
   });
 }
 
+console.log("[mlens] before lock");
 const singleInstance = app.requestSingleInstanceLock();
+console.log("[mlens] lock", singleInstance);
 if (!singleInstance) {
   app.quit();
 } else {
@@ -155,10 +170,13 @@ if (!singleInstance) {
   });
 
   void app.whenReady().then(() => {
+    console.log("[mlens] ready");
     settings = new SettingsStore();
+    console.log("[mlens] settings ok");
     const kubeconfigs = new KubeconfigManager(settings);
     clusters = new ClusterManager(kubeconfigs, settings);
     terminals = new PtyManager();
+    console.log("[mlens] managers ok");
 
     registerIpc({
       settings,
@@ -177,8 +195,11 @@ if (!singleInstance) {
       }
     });
 
+    console.log("[mlens] ipc ok");
     buildMenu();
+    console.log("[mlens] menu ok");
     createWindow();
+    console.log("[mlens] window created");
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

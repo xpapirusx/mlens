@@ -1,0 +1,15 @@
+import electron from 'electron';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import os from 'node:os';
+import { Exec, KubeConfig, Log, RequestContext, Watch, dumpYaml, loadAllYaml } from '@kubernetes/client-node';
+import http from 'node:http';
+import https from 'node:https';
+import { PassThrough, Writable } from 'node:stream';
+import { TextDecoder } from 'node:util';
+import { spawn } from 'node-pty';
+console.log('AFTER IMPORTS', typeof spawn, typeof KubeConfig, typeof RequestContext);
+const { app } = electron;
+console.log('APP', app.getName());
+app.whenReady().then(() => { console.log('READY'); setTimeout(()=>app.quit(), 1000); });

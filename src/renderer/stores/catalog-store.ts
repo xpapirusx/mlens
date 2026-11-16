@@ -67,6 +67,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   },
 
   connect: async (id) => {
+    try { localStorage.setItem("mlens-debug-connect", `${new Date().toISOString()} connect ${id}\n${new Error().stack}`); } catch {}
     set((state) => ({ connecting: { ...state.connecting, [id]: true } }));
     try {
       const info = await call(api.clusters.connect(id));
@@ -131,7 +132,10 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     await get().updateSettings({ favorites });
   },
 
-  setActiveCluster: (id) => set({ activeClusterId: id }),
+  setActiveCluster: (id) => {
+    try { localStorage.setItem("mlens-debug-active", `${new Date().toISOString()} setActive ${id}\n${new Error().stack}`); } catch {}
+    set({ activeClusterId: id });
+  },
 
   openSettings: (open) => set({ settingsOpen: open }),
 

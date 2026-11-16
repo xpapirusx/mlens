@@ -18,7 +18,7 @@ import { kindColor, kindLabel, getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { CountBadge } from "../../design-system/components/Badge";
 import { SearchInput } from "../../design-system/components/SearchInput";
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
+import { Menu, MenuItem, MenuSeparator } from "../../design-system/components/Menu";
 import { Spinner } from "../../design-system/components/Spinner";
 import { countFor, useResourceCounts } from "./useResourceCounts";
 import { api, call } from "../../lib/api";
@@ -249,9 +249,11 @@ export function ResourceSidebar({
 
       <div className="flex shrink-0 items-center justify-between border-t border-theme-border px-2.5 py-1.5 text-[10px] text-theme-text-disabled">
         <span>{session?.info?.namespaces.length ?? 0} namespaces</span>
-        <span className="flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-          {session?.info?.server ? new URL(session.info.server).host : ""}
+        <span className="flex min-w-0 items-center gap-1" title={session?.info?.server}>
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+          <span className="max-w-[130px] truncate">
+            {session?.info?.server ? session.info.server.replace(/^https?:\/\//, "") : ""}
+          </span>
         </span>
       </div>
     </aside>

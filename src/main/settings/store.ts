@@ -1,4 +1,6 @@
-import { app } from "electron";
+import electron from "electron";
+
+const { app } = electron;
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

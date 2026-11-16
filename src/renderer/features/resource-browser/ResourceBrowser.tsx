@@ -15,7 +15,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { ApiResourceInfo, KubeObject } from "@shared/types";
+import type { KubeObject } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab } from "../../stores/session-store";
 import { findResource } from "../../lib/catalog";
@@ -25,7 +25,7 @@ import { cn } from "../../lib/cn";
 import { Button } from "../../design-system/components/Button";
 import { SearchInput } from "../../design-system/components/SearchInput";
 import { EmptyState, InlineError } from "../../design-system/components/EmptyState";
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
+import { MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
 import { ContextMenu } from "../../design-system/components/ContextMenu";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
@@ -75,9 +75,20 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
     () => (resource ? getColumnsForKind(resource, showNamespace) : []),
     [resource, showNamespace],
   );
+  // Columns marked `defaultHidden` (Pod IP, QoS, images, …) start hidden for
+  // each kind. Persist that initial choice through the kind state so the
+  // column picker and the user's later toggles agree.
+  const kindStateKey = resource ? `${resource.apiVersion}|${resource.kind}` : null;
+  useEffect(() => {
+    if (!resource || !kindStateKey) return;
+    if (session.kindStates[kindStateKey]) return;
+    const defaults = columns.filter((column) => column.defaultHidden).map((column) => column.key);
+    if (defaults.length === 0) return;
+    updateKindState(clusterId, resource.apiVersion, resource.kind, { hiddenColumns: defaults });
+  }, [kindStateKey, resource, columns, session.kindStates, clusterId, updateKindState]);
+
   const hidden = useMemo(() => new Set(kindState.hiddenColumns), [kindState.hiddenColumns]);
   const visible = useMemo(() => columns.filter((column) => !hidden.has(column.key)), [columns, hidden]);
-  const visibleKey = visible.map((column) => column.key).join(",");
 
   const filterData = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildFilterOptions>>();
@@ -324,8 +335,8 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
   const contextObject = menu?.object;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-theme-surface">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-base px-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-theme-surface">
+      <div className="flex h-12 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-theme-border bg-theme-base px-3">
         <Icon className="h-4 w-4 shrink-0 text-accent-text" />
         <div className="flex min-w-0 items-baseline gap-2">
           <h1 className="truncate text-[14px] font-semibold text-theme-text-primary">
@@ -343,7 +354,7 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
           refreshSeconds={refreshSeconds}
         />
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {resource.namespaced ? (
             <NamespacePicker
               namespaces={session.namespaces}
@@ -354,7 +365,7 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
             />
           ) : null}
 
-          <div className="w-56">
+          <div className="w-56 min-w-40 shrink">
             <SearchInput
               ref={searchRef}
               value={kindState.search}

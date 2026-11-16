@@ -1,4 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import electron from "electron";
+import type { BrowserWindow as BrowserWindowType } from "electron";
+
+const { app, BrowserWindow, dialog, ipcMain, shell } = electron;
 import path from "node:path";
 import type {
   ApplyYamlRequest,
@@ -25,7 +28,7 @@ interface Dependencies {
   kubeconfigs: KubeconfigManager;
   clusters: ClusterManager;
   terminals: PtyManager;
-  getWindow: () => BrowserWindow | null;
+  getWindow: () => BrowserWindowType | null;
 }
 
 function assertString(value: unknown, name: string): string {
@@ -44,7 +47,7 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
     if (window && !window.isDestroyed()) window.webContents.send(channel, payload);
   };
 
-  const windowFor = (event: Electron.IpcMainInvokeEvent): BrowserWindow | null =>
+  const windowFor = (event: Electron.IpcMainInvokeEvent): BrowserWindowType | null =>
     BrowserWindow.fromWebContents(event.sender) ?? getWindow();
 
   // ── App / window ──────────────────────────────────────────────
@@ -81,14 +84,15 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
 
   ipcMain.handle(IPC.kubeconfigAddDialog, async () => {
     const window = getWindow();
-    const result = await dialog.showOpenDialog(window ?? undefined, {
+    const options: Electron.OpenDialogOptions = {
       title: "Import kubeconfig",
       properties: ["openFile", "multiSelections"],
       filters: [
         { name: "Kubeconfig", extensions: ["yaml", "yml", "conf", "kubeconfig"] },
         { name: "All files", extensions: ["*"] },
       ],
-    });
+    };
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
     if (result.canceled) return { canceled: true, paths: [] };
 
     const added: string[] = [];

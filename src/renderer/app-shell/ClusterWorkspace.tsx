@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { Server, ServerCrash } from "lucide-react";
-import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore } from "../../stores/session-store";
-import { ResourceSidebar } from "../../features/navigation/ResourceSidebar";
-import { PageTabs } from "../../features/resource-browser/PageTabs";
-import { ResourceBrowser } from "../../features/resource-browser/ResourceBrowser";
-import { ResourceDetails } from "../../features/resource-details/ResourceDetails";
-import { TerminalDock } from "../../features/terminal/TerminalDock";
-import { Spinner } from "../../design-system/components/Spinner";
-import { Button } from "../../design-system/components/Button";
-import { EmptyState } from "../../design-system/components/EmptyState";
-import { api } from "../../lib/api";
-import { cn } from "../../lib/cn";
+import { useCatalogStore } from "../stores/catalog-store";
+import { useSessionStore } from "../stores/session-store";
+import { ResourceSidebar } from "../features/navigation/ResourceSidebar";
+import { PageTabs } from "../features/resource-browser/PageTabs";
+import { ResourceBrowser } from "../features/resource-browser/ResourceBrowser";
+import { ResourceDetails } from "../features/resource-details/ResourceDetails";
+import { TerminalDock } from "../features/terminal/TerminalDock";
+import { Spinner } from "../design-system/components/Spinner";
+import { Button } from "../design-system/components/Button";
+import { EmptyState } from "../design-system/components/EmptyState";
+import { cn } from "../lib/cn";
 
 export function ClusterWorkspace({ clusterId }: { clusterId: string }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
@@ -111,9 +110,9 @@ export function ClusterWorkspace({ clusterId }: { clusterId: string }) {
           setResizing(true);
         }}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PageTabs clusterId={clusterId} resources={session.resources} />
-        <div className="relative flex min-h-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <ResourceBrowser clusterId={clusterId} />
           <ResourceDetails clusterId={clusterId} />
         </div>

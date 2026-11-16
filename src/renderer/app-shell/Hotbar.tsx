@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { Blocks, Plus, Settings } from "lucide-react";
-import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore } from "../../stores/session-store";
-import { cn } from "../../lib/cn";
-import { Tooltip } from "../../design-system/components/Tooltip";
-import { openCluster } from "../../lib/cluster-actions";
+import { useCatalogStore } from "../stores/catalog-store";
+import { useSessionStore } from "../stores/session-store";
+import { cn } from "../lib/cn";
+import { Tooltip } from "../design-system/components/Tooltip";
+import { openCluster } from "../lib/cluster-actions";
 import type { ClusterSummary } from "@shared/types";
 
 function initials(name: string): string {
@@ -13,8 +13,11 @@ function initials(name: string): string {
     .trim()
     .split(/\s+/)
     .filter(Boolean);
+  if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  // The last two segments distinguish clusters better than the shared prefixes
+  // (msk-avg-…, lz1-avg-…).
+  return `${parts[parts.length - 2][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
 }
 
 export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) {
@@ -26,19 +29,25 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
   const sessions = useSessionStore((state) => state.sessions);
 
+  // Freelens' hotbar is a curated rail, not a dump of every kubeconfig
+  // context. Show favorites, then recently opened clusters, then the active one.
   const ordered = useMemo(() => {
-    const favorites = settings?.favorites ?? [];
-    const recentOrder = new Map((settings?.recentClusters ?? []).map((entry, index) => [entry.id, index]));
-    return [...clusters].sort((a, b) => {
-      const favA = favorites.includes(a.id) ? 0 : 1;
-      const favB = favorites.includes(b.id) ? 0 : 1;
-      if (favA !== favB) return favA - favB;
-      const recA = recentOrder.get(a.id) ?? 999;
-      const recB = recentOrder.get(b.id) ?? 999;
-      if (recA !== recB) return recA - recB;
-      return a.name.localeCompare(b.name);
-    });
-  }, [clusters, settings?.favorites, settings?.recentClusters]);
+    const byId = new Map(clusters.map((cluster) => [cluster.id, cluster]));
+    const ids = [
+      ...(settings?.favorites ?? []),
+      ...(settings?.recentClusters ?? []).map((entry) => entry.id),
+      ...(activeClusterId ? [activeClusterId] : []),
+    ];
+    const seen = new Set<string>();
+    const items: ClusterSummary[] = [];
+    for (const id of ids) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const cluster = byId.get(id);
+      if (cluster) items.push(cluster);
+    }
+    return items;
+  }, [clusters, settings?.favorites, settings?.recentClusters, activeClusterId]);
 
   return (
     <nav
@@ -61,10 +70,10 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
       <div className="my-1 h-px w-7 bg-theme-border" />
 
       <div className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-0.5">
-        {ordered.slice(0, 12).map((cluster: ClusterSummary) => {
+        {ordered.slice(0, 9).map((cluster: ClusterSummary) => {
           const active = cluster.id === activeClusterId;
           const session = sessions[cluster.id];
-          const state = session?.status ?? health[cluster.id]?.status;
+          const state: string | undefined = session?.status ?? health[cluster.id]?.status;
           const dot =
             state === "connected"
               ? "bg-emerald-500"
@@ -107,7 +116,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         })}
 
         {ordered.length === 0 ? (
-          <Tooltip content="No clusters yet — import a kubeconfig" side="bottom">
+          <Tooltip content="Open a cluster from the catalog — it will appear here" side="bottom">
             <button
               type="button"
               onClick={() => setActiveCluster(null)}

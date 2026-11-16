@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
-  ChevronDown,
   Pause,
   Play,
   RefreshCw,
@@ -13,7 +12,6 @@ import { api, call, errorText } from "../../lib/api";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
 import { EmptyState } from "../../design-system/components/EmptyState";
-import { toast } from "../../design-system/components/Toast";
 import { SquareTerminal } from "lucide-react";
 
 interface PodOption {
@@ -119,6 +117,7 @@ export function LogsTab({
 }
 
 async function findPods(clusterId: string, object: KubeObject): Promise<PodOption[]> {
+  const spec = object.spec as any;
   const toOption = (pod: KubeObject): PodOption => ({
     name: pod.metadata?.name ?? "",
     namespace: pod.metadata?.namespace ?? "",
@@ -144,8 +143,8 @@ async function findPods(clusterId: string, object: KubeObject): Promise<PodOptio
     pods = result.items;
   } else if (["Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"].includes(kind)) {
     const selector =
-      (object.spec?.selector as any)?.matchLabels ??
-      (object.spec?.template?.metadata?.labels as Record<string, string> | undefined) ??
+      (spec?.selector as any)?.matchLabels ??
+      (spec?.template?.metadata?.labels as Record<string, string> | undefined) ??
       {};
     const result = await call(
       api.resources.list({
@@ -161,7 +160,7 @@ async function findPods(clusterId: string, object: KubeObject): Promise<PodOptio
       return Object.entries(selector).every(([key, value]) => pod.metadata?.labels?.[key] === value);
     });
   } else if (kind === "Service") {
-    const selector = (object.spec?.selector ?? {}) as Record<string, string>;
+    const selector = (spec?.selector ?? {}) as Record<string, string>;
     if (Object.keys(selector).length === 0) return [];
     const result = await call(
       api.resources.list({ clusterId, apiVersion: "v1", kind: "Pod", namespace, limit: 2000 }),

@@ -1,5 +1,3 @@
-import type { KubeObject } from "@shared/types";
-
 export type Tone = "success" | "warning" | "error" | "info" | "neutral" | "unknown" | "violet" | "orange";
 
 export interface ResourceStatus {
@@ -8,7 +6,7 @@ export interface ResourceStatus {
   detail?: string;
 }
 
-type AnyObject = KubeObject & Record<string, any>;
+type AnyObject = any;
 
 const TONE_TO_STATUS_CLASS: Record<Tone, string> = {
   success: "status-healthy",

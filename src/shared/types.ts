@@ -89,6 +89,8 @@ export interface KubeMetadata {
     uid: string;
     controller?: boolean;
   }>;
+  managedFields?: unknown[];
+  finalizers?: string[];
 }
 
 export interface KubeObject {
@@ -299,7 +301,7 @@ export interface AppInfo {
   electron: string;
   chrome: string;
   node: string;
-  platform: NodeJS.Platform | string;
+  platform: string;
   arch: string;
 }
 

@@ -1,4 +1,5 @@
 import type { KubeConfig } from "@kubernetes/client-node";
+import { HttpMethod, RequestContext } from "@kubernetes/client-node";
 import http from "node:http";
 import https from "node:https";
 
@@ -55,9 +56,17 @@ export async function kubeRequest<T>(kc: KubeConfig, apiPath: string, options: K
     timeout: options.timeoutMs ?? 30_000,
   };
 
-  // Populates CA/cert/key/agent and resolves exec-credential tokens.
-  await kc.applyToHTTPSOptions(requestOptions);
-  await kc.applyAuthorizationHeader(requestOptions);
+  // Build the same authenticated request context the generated Kubernetes
+  // clients use. This resolves bearer tokens, basic auth and exec credential
+  // plugins (EKS, GKE, AKS) and configures the TLS agent.
+  const method = (options.method ?? "GET") as HttpMethod;
+  const context = new RequestContext(url.toString(), method);
+  await kc.applySecurityAuthentication(context);
+  for (const [key, value] of Object.entries(context.getHeaders())) {
+    (requestOptions.headers as Record<string, string>)[key] = value;
+  }
+  const agent = context.getAgent();
+  if (agent) requestOptions.agent = agent;
 
   const body =
     options.rawBody !== undefined

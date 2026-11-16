@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { CircleCheck, CircleExclamationPoint, Info, X } from "lucide-react";
-import { cn } from "../lib/cn";
+import { cn } from "../../lib/cn";
 
 export type ToastTone = "success" | "error" | "info" | "warning";
 

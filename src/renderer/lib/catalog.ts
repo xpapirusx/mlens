@@ -119,7 +119,11 @@ export interface ResourceGroup {
 }
 
 export function isListable(resource: ApiResourceInfo): boolean {
-  return resource.verbs.includes("list") && !HIDDEN_KINDS.has(resource.kind) && resource.kind !== "Event";
+  if (!resource.verbs.includes("list")) return false;
+  if (HIDDEN_KINDS.has(resource.kind)) return false;
+  // Core v1 Events are the canonical list; the events.k8s.io mirror is noise.
+  if (resource.group === "events.k8s.io" && resource.kind === "Event") return false;
+  return true;
 }
 
 export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup[] {
@@ -139,15 +143,6 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
 
     if (!groups.has(id)) groups.set(id, { id, title, icon, order, resources: [] });
     groups.get(id)!.resources.push(resource);
-  }
-
-  // Always expose Events under Cluster even though it is filtered from the
-  // generic list (deduped events.k8s.io vs core v1 in buildResourceGroups).
-  const eventResource = resources.find((resource) => resource.kind === "Event" && resource.apiVersion === "v1");
-  if (eventResource) {
-    const cluster = groups.get("cluster") ?? { id: "cluster", title: "Cluster", icon: Cpu, order: 60, resources: [] };
-    if (!cluster.resources.some((entry) => entry.kind === "Event")) cluster.resources.push(eventResource);
-    groups.set("cluster", cluster);
   }
 
   for (const group of groups.values()) {

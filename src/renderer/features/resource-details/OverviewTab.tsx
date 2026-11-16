@@ -1,12 +1,11 @@
-import type { ReactNode } from "react";
 import { Box, Cpu, Database, FileSliders, Info, Network, Server, Settings2, ShieldCheck } from "lucide-react";
-import type { ApiResourceInfo, KubeObject } from "@shared/types";
+import type { ApiResourceInfo } from "@shared/types";
 import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory, titleCase } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
 
-type AnyObject = KubeObject & Record<string, any>;
+type AnyObject = any;
 
 export interface OverviewProps {
   object: AnyObject;

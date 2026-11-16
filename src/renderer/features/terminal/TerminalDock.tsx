@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, Plus, SquareTerminal, X } from "lucide-react";
 import { useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { cn } from "../../lib/cn";
 import { TerminalView } from "./TerminalView";
 
 export function TerminalDock({ clusterId }: { clusterId: string }) {
