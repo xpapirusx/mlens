@@ -4,7 +4,7 @@ import { useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { TerminalView } from "./TerminalView";
 
-export function TerminalDock({ clusterId }: { clusterId: string }) {
+export function TerminalDock({ clusterId, active }: { clusterId: string; active: boolean }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const closeTerminal = useSessionStore((state) => state.closeTerminal);
@@ -160,7 +160,7 @@ export function TerminalDock({ clusterId }: { clusterId: string }) {
             </div>
           ) : (
             dock.tabs.map((tab) => (
-              <TerminalView key={tab.id} target={tab.target} active={tab.id === activeTab?.id} />
+              <TerminalView key={tab.id} target={tab.target} active={active && tab.id === activeTab?.id} />
             ))
           )}
         </div>

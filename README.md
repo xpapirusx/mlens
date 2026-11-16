@@ -106,7 +106,8 @@ pnpm dist:linux    # AppImage + deb
 
 `electron-builder` packs Electron, the renderer, the TypeScript main process and
 node-pty prebuilds into a normal desktop installer. Nothing else is required at
-runtime.
+runtime. macOS builds are unsigned by default; when running a locally built DMG,
+use right-click → Open the first time.
 
 ### Project layout
 

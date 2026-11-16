@@ -182,6 +182,18 @@ export function CommandPalette({
   }, [query]);
 
   useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  useEffect(() => {
     const element = listRef.current?.querySelector<HTMLElement>(`[data-command-index="${index}"]`);
     element?.scrollIntoView({ block: "nearest" });
   }, [index]);
@@ -224,7 +236,7 @@ export function CommandPalette({
                 onClose();
               }
             }}
-            placeholder="Search clusters, resource kinds and actions…"
+            placeholder="Search clusters, resources and actions…"
             className="h-11 flex-1 bg-transparent text-sm text-theme-text-primary placeholder:text-theme-text-tertiary focus:outline-none"
           />
           <span className="kbd">Esc</span>

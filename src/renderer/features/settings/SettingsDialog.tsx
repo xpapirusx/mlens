@@ -90,14 +90,24 @@ export function SettingsDialog() {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() =>
-                void updateSettings({ sidebarWidth: 236, dockHeight: 340, showSystemNamespaces: false })
-              }
+              onClick={() => {
+                void updateSettings({ sidebarWidth: 236, showSystemNamespaces: false });
+                const store = useSessionStore.getState();
+                for (const id of Object.keys(store.sessions)) store.setSidebarWidth(id, 236);
+              }}
             >
               <PanelLeft className="h-3.5 w-3.5" />
-              Reset sidebar
+              Reset sidebar width
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => void updateSettings({ dockHeight: 340 })}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                void updateSettings({ dockHeight: 340 });
+                const store = useSessionStore.getState();
+                for (const id of Object.keys(store.sessions)) store.setDock(id, { height: 340, open: false });
+              }}
+            >
               <PanelBottom className="h-3.5 w-3.5" />
               Reset dock height
             </Button>
@@ -197,7 +207,7 @@ export function SettingsDialog() {
         </Section>
 
         <Section title="Clusters" icon={<Blocks />}>
-          <div className="space-y-1">
+          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
             {clusters.map((cluster) => {
               const connected = sessions[cluster.id]?.status === "connected";
               return (

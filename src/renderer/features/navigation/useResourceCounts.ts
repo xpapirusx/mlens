@@ -56,7 +56,14 @@ export function useResourceCounts(options: {
       });
 
     if (!refreshSeconds) return;
-    const timer = window.setInterval(() => setNonce((value) => value + 1), refreshSeconds * 1000);
+    // Counts are cheap (limit=1 + remainingItemCount) but there can be 200+
+    // kinds. Refresh them at most once a minute and never while the window is
+    // hidden.
+    const interval = Math.max(60, refreshSeconds) * 1000;
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      setNonce((value) => value + 1);
+    }, interval);
     return () => window.clearInterval(timer);
   }, [clusterId, namespace, resources, refreshSeconds, nonce]);
 

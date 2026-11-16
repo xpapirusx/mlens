@@ -28,10 +28,12 @@ export function ResourceSidebar({
   cluster,
   clusterId,
   width,
+  active,
 }: {
   cluster: ClusterSummary | undefined;
   clusterId: string;
   width: number;
+  active: boolean;
 }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const selectKind = useSessionStore((state) => state.selectKind);
@@ -54,7 +56,7 @@ export function ResourceSidebar({
     clusterId,
     namespace: session?.namespace ?? "all",
     resources: resources.filter(isListable),
-    refreshSeconds,
+    refreshSeconds: active ? refreshSeconds : 0,
   });
 
   const selected = session?.selectedKind;

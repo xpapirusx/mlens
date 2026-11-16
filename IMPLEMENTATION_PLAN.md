@@ -51,7 +51,7 @@ configuration).
 | Context discovery | **Done** | 98 real contexts detected from `~/.kube/config` |
 | Connect / disconnect | **Done** | Per-cluster `KubeConfig`, health, latency |
 | Kubernetes version + namespaces | **Done** | Real API calls |
-| Multiple simultaneous clusters | **Done** | Connections and sessions coexist; switching preserves state |
+| Multiple simultaneous clusters | **Done** | One mounted workspace per visited cluster (hidden when inactive); switching preserves scroll, drawer, filters and live PTYs |
 | Application shell (Freelens layout) | **Done** | Sidebar, sibling tabs, dock, drawer, status bar |
 | Sidebar resource catalog | **Done** | Dynamic discovery incl. CRDs; counts; collapse; filter |
 | Radar design system | **Done** | Tokens, typography, badges, tables, menus, terminal theme |
@@ -165,13 +165,19 @@ configuration).
 | App launch & catalog | Pass, 98 real contexts discovered |
 | Connect to real cluster | Pass (`lz1-avg-preprod-compute`, v1.31; `msk-avg-dev-iaas-mgmt`, v1.29) |
 | Discovery and counts | Pass (228 CRDs, Pods 215/282, Secrets 2340+, etc.) |
+| Filter popovers + active filter chips | Pass (Status filter → 204/215 rows) |
+| Command palette open/close, Escape | Pass |
+| Light/dark theme switching | Pass (tokens resolve, body `#F0F3F9` in light) |
+| Settings dialog | Pass (theme, refresh, terminal, sources, clusters) |
 | Resource table + virtualization | Pass |
 | Details drawer Overview/Details | Pass with real Pod data |
 | YAML tab | Pass (real object, Monaco highlight) |
 | Logs tab | Pass (real streaming logs) |
 | Local PTY | Pass (`MLENS_PTY_OK`) |
+| Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
-| Packaging | Config ready; `electron-builder` targets defined (not yet run in CI) |
+| Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg` built; packaged app launches, sees 98 contexts, connects and runs a PTY |
+| Windows / Linux packaging | Configured (NSIS, AppImage, deb); not yet built on those OSes |
 
 ---
 

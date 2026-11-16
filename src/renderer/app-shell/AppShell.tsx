@@ -11,6 +11,7 @@ import { ToastViewport } from "../design-system/components/Toast";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { Spinner } from "../design-system/components/Spinner";
+import { cn } from "../lib/cn";
 
 export function AppShell() {
   const settings = useCatalogStore((state) => state.settings);
@@ -21,6 +22,8 @@ export function AppShell() {
   const details = useSessionStore((state) =>
     activeClusterId ? (state.sessions[activeClusterId]?.details ?? null) : null,
   );
+  const sessions = useSessionStore((state) => state.sessions);
+  const sessionIds = Object.keys(sessions);
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const openTerminal = useSessionStore((state) => state.openTerminal);
 
@@ -51,7 +54,7 @@ export function AppShell() {
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setPaletteOpen(true);
+        setPaletteOpen((open) => !open);
         return;
       }
       if (mod && event.key === ",") {
@@ -93,8 +96,18 @@ export function AppShell() {
       <TopBar activeClusterId={activeClusterId} onOpenPalette={() => setPaletteOpen(true)} />
       <div className="flex min-h-0 flex-1">
         <Hotbar activeClusterId={activeClusterId} />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {activeClusterId ? <ClusterWorkspace clusterId={activeClusterId} /> : <CatalogPage />}
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Freelens keeps cluster frames alive when switching. mLens keeps a
+              mounted workspace per cluster (hidden with CSS) so table scroll,
+              open drawers and terminal PTYs all survive a switch. */}
+          <div className={cn("flex min-h-0 flex-1", activeClusterId && "hidden")}>
+            <CatalogPage />
+          </div>
+          {sessionIds.map((id) => (
+            <div key={id} className={cn("flex min-h-0 flex-1", id !== activeClusterId && "hidden")}>
+              <ClusterWorkspace clusterId={id} active={id === activeClusterId} />
+            </div>
+          ))}
         </main>
       </div>
       <StatusBar activeClusterId={activeClusterId} />

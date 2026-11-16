@@ -40,7 +40,7 @@ interface DialogState {
   object?: KubeObject;
 }
 
-export function ResourceBrowser({ clusterId }: { clusterId: string }) {
+export function ResourceBrowser({ clusterId, active }: { clusterId: string; active: boolean }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
@@ -57,7 +57,7 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
   );
 
   const namespace = session?.namespace ?? "all";
-  const refreshSeconds = settings?.refreshIntervalSeconds ?? 30;
+  const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
   const list = useResourceList({ clusterId, resource, namespace, refreshSeconds });
 
   const kindState = session && resource
@@ -388,7 +388,7 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
                 type="button"
                 onClick={(event) => openFilter(column, event)}
                 className={cn(
-                  "flex h-8 items-center gap-1 rounded-lg border px-2 text-[11px] transition-colors",
+                  "hidden h-8 items-center gap-1 rounded-lg border px-2 text-[11px] transition-colors lg:flex",
                   count > 0
                     ? "border-skyhook-500/40 bg-skyhook-500/10 text-accent-text"
                     : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
@@ -420,7 +420,8 @@ export function ResourceBrowser({ clusterId }: { clusterId: string }) {
 
           <Button variant="primary" size="sm" onClick={() => setDialog({ type: "create" })}>
             <Plus className="h-3.5 w-3.5" />
-            Create
+            <span className="hidden xl:inline">Create</span>
+            <span className="xl:hidden">YAML</span>
           </Button>
         </div>
       </div>
@@ -706,7 +707,7 @@ function Freshness({
 
   const label = loading
     ? "Loading…"
-    : watchState === "live"
+    : watchState === "live" || watchState === "connecting"
       ? refreshSeconds
         ? `Live · polls ${refreshSeconds}s`
         : "Live"

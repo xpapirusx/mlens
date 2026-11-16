@@ -42,6 +42,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const detailsBack = useSessionStore((state) => state.detailsBack);
+  const detailsHistory = useSessionStore((state) => state.sessions[clusterId]?.detailsHistory ?? []);
   const openDetails = useSessionStore((state) => state.openDetails);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const settings = useCatalogStore((state) => state.settings);
@@ -169,6 +170,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               type="button"
               className="shell-icon-button h-6 w-6 disabled:opacity-30"
               onClick={() => detailsBack(clusterId)}
+              disabled={detailsHistory.length === 0}
               title="Back to the previously opened resource"
             >
               <ArrowLeft className="h-3.5 w-3.5" />

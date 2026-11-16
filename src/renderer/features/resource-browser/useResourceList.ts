@@ -29,6 +29,7 @@ export function useResourceList(options: {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [continueToken, setContinueToken] = useState<string | undefined>(undefined);
   const [total, setTotal] = useState<number | null>(null);
+  const [listEpoch, setListEpoch] = useState(0);
 
   const generation = useRef(0);
   const subscriptionRef = useRef<string | null>(null);
@@ -57,6 +58,7 @@ export function useResourceList(options: {
         if (current !== generation.current) return;
         setError(null);
         setContinueToken(result.continueToken);
+        const hadVersion = Boolean(resourceVersionRef.current);
         resourceVersionRef.current = result.resourceVersion;
         setItems((previous) => (token ? [...previous, ...result.items] : result.items));
         setTotal(
@@ -65,6 +67,7 @@ export function useResourceList(options: {
             : result.items.length + (result.remainingItemCount ?? 0),
         );
         setLastUpdated(Date.now());
+        if (!token && !hadVersion) setListEpoch((value) => value + 1);
       } catch (fetchError) {
         if (current !== generation.current) return;
         setError(errorText(fetchError));
@@ -87,6 +90,16 @@ export function useResourceList(options: {
     await fetchPage(continueToken, true);
   }, [continueToken, fetchPage]);
 
+  // Reset table data when the user switches kind or namespace.
+  useEffect(() => {
+    setItems([]);
+    setContinueToken(undefined);
+    setTotal(null);
+    setLastUpdated(null);
+    resourceVersionRef.current = undefined;
+    setListEpoch(0);
+  }, [clusterId, apiVersion, kind, scope]);
+
   // Initial load + polling. Polling reconciles any watch events that were
   // missed while the connection was reconnecting.
   useEffect(() => {
@@ -105,7 +118,7 @@ export function useResourceList(options: {
 
   // Live watch on the same scope.
   useEffect(() => {
-    if (!resource || !apiVersion || !kind) {
+    if (!resource || !apiVersion || !kind || !resourceVersionRef.current) {
       setWatchState("off");
       return;
     }
@@ -174,15 +187,7 @@ export function useResourceList(options: {
         void api.resources.unwatch(previousSubscription).catch(() => undefined);
       }
     };
-  }, [clusterId, apiVersion, kind, scope, resource]);
-
-  // Reset table data when the user switches kind or namespace.
-  useEffect(() => {
-    setItems([]);
-    setContinueToken(undefined);
-    setTotal(null);
-    setLastUpdated(null);
-  }, [clusterId, apiVersion, kind, scope]);
+  }, [clusterId, apiVersion, kind, scope, resource, listEpoch]);
 
   return {
     items,

@@ -12,7 +12,7 @@ import { Button } from "../design-system/components/Button";
 import { EmptyState } from "../design-system/components/EmptyState";
 import { cn } from "../lib/cn";
 
-export function ClusterWorkspace({ clusterId }: { clusterId: string }) {
+export function ClusterWorkspace({ clusterId, active }: { clusterId: string; active: boolean }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const initialize = useSessionStore((state) => state.initialize);
   const dispose = useSessionStore((state) => state.dispose);
@@ -99,7 +99,7 @@ export function ClusterWorkspace({ clusterId }: { clusterId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      <ResourceSidebar cluster={cluster} clusterId={clusterId} width={width} />
+      <ResourceSidebar cluster={cluster} clusterId={clusterId} width={width} active={active} />
       <div
         role="separator"
         aria-orientation="vertical"
@@ -113,10 +113,10 @@ export function ClusterWorkspace({ clusterId }: { clusterId: string }) {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PageTabs clusterId={clusterId} resources={session.resources} />
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <ResourceBrowser clusterId={clusterId} />
+          <ResourceBrowser clusterId={clusterId} active={active} />
           <ResourceDetails clusterId={clusterId} />
         </div>
-        <TerminalDock clusterId={clusterId} />
+        <TerminalDock clusterId={clusterId} active={active} />
       </div>
     </div>
   );

@@ -287,9 +287,14 @@ This is the substitute for Freelens' per-cluster iframe heap. Everything the use
 perceives as “my place in this cluster” lives here. Network/data caches are
 deliberately not stored: list data is fetched live and reconciled by watch/poll.
 
-Terminal tabs keep their xterm instance mounted while the dock is open, so
-scrollback and long-running commands are not lost when switching tabs or
-clusters.
+Freelens preserves cluster state by keeping every cluster iframe alive. mLens
+does the equivalent in React: `AppShell` mounts one `ClusterWorkspace` per
+visited session and hides inactive ones with `display: none`. Hidden workspaces
+keep their tables, scroll positions, drawers and terminal xterm instances
+mounted; polling is disabled while inactive, but watch streams stay connected.
+Terminal tabs are therefore never unmounted on a cluster switch, so running
+shells and pod exec sessions survive until the user closes the tab or
+disconnects the cluster.
 
 ---
 

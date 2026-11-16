@@ -35,7 +35,9 @@ export function TopBar({
   const health = useCatalogStore((state) => state.health);
   const session = useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId] : undefined));
   const detailsBack = useSessionStore((state) => state.detailsBack);
+  const closeDetails = useSessionStore((state) => state.closeDetails);
   const details = session?.details ?? null;
+  const detailsHistory = session?.detailsHistory ?? [];
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const [maximized, setMaximized] = useState(false);
 
@@ -49,7 +51,8 @@ export function TopBar({
 
   const goBack = () => {
     if (activeClusterId && details) {
-      detailsBack(activeClusterId);
+      if (detailsHistory.length > 0) detailsBack(activeClusterId);
+      else closeDetails(activeClusterId);
       return;
     }
     if (activeClusterId) setActiveCluster(null);
@@ -75,7 +78,7 @@ export function TopBar({
     >
       <div className="app-no-drag flex items-center gap-0.5">
         <Tooltip content="Catalog (home)">
-          <button type="button" className="shell-icon-button" onClick={() => setActiveCluster(null)}>
+          <button type="button" className="shell-icon-button" onClick={() => setActiveCluster(null)} title="Catalog (home)" aria-label="Catalog">
             <Home className="h-4 w-4" />
           </button>
         </Tooltip>
@@ -85,12 +88,14 @@ export function TopBar({
             className="shell-icon-button"
             onClick={goBack}
             disabled={!activeClusterId}
+            title={details ? "Back to previous resource" : "Back to catalog"}
+            aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
         </Tooltip>
         <Tooltip content="Forward navigation is not implemented (no route history yet)">
-          <button type="button" className="shell-icon-button" disabled>
+          <button type="button" className="shell-icon-button" disabled title="Forward navigation is not implemented yet" aria-label="Forward">
             <ArrowRight className="h-4 w-4" />
           </button>
         </Tooltip>
@@ -138,18 +143,20 @@ export function TopBar({
               type="button"
               className="shell-icon-button"
               onClick={() => openTerminal(activeClusterId, { type: "local" })}
+              title="New terminal"
+              aria-label="New terminal"
             >
               <SquareTerminal className="h-4 w-4" />
             </button>
           </Tooltip>
         ) : null}
         <Tooltip content={settings?.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
-          <button type="button" className="shell-icon-button" onClick={toggleTheme}>
+          <button type="button" className="shell-icon-button" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {settings?.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
         </Tooltip>
         <Tooltip content="Settings">
-          <button type="button" className="shell-icon-button" onClick={() => openSettings(true)}>
+          <button type="button" className="shell-icon-button" onClick={() => openSettings(true)} title="Settings" aria-label="Settings">
             <Settings className="h-4 w-4" />
           </button>
         </Tooltip>

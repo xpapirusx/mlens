@@ -343,8 +343,12 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 
 ## 4. State and navigation model (as seen by the user)
 
-Per cluster, the following survive switching clusters and are restored when the
-cluster is selected again:
+mLens keeps one mounted workspace per visited cluster and hides inactive ones
+with CSS, mirroring Freelens' hidden cluster frames. This means table scroll and
+positions, open drawers and live terminal processes survive switching — not just
+serialized navigation state.
+
+Per cluster, the following survive switching clusters:
 
 - namespace scope, selected kind, sibling tab position;
 - per-kind search text, regex flag, sort, column filters and hidden columns;
@@ -353,7 +357,9 @@ cluster is selected again:
 - dock open state, height, terminal tabs and their live PTYs.
 
 Connections themselves also survive: switching clusters does not disconnect the
-previous cluster, and its watchers continue to keep data fresh.
+previous cluster, and its watchers continue to keep data fresh. Hidden workspaces
+stop their polling loops but keep their watch streams, so returning to a cluster
+shows current data without refetching everything.
 
 Switching is done from the hotbar, catalog, command palette or settings. The
 catalog remains one click away (`Home`).
