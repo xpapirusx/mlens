@@ -1,0 +1,136 @@
+/*
+ * mLens design tokens.
+ *
+ * The visual language is Radar's (Skyhook Radar, Apache-2.0): cool blue-gray
+ * surfaces, one refined brand blue, DM Sans / DM Mono, 6/8/10/14px radii,
+ * compact data-dense chrome. Values are adapted from
+ * radar/packages/k8s-ui/src/theme/variables.css; see THIRD_PARTY_NOTICES.md.
+ *
+ * Theme contract: `.dark` on <html> plus `color-scheme` declared here (not only
+ * via JS) so `light-dark()` resolves reliably under Electron/Chromium.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Brand */
+  --color-brand: light-dark(#4a7cc9, #6a9fe0);
+  --color-brand-light: light-dark(#3b66a8, #8bb5ea);
+  --brand-rgb: light-dark(74 124 201, 106 159 224);
+
+  /* Semantic status (theme independent) */
+  --color-success: #22c55e;
+  --color-success-light: #4ade80;
+  --color-success-dark: #16a34a;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fbbf24;
+  --color-warning-dark: #d97706;
+  --color-error: #ef4444;
+  --color-error-light: #f87171;
+  --color-error-dark: #dc2626;
+  --color-info: #3b82f6;
+  --color-alert: #f97316;
+  --color-alert-light: #fb923c;
+  --color-alert-dark: #ea580c;
+
+  /* Surfaces — sidebar is the deepest chrome layer, base the content floor. */
+  --bg-sidebar: light-dark(#e7ecf5, #080b16);
+  --bg-base: light-dark(#f0f3f9, #0b0f1e);
+  --bg-surface: light-dark(#f8fbfe, #14192a);
+  --bg-elevated: light-dark(#e6ecf5, #1e2338);
+  --bg-hover: light-dark(#dde5f2, #282e48);
+  --bg-active: light-dark(#d3dcec, #1c2840);
+
+  /* Text */
+  --text-primary: light-dark(#1a1c20, #f5f6f8);
+  --text-secondary: light-dark(#555860, #d8dae0);
+  --text-tertiary: light-dark(#6b7080, #b0b5c0);
+  --text-disabled: light-dark(#a0a4ac, #6a7080);
+  --warning-text: light-dark(#92400e, #fbbf24);
+
+  /* Borders */
+  --border-default: light-dark(#d8e0ee, #222840);
+  --border-light: light-dark(#cdd6e8, #2c324a);
+  --border-subtle: light-dark(rgba(74, 100, 180, 0.07), rgba(255, 255, 255, 0.04));
+  --border-emphasis: light-dark(#96a8ca, rgba(255, 255, 255, 0.22));
+  --border-focus: var(--color-brand);
+
+  /* Accent */
+  --accent: var(--color-brand);
+  --accent-light: var(--color-brand-light);
+  --accent-muted: light-dark(rgba(74, 124, 201, 0.12), rgba(106, 159, 224, 0.18));
+  --accent-text: light-dark(#3b66a8, #8bb5ea);
+
+  /* Selection */
+  --selection-bg: light-dark(rgba(74, 124, 201, 0.1), rgba(106, 159, 224, 0.15));
+  --selection-bg-strong: light-dark(rgba(74, 124, 201, 0.2), rgba(106, 159, 224, 0.25));
+  --selection-text: light-dark(#3b66a8, #8bb5ea);
+  --selection-border: light-dark(rgba(74, 124, 201, 0.3), rgba(106, 159, 224, 0.3));
+
+  /* Glow */
+  --glow-brand: light-dark(rgba(74, 124, 201, 0.2), rgba(106, 159, 224, 0.25));
+  --glow-brand-sm: 0 0 8px var(--glow-brand);
+  --glow-brand-md: 0 0 16px var(--glow-brand);
+
+  /* Elevation (light; multi-layer values need a .dark override) */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 12px 32px -6px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --shadow-drawer: -12px 0 40px rgba(0, 0, 0, 0.15), -4px 0 12px rgba(0, 0, 0, 0.08);
+
+  /* Terminal / console surface — intentionally dark in both themes. */
+  --terminal-bg: #0f172a;
+  --terminal-border: light-dark(#1e293b, rgba(255, 255, 255, 0.1));
+  --terminal-divider: rgba(255, 255, 255, 0.1);
+  --terminal-label: #94a3b8;
+  --terminal-text: #cbd5e1;
+
+  /* ANSI palette (log viewer / console chrome) */
+  --ansi-black: light-dark(#3b3b3b, #4c4c4c);
+  --ansi-red: light-dark(#cd3131, #cd3131);
+  --ansi-green: light-dark(#00a854, #0dbc79);
+  --ansi-yellow: light-dark(#b8860b, #e5e510);
+  --ansi-blue: light-dark(#2472c8, #2472c8);
+  --ansi-magenta: light-dark(#bc3fbc, #bc3fbc);
+  --ansi-cyan: light-dark(#11a8cd, #11a8cd);
+  --ansi-white: light-dark(#e5e5e5, #e5e5e5);
+  --ansi-bright-black: light-dark(#555555, #767676);
+  --ansi-bright-red: light-dark(#f14c4c, #f14c4c);
+  --ansi-bright-green: light-dark(#17b96a, #23d18b);
+  --ansi-bright-yellow: light-dark(#c49700, #f5f543);
+  --ansi-bright-blue: light-dark(#3b8eea, #3b8eea);
+  --ansi-bright-magenta: light-dark(#d670d6, #d670d6);
+  --ansi-bright-cyan: light-dark(#29b8db, #29b8db);
+  --ansi-bright-white: light-dark(#e5e5e5, #e5e5e5);
+
+  /* Scrollbar */
+  --scrollbar-track: light-dark(#e6ecf5, #0f1322);
+  --scrollbar-thumb: light-dark(#cdd6e8, #2c324a);
+  --scrollbar-thumb-hover: light-dark(#aabacf, #484c55);
+
+  /* Shell metrics (Freelens-inspired desktop chrome, Radar scale) */
+  --shell-topbar-height: 44px;
+  --shell-hotbar-width: 54px;
+  --shell-sidebar-width: 236px;
+  --shell-tabstrip-height: 36px;
+  --shell-statusbar-height: 24px;
+  --shell-dock-default-height: 340px;
+  --shell-dock-min-height: 160px;
+  --shell-dock-collapsed-height: 36px;
+
+  /* Motion */
+  --ease-shell: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-disclosure: 300ms;
+  --duration-menu: 140ms;
+  --duration-dialog: 220ms;
+  --duration-drawer: 300ms;
+  --duration-dock: 150ms;
+}
+
+.dark {
+  color-scheme: dark;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-lg: 0 12px 32px -6px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+  --shadow-drawer: -12px 0 36px rgba(0, 0, 0, 0.45), -4px 0 14px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}

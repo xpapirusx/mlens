@@ -1,0 +1,285 @@
+import type { KubeObject } from "@shared/types";
+
+export type Tone = "success" | "warning" | "error" | "info" | "neutral" | "unknown" | "violet" | "orange";
+
+export interface ResourceStatus {
+  text: string;
+  tone: Tone;
+  detail?: string;
+}
+
+type AnyObject = KubeObject & Record<string, any>;
+
+const TONE_TO_STATUS_CLASS: Record<Tone, string> = {
+  success: "status-healthy",
+  warning: "status-degraded",
+  error: "status-unhealthy",
+  info: "status-neutral",
+  neutral: "status-unknown",
+  unknown: "status-unknown",
+  violet: "status-violet",
+  orange: "status-orange",
+};
+
+export function toneClass(tone: Tone): string {
+  return TONE_TO_STATUS_CLASS[tone] ?? "status-unknown";
+}
+
+export function toneTextClass(tone: Tone): string {
+  switch (tone) {
+    case "success":
+      return "text-emerald-600 dark:text-emerald-400";
+    case "warning":
+      return "text-amber-600 dark:text-amber-400";
+    case "error":
+      return "text-red-600 dark:text-red-400";
+    case "info":
+      return "text-sky-600 dark:text-sky-400";
+    case "violet":
+      return "text-violet-600 dark:text-violet-400";
+    case "orange":
+      return "text-orange-600 dark:text-orange-400";
+    default:
+      return "text-theme-text-tertiary";
+  }
+}
+
+function conditions(object: AnyObject): Array<Record<string, any>> {
+  return Array.isArray(object.status?.conditions) ? object.status.conditions : [];
+}
+
+function condition(object: AnyObject, type: string): Record<string, any> | undefined {
+  return conditions(object).find((entry) => entry.type === type);
+}
+
+export function podStatus(pod: AnyObject): ResourceStatus {
+  if (pod.metadata?.deletionTimestamp) return { text: "Terminating", tone: "warning" };
+
+  const statuses = [
+    ...(pod.status?.initContainerStatuses ?? []),
+    ...(pod.status?.containerStatuses ?? []),
+  ] as Array<Record<string, any>>;
+
+  const failing = statuses.find((container) => {
+    const waiting = container.state?.waiting?.reason;
+    const terminated = container.state?.terminated?.reason;
+    return waiting === "CrashLoopBackOff" || waiting === "ImagePullBackOff" || waiting === "ErrImagePull" ||
+      terminated === "OOMKilled" || terminated === "Error";
+  });
+
+  if (failing) {
+    const waiting = failing.state?.waiting?.reason;
+    const terminated = failing.state?.terminated?.reason;
+    return {
+      text: waiting ?? terminated ?? "Error",
+      tone: "error",
+      detail: failing.name,
+    };
+  }
+
+  const phase = pod.status?.phase ?? "Unknown";
+  if (phase === "Succeeded") return { text: "Completed", tone: "info" };
+  if (phase === "Failed") return { text: "Failed", tone: "error" };
+  if (phase === "Pending") {
+    const scheduling = condition(pod, "PodScheduled");
+    if (scheduling?.status === "False") {
+      return { text: "Scheduling", tone: "warning", detail: scheduling.reason };
+    }
+    return { text: "Pending", tone: "warning" };
+  }
+
+  const total = pod.spec?.containers?.length ?? statuses.length;
+  const ready = statuses.filter((container) => container.ready).length;
+  if (total > 0 && ready < total) return { text: `Running (${ready}/${total})`, tone: "warning" };
+  return { text: "Running", tone: "success" };
+}
+
+export function workloadStatus(object: AnyObject): ResourceStatus {
+  const desired = object.spec?.replicas ?? 0;
+  const ready = object.status?.readyReplicas ?? 0;
+  const available = object.status?.availableReplicas ?? ready;
+  const updated = object.status?.updatedReplicas ?? ready;
+  const generation = object.metadata?.generation;
+  const observed = object.status?.observedGeneration;
+  const failure = condition(object, "ReplicaFailure");
+
+  if (failure?.status === "True") return { text: "Failed", tone: "error", detail: failure.reason };
+  if (desired === 0) return { text: "Scaled to 0", tone: "neutral" };
+  if (ready === 0) return { text: "Not ready", tone: "error" };
+  if (ready < desired) return { text: `${ready}/${desired} ready`, tone: "warning" };
+  if (available < desired) return { text: `${available}/${desired} available`, tone: "warning" };
+  if (generation !== undefined && observed !== undefined && observed < generation) {
+    return { text: "Rolling out", tone: "info" };
+  }
+  if (updated < desired) return { text: `${updated}/${desired} updated`, tone: "warning" };
+  return { text: "Running", tone: "success" };
+}
+
+export function daemonSetStatus(object: AnyObject): ResourceStatus {
+  const desired = object.status?.desiredNumberScheduled ?? 0;
+  const ready = object.status?.numberReady ?? 0;
+  const unavailable = object.status?.numberUnavailable ?? 0;
+  if (desired === 0) return { text: "No nodes", tone: "neutral" };
+  if (unavailable > 0) return { text: `${ready}/${desired} ready`, tone: "warning" };
+  return { text: `${ready}/${desired} ready`, tone: "success" };
+}
+
+export function jobStatus(object: AnyObject): ResourceStatus {
+  const failed = object.status?.failed ?? 0;
+  const succeeded = object.status?.succeeded ?? 0;
+  const active = object.status?.active ?? 0;
+  const failedCondition = condition(object, "Failed");
+  if (failedCondition?.status === "True") {
+    return { text: "Failed", tone: "error", detail: failedCondition.reason };
+  }
+  if (succeeded > 0) return { text: "Completed", tone: "success" };
+  if (active > 0) return { text: "Running", tone: "info" };
+  if (failed > 0) return { text: `${failed} failed`, tone: "error" };
+  return { text: "Pending", tone: "neutral" };
+}
+
+export function cronJobStatus(object: AnyObject): ResourceStatus {
+  if (object.spec?.suspend) return { text: "Suspended", tone: "warning" };
+  const active = object.status?.active?.length ?? 0;
+  if (active > 0) return { text: `${active} active`, tone: "info" };
+  return { text: "Ready", tone: "success" };
+}
+
+export function nodeStatus(node: AnyObject): ResourceStatus {
+  if (node.spec?.unschedulable) return { text: "Scheduling disabled", tone: "warning" };
+  const ready = condition(node, "Ready");
+  if (ready?.status === "True") return { text: "Ready", tone: "success" };
+  if (ready?.status === "False") return { text: "NotReady", tone: "error", detail: ready.reason };
+  return { text: "Unknown", tone: "warning" };
+}
+
+export function pvcStatus(pvc: AnyObject): ResourceStatus {
+  const phase = pvc.status?.phase ?? "Pending";
+  if (phase === "Bound") return { text: "Bound", tone: "success" };
+  if (phase === "Lost") return { text: "Lost", tone: "error" };
+  return { text: phase, tone: "warning" };
+}
+
+export function pvStatus(pv: AnyObject): ResourceStatus {
+  const phase = pv.status?.phase ?? "Pending";
+  if (phase === "Bound" || phase === "Available") return { text: phase, tone: "success" };
+  if (phase === "Failed") return { text: phase, tone: "error" };
+  return { text: phase, tone: "warning" };
+}
+
+export function serviceStatus(service: AnyObject): ResourceStatus {
+  if (service.spec?.type === "ExternalName") return { text: "ExternalName", tone: "info" };
+  return { text: "Active", tone: "success" };
+}
+
+export function ingressStatus(ingress: AnyObject): ResourceStatus {
+  const lb = ingress.status?.loadBalancer?.ingress ?? [];
+  if (lb.length > 0) return { text: "Ready", tone: "success" };
+  return { text: "Pending", tone: "warning" };
+}
+
+export function hpaStatus(hpa: AnyObject): ResourceStatus {
+  const current = hpa.status?.currentReplicas ?? 0;
+  const desired = hpa.status?.desiredReplicas ?? 0;
+  const able = condition(hpa, "AbleToScale");
+  if (able?.status === "False") return { text: "Scaling issue", tone: "error", detail: able.reason };
+  if (current < desired) return { text: `Scaling ${current}→${desired}`, tone: "info" };
+  return { text: `${current} / ${desired}`, tone: "success" };
+}
+
+export function pdbStatus(pdb: AnyObject): ResourceStatus {
+  const allowed = pdb.status?.disruptionsAllowed ?? 0;
+  if (allowed === 0) return { text: "No disruptions allowed", tone: "warning" };
+  return { text: `${allowed} disruptions allowed`, tone: "success" };
+}
+
+export function eventStatus(event: AnyObject): ResourceStatus {
+  return event.type === "Warning" ? { text: "Warning", tone: "warning" } : { text: "Normal", tone: "info" };
+}
+
+/** Generic fallback used for CRDs and kinds without a dedicated mapping. */
+export function genericStatus(object: AnyObject): ResourceStatus {
+  if (object.metadata?.deletionTimestamp) return { text: "Terminating", tone: "warning" };
+
+  const ready = conditions(object).find((entry) => entry.type === "Ready" || entry.type === "Available");
+  if (ready) {
+    if (ready.status === "True") return { text: "Ready", tone: "success" };
+    if (ready.status === "False") {
+      return { text: ready.reason ?? "Not ready", tone: "error" };
+    }
+  }
+  const phase = object.status?.phase;
+  if (typeof phase === "string") {
+    const lower = phase.toLowerCase();
+    if (["running", "active", "ready", "available", "bound", "succeeded", "healthy"].includes(lower)) {
+      return { text: phase, tone: "success" };
+    }
+    if (["failed", "error", "unhealthy", "lost"].includes(lower)) return { text: phase, tone: "error" };
+    if (["pending", "warning", "terminating", "suspended"].includes(lower)) {
+      return { text: phase, tone: "warning" };
+    }
+    return { text: phase, tone: "info" };
+  }
+  if (typeof object.status?.ready === "boolean") {
+    return object.status.ready
+      ? { text: "Ready", tone: "success" }
+      : { text: "Not ready", tone: "warning" };
+  }
+  return { text: "—", tone: "neutral" };
+}
+
+export function resourceStatus(object: AnyObject, kind?: string): ResourceStatus {
+  const key = (kind ?? object.kind ?? "").toLowerCase();
+  switch (key) {
+    case "pod":
+    case "pods":
+      return podStatus(object);
+    case "deployment":
+    case "deployments":
+    case "statefulset":
+    case "statefulsets":
+    case "replicaset":
+    case "replicasets":
+    case "replicationcontroller":
+      return workloadStatus(object);
+    case "daemonset":
+    case "daemonsets":
+      return daemonSetStatus(object);
+    case "job":
+    case "jobs":
+      return jobStatus(object);
+    case "cronjob":
+    case "cronjobs":
+      return cronJobStatus(object);
+    case "node":
+    case "nodes":
+      return nodeStatus(object);
+    case "persistentvolumeclaim":
+    case "persistentvolumeclaims":
+      return pvcStatus(object);
+    case "persistentvolume":
+    case "persistentvolumes":
+      return pvStatus(object);
+    case "service":
+    case "services":
+      return serviceStatus(object);
+    case "ingress":
+    case "ingresses":
+      return ingressStatus(object);
+    case "horizontalpodautoscaler":
+      return hpaStatus(object);
+    case "poddisruptionbudget":
+      return pdbStatus(object);
+    case "event":
+    case "events":
+      return eventStatus(object);
+    default:
+      return genericStatus(object);
+  }
+}
+
+export function conditionTone(status?: string): Tone {
+  if (status === "True") return "success";
+  if (status === "False") return "error";
+  return "warning";
+}

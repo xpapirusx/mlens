@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource/dm-mono";
+@import "./tokens.css";
+@import "./theme.css";
+@import "./components.css";
+
+/* Theme is driven by the `.dark` class on <html>, not prefers-color-scheme. */
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    user-select: none;
+    cursor: default;
+  }
+
+  /* Text selection is opt-in for content surfaces, not chrome. */
+  input,
+  textarea,
+  pre,
+  code,
+  .selectable,
+  .selectable * {
+    user-select: text;
+  }
+
+  button {
+    font: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+  }
+
+  a {
+    color: var(--accent-text);
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--selection-bg-strong);
+    color: var(--text-primary);
+  }
+}
+
+/* Utility used by compact metadata rows */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tabular, monospace ages and counts in tables */
+.mono-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+}
+
+/* Animated collapsible panel (grid-template-rows technique) */
+.collapse-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-disclosure) var(--ease-shell);
+}
+.collapse-grid[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+.collapse-grid > * {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

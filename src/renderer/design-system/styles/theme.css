@@ -1,0 +1,93 @@
+/*
+ * Maps mLens tokens into Tailwind v4 theme variables so utilities such as
+ * bg-theme-surface, text-theme-text-secondary and border-theme-border exist.
+ * Radii are intentionally larger than Tailwind's defaults (6/8/10/14px).
+ */
+
+@theme inline {
+  --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* Backgrounds */
+  --color-theme-sidebar: var(--bg-sidebar);
+  --color-theme-base: var(--bg-base);
+  --color-theme-surface: var(--bg-surface);
+  --color-theme-elevated: var(--bg-elevated);
+  --color-theme-hover: var(--bg-hover);
+  --color-theme-active: var(--bg-active);
+
+  /* Text */
+  --color-theme-text-primary: var(--text-primary);
+  --color-theme-text-secondary: var(--text-secondary);
+  --color-theme-text-tertiary: var(--text-tertiary);
+  --color-theme-text-disabled: var(--text-disabled);
+  --color-warning-text: var(--warning-text);
+
+  /* Borders */
+  --color-theme-border: var(--border-default);
+  --color-theme-border-light: var(--border-light);
+  --color-theme-border-subtle: var(--border-subtle);
+  --color-theme-border-emphasis: var(--border-emphasis);
+  --color-theme-border-focus: var(--border-focus);
+
+  /* Accent / brand */
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-text: var(--accent-text);
+
+  --color-skyhook: #5088cc;
+  --color-skyhook-50: #ebf2fa;
+  --color-skyhook-100: #d2e2f4;
+  --color-skyhook-200: #a8c7e8;
+  --color-skyhook-300: #7eacdc;
+  --color-skyhook-400: #6a9fe0;
+  --color-skyhook-500: #5088cc;
+  --color-skyhook-600: #4a7cc9;
+  --color-skyhook-700: #3b66a8;
+  --color-skyhook-800: #2d4e82;
+  --color-skyhook-900: #1f365c;
+
+  /* Semantic status */
+  --color-semantic-success: var(--color-success);
+  --color-semantic-warning: var(--color-warning);
+  --color-semantic-error: var(--color-error);
+  --color-semantic-info: var(--color-info);
+  --color-semantic-alert: var(--color-alert);
+
+  /* K8s resource identity colors */
+  --color-k8s-internet: #5088cc;
+  --color-k8s-ingress: #8b5cf6;
+  --color-k8s-service: #3b82f6;
+  --color-k8s-deployment: #10b981;
+  --color-k8s-daemonset: #14b8a6;
+  --color-k8s-statefulset: #06b6d4;
+  --color-k8s-replicaset: #22c55e;
+  --color-k8s-pod: #84cc16;
+  --color-k8s-configmap: #f59e0b;
+  --color-k8s-secret: #ef4444;
+  --color-k8s-hpa: #ec4899;
+  --color-k8s-job: #a855f7;
+  --color-k8s-cronjob: #d946ef;
+
+  /* Radii */
+  --radius: 0.375rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+
+  /* Elevation */
+  --shadow-theme-sm: var(--shadow-sm);
+  --shadow-theme-md: var(--shadow-md);
+  --shadow-theme-lg: var(--shadow-lg);
+  --shadow-drawer: var(--shadow-drawer);
+  --shadow-glow-brand-sm: var(--glow-brand-sm);
+  --shadow-glow-brand-md: var(--glow-brand-md);
+
+  /* Desktop-first breakpoints (Radar) */
+  --breakpoint-sm: 900px;
+  --breakpoint-md: 1100px;
+  --breakpoint-lg: 1280px;
+  --breakpoint-xl: 1536px;
+}
