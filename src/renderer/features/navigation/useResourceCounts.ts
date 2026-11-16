@@ -33,16 +33,10 @@ export function useResourceCounts(options: {
     setLoading(true);
     setError(null);
 
-    const namespaced = resources.filter((resource) => resource.namespaced);
-    const clusterScoped = resources.filter((resource) => !resource.namespaced);
-    const scoped = namespace === "all"
-      ? [...namespaced, ...clusterScoped]
-      : [...namespaced, ...clusterScoped];
-
     void api.resources
       .counts({
         clusterId,
-        resources: scoped.map((resource) => ({
+        resources: resources.map((resource) => ({
           apiVersion: resource.apiVersion,
           kind: resource.kind,
           namespace: resource.namespaced && namespace !== "all" ? namespace : undefined,

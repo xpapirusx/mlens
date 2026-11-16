@@ -15,7 +15,6 @@ import { registerIpc } from "./ipc/register";
 
 const { app, BrowserWindow, Menu, nativeTheme, shell } = electron;
 
-console.log("[mlens] module body");
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
 
@@ -117,14 +116,11 @@ function createWindow(): void {
     },
   });
 
-  console.log("[mlens] creating BrowserWindow");
   mainWindow.once("ready-to-show", () => {
-    console.log("[mlens] ready-to-show");
     mainWindow?.show();
   });
-  mainWindow.webContents.on("render-process-gone", (_e, d) => console.log("[mlens] renderer gone", d));
-  mainWindow.webContents.on("did-fail-load", (_e, code, desc) => console.log("[mlens] load fail", code, desc));
-  mainWindow.webContents.on("console-message", (_e, level, message) => console.log("[renderer]", level, message));
+  mainWindow.webContents.on("render-process-gone", (_e, details) => console.error("[renderer] process gone", details));
+  mainWindow.webContents.on("did-fail-load", (_e, code, description) => console.error("[renderer] load failed", code, description));
 
   const notifyWindowState = (): void => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -157,9 +153,7 @@ function createWindow(): void {
   });
 }
 
-console.log("[mlens] before lock");
 const singleInstance = app.requestSingleInstanceLock();
-console.log("[mlens] lock", singleInstance);
 if (!singleInstance) {
   app.quit();
 } else {
@@ -170,13 +164,10 @@ if (!singleInstance) {
   });
 
   void app.whenReady().then(() => {
-    console.log("[mlens] ready");
     settings = new SettingsStore();
-    console.log("[mlens] settings ok");
     const kubeconfigs = new KubeconfigManager(settings);
     clusters = new ClusterManager(kubeconfigs, settings);
     terminals = new PtyManager();
-    console.log("[mlens] managers ok");
 
     registerIpc({
       settings,
@@ -195,11 +186,8 @@ if (!singleInstance) {
       }
     });
 
-    console.log("[mlens] ipc ok");
     buildMenu();
-    console.log("[mlens] menu ok");
     createWindow();
-    console.log("[mlens] window created");
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

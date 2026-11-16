@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import type { KubeObject } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
@@ -206,6 +207,7 @@ function LogsViewer({
   const [connection, setConnection] = useState<"connecting" | "streaming" | "ended" | "error">("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [stick, setStick] = useState(true);
   const [nonce, setNonce] = useState(0);
 
@@ -304,11 +306,11 @@ function LogsViewer({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[#0f172a]">
-      <div className="flex h-9 shrink-0 flex-wrap items-center gap-1.5 border-b border-white/10 bg-[#111b2e] px-2">
+      <div className="flex min-h-9 shrink-0 flex-wrap items-center gap-1.5 border-b border-white/10 bg-[#111b2e] px-2 py-1">
         <select
           value={container}
           onChange={(event) => setContainer(event.target.value)}
-          className="h-6 max-w-[14rem] rounded border border-white/10 bg-white/5 px-1.5 text-[11px] text-slate-200 focus:outline-none"
+          className="h-6 max-w-[13rem] rounded border border-white/10 bg-white/5 px-1.5 text-[11px] text-slate-200 focus:outline-none"
           title="Container"
         >
           {containers.map((name) => (
@@ -342,17 +344,18 @@ function LogsViewer({
           Time
         </Toggle>
 
-        <div className="ml-auto flex items-center gap-1">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Find in logs…"
-              className="h-6 w-40 rounded border border-white/10 bg-white/5 pl-6 pr-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-skyhook-500"
-            />
-          </div>
-          {query ? <span className="text-[10px] text-slate-400">{matchCount}</span> : null}
+        <div className="ml-auto flex items-center gap-0.5">
+          <button
+            type="button"
+            title="Find in logs"
+            className={cn(
+              "rounded p-1 text-slate-400 hover:bg-white/10 hover:text-slate-200",
+              searchOpen && "bg-skyhook-500/20 text-sky-200",
+            )}
+            onClick={() => setSearchOpen((value) => !value)}
+          >
+            <Search className="h-3 w-3" />
+          </button>
           <button
             type="button"
             title="Reconnect"
@@ -380,10 +383,34 @@ function LogsViewer({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 border-b border-white/5 px-3 py-1 text-[10px] text-slate-500">
+      {searchOpen ? (
+        <div className="flex h-7 shrink-0 items-center gap-2 border-b border-white/10 bg-[#0f172a] px-2">
+          <Search className="h-3 w-3 shrink-0 text-slate-500" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Find in logs…"
+            className="h-5 min-w-0 flex-1 bg-transparent text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none"
+          />
+          {query ? <span className="shrink-0 text-[10px] text-slate-400">{matchCount} matches</span> : null}
+          <button
+            type="button"
+            className="rounded p-0.5 text-slate-500 hover:text-slate-200"
+            onClick={() => {
+              setQuery("");
+              setSearchOpen(false);
+            }}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/5 bg-[#111b2e]/60 px-2 text-[10px] text-slate-500">
         <span
           className={cn(
-            "h-1.5 w-1.5 rounded-full",
+            "h-1.5 w-1.5 shrink-0 rounded-full",
             connection === "streaming"
               ? "bg-emerald-500"
               : connection === "error"
@@ -393,7 +420,7 @@ function LogsViewer({
                   : "animate-pulse bg-amber-500",
           )}
         />
-        <span>
+        <span className="shrink-0">
           {connection === "streaming"
             ? "Streaming"
             : connection === "error"
@@ -402,13 +429,13 @@ function LogsViewer({
                 ? "Stream ended"
                 : "Connecting"}
         </span>
-        <span className="font-mono">
+        <span className="min-w-0 truncate font-mono text-slate-500">
           {namespace}/{pod}
         </span>
         {streamError ? <span className="truncate text-red-400">{streamError}</span> : null}
         <button
           type="button"
-          className="ml-auto text-[10px] text-slate-400 hover:text-slate-200"
+          className="ml-auto shrink-0 text-[10px] text-slate-400 hover:text-slate-200"
           onClick={() => {
             setStick(true);
             const element = scrollRef.current;

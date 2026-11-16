@@ -1,348 +1,376 @@
 # mLens — Design Specification
 
-**Статус:** v1.0 (living document)
-**Референсы:** [Freelens](https://github.com/freelensapp/freelens) (MIT) · [Skyhook Radar](https://github.com/skyhook-io/radar) (Apache-2.0)
+**Status:** implemented prototype (v0.1.0). This document describes the rules the
+interface follows today, not an aspirational future design.
+
+mLens is a desktop Kubernetes IDE with two explicit visual parents:
+
+- **Freelens defines the application shell** — window chrome, cluster rail,
+  catalog, sidebar, page tabs, bottom dock, details panel, button placement and
+  the mechanics of opening things.
+- **Skyhook Radar defines the Kubernetes tooling** — design tokens, typography,
+  icons, table density, filters, status language, resource details, logs and the
+  terminal surface.
+
+The two must not be mixed randomly. A control's **position and behaviour** comes
+from Freelens; its **size, colour, font and internal composition** comes from
+Radar.
 
 ---
 
-## 1. Концепция
+## 1. Research summary and source mapping
 
-mLens — самостоятельная desktop Kubernetes IDE на Electron + React 19 + TypeScript.
+Both reference repositories were studied at source level before implementation.
 
-Главный принцип — **разделение слоёв наследования**:
-
-> **Скелет приложения — Freelens. Визуальный язык и Kubernetes UX — Radar.**
-
-Freelens определяет *где* и *как* расположены элементы интерфейса и как ими управляют.
-Radar определяет *как эти элементы выглядят* и *что внутри Kubernetes-панелей*.
-
-Это не гибрид «на глазок», а два непересекающихся контракта:
-
-| Слой | Источник | Что именно наследуется |
+| Component | Source | Notes |
 |---|---|---|
-| Application Shell | **Freelens** | Компоновка окна: top bar, hotbar (icon rail), sidebar, tab strip, statusbar, dock |
-| Window Management | **Freelens** | Кастомный titlebar, min/max/close, состояние окна, single-window desktop-модель |
-| Navigation | **Freelens** | Welcome → Catalog → Cluster page; вкладки ресурсов; back/forward; дерево навигации в sidebar |
-| Welcome Screen | **Freelens** | Список кластеров, избранное, недавние, добавление kubeconfig, настройки |
-| Cluster Catalog | **Freelens** | Каталог contexts из нескольких kubeconfig, подключение/отключение, статус |
-| Multiple Clusters | **Freelens** | Изолированная сессия на кластер, сохранение состояния вкладок при переключении |
-| Resource Browser | **Radar** | Плотные таблицы, колонки, фильтры, поиск, счётчики, namespace-фильтр |
-| Resource Tables | **Radar** | Высота строк, типографика, бейджи статусов, формат age, density |
-| Resource Filters | **Radar** | Механика поиска/фильтрации/сортировки, индикаторы состояния |
-| Resource Details content | **Radar** | Overview/Details/YAML/Events/Logs/Related — содержимое в стиле Radar внутри окон Lens |
-| Typography | **Radar** | DM Sans / DM Mono, размеры, начертания |
-| Icons | **Radar** | Иконки и их стилистика (lucide-подобная линейная графика) |
-| Colors | **Radar** | Палитра поверхностей, семантика статусов, brand blue |
-| Terminal appearance | **Radar** | Тёмная консольная поверхность, ANSI-палитра, компактный chrome |
-| Terminal integration | **Freelens + Radar UX** | node-pty в main-процессе, xterm.js в renderer, вкладки терминала в dock |
+| Application shell / window layout | **Freelens** | `packages/core/src/renderer/components/cluster-manager`, `layout/main-layout.tsx` |
+| Top bar | **Freelens** | 40px drag region; home/back/forward on the left, window controls on Win/Linux |
+| Hotbar (cluster rail) | **Freelens** | 75px in Freelens; curated cells, not a raw context dump |
+| Cluster catalog | **Freelens** | `Catalog` page with its own menu sidebar and list layout |
+| Welcome screen | **Freelens** | Centered welcome column + actions; mLens merges it into the catalog hero |
+| Sidebar layout | **Freelens** | Cluster header + ordered/collapsible resource groups, 150–400px |
+| Window management | **Freelens** | One desktop window; cluster views stay alive when switching |
+| Tabs and navigation | **Freelens** | `SiblingsInTabLayout` (resource-kind tabs) + dock tabs |
+| Details panel | **Freelens** | Right-side, resizable, inside the cluster frame |
+| Resource Browser | **Radar** | `packages/k8s-ui/src/components/resources/ResourcesView.tsx`, `ResourcesSidebar.tsx` |
+| Resource tables | **Radar** | `TableVirtuoso`, fixed layout, colgroup, 44px rows, 12px uppercase headers |
+| Resource filters | **Radar** | `ActiveFilterBar`, per-column filter popovers, `/` search, regex mode |
+| Resource Details content | **Radar** | Overview / Details / YAML / Events / Logs / Related / Metrics tabs |
+| Typography | **Radar** | DM Sans Variable + DM Mono |
+| Icons | **Radar** | `lucide-react` + kind→icon map |
+| Colors | **Radar** | cool blue-gray surfaces, brand `#4A7CC9`/`#6A9FE0` |
+| Terminal appearance | **Radar** | `#0F172A` console, 13px, Radar ANSI palette |
+| Terminal integration | **Freelens + Radar UX** | Freelens-style bottom dock; Radar-style toolbar and surface |
 
-**Запрещено:** Go-бэкенд, отдельный сервер, Docker, mock-данные в готовых функциях, вкладки/окна в стиле Radar, таблицы в стиле Freelens.
+### License constraints
 
----
-
-## 2. Лицензии и переиспользование
-
-| Проект | Лицензия | Следствия для mLens |
+| Project | License | What mLens uses |
 |---|---|---|
-| Freelens | MIT | Свободное переиспользование кода и структуры; сохранить copyright-notice |
-| Skyhook Radar | Apache-2.0 | Переиспользование разрешено; **обязательно** сохранить NOTICE/атрибуцию при копировании токенов, значений и кода |
+| Freelens | MIT | Shell structure and interaction concepts; no source files copied |
+| Radar | Apache-2.0 | Design-token values and component recipes adapted; attribution in `THIRD_PARTY_NOTICES.md` and `licenses/Apache-2.0.txt` |
+| DM Sans / DM Mono | SIL OFL 1.1 | Bundled through `@fontsource` packages; fonts are not sold separately |
+| lucide icons | ISC | Icon components |
 
-Правило: mLens **не форкает** ни один из проектов. Мы изучаем исходники и создаём собственную реализацию. Числовые дизайн-токены и отдельные UX-решения, взятые из Radar, атрибутируются в `THIRD_PARTY_NOTICES.md` (файл уже упоминается в `tokens.css`).
-
----
-
-## 3. Технологический стек
-
-- **Electron** (main + preload + renderer), сборка `electron-vite` + `electron-builder`
-- **React 19**, **TypeScript**
-- **Zustand** — состояние renderer (кластерные сессии, вкладки, подписки watch)
-- **@kubernetes/client-node** — Kubernetes API из main-процесса
-- **xterm.js** + **node-pty** — терминал и pod exec
-- **Monaco** — YAML viewer/editor
-- **Tailwind CSS 4** + CSS custom properties — дизайн-токены
-- **@tanstack/react-virtual** — виртуализация таблиц
-- **lucide-react** — иконки (стилистика Radar)
-
-Вся бизнес-логика — TypeScript. Main-процесс отвечает за привилегированные операции (kubeconfig, API-запросы, pty, exec); renderer общается только через типизированный IPC-контракт (`src/shared/ipc.ts`).
+mLens does not use the Radar or Skyhook names/logos as product marks, and does
+not ship a Go backend.
 
 ---
 
-## 4. Архитектура
+## 2. Shell specification (Freelens)
+
+### 2.1 Window anatomy
 
 ```
-src/
-├── main/                      # Electron Main Process
-│   ├── index.ts               # Окно приложения, lifecycle
-│   ├── ipc/register.ts        # Регистрация всех IPC-хендлеров
-│   ├── kubernetes/
-│   │   ├── kubeconfig.ts      # Парсинг/список kubeconfig, contexts
-│   │   ├── cluster-manager.ts # Реестр подключённых кластеров (сессии)
-│   │   ├── session.ts         # Изолированная сессия кластера (kube client)
-│   │   ├── discovery.ts       # API Discovery + CRD-обнаружение
-│   │   ├── resource-watcher.ts# Watch-подписки, события в renderer
-│   │   ├── log-streams.ts     # Потоки логов pod'ов
-│   │   ├── exec-sessions.ts   # Pod exec (websocket → pty-подобный поток)
-│   │   └── http.ts            # Прямые API-вызовы (list/get/delete/apply/scale)
-│   ├── terminal/pty-manager.ts# Локальные shell-процессы (node-pty)
-│   └── settings/store.ts      # Настройки приложения (persist)
-├── preload/                   # Secure IPC bridge (contextBridge)
-├── shared/                    # Типы, IPC-контракт, ключи каналов
-└── renderer/
-    ├── app-shell/             # Freelens-структура: topbar, hotbar, sidebar,
-    │                          #   tab strip, dock, statusbar, layout
-    ├── design-system/         # Radar-токены + переиспользуемые компоненты
-    └── features/
-        ├── welcome/           # Welcome Screen (Freelens)
-        ├── catalog/           # Cluster Catalog (Freelens)
-        ├── clusters/          # Сессии кластеров, multi-cluster state
-        ├── navigation/        # Freelens-навигация: вкладки, back, дерево
-        ├── resource-browser/  # Radar-таблицы, фильтры, поиск
-        ├── resource-details/  # Radar-контент внутри Lens-механики вкладок
-        ├── terminal/          # xterm.js: локальный shell + pod exec
-        └── settings/          # Настройки
+┌──────────────────────────────────────────────────────────────────────┐
+│ Top bar · 44px · drag region · home/back · cluster pill · search · ⚙ │
+├──────┬───────────────────────────────────────────────────────────────┤
+│      │ Cluster frame                                                 │
+│ Hot  │ ┌────────────┬──────────────────────────────────────────────┐ │
+│ bar  │ │ Sidebar    │ Sibling resource tabs (36px)                 │ │
+│ 54px │ │ 236px      │ ┌──────────────────────────────────────────┐ │ │
+│      │ │ resizable  │ │ Resource browser (Radar table)           │ │ │
+│      │ │ 170–420    │ │                    ┌─────────────────────┼─┤ │
+│      │ │            │ │                    │ Details drawer      │ │ │
+│      │ │            │ └────────────────────┴─────────────────────┘ │ │
+│      │ │            │ Terminal dock (34px collapsed / 340px open)  │ │
+│      │ └────────────┴──────────────────────────────────────────────┘ │
+├──────┴───────────────────────────────────────────────────────────────┤
+│ Status bar · 24px                                                    │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-### IPC-модель
+Dimensions are CSS pixels. Freelens uses 40/75/21px chrome; mLens keeps the same
+structure at Radar's slightly larger control scale (44/54/24px).
 
-Единый контракт `MlensApi` (уже реализован в `src/shared/ipc.ts`): `app`, `clusters`, `resources`, `pods`, `logs`, `exec`, `terminal`, `settings`. Renderer не имеет прямого доступа к Node/K8s. Push-события (watch, логи, данные терминала) — только через `webContents.send` по перечисленным каналам.
+**What is deliberately identical to Freelens**
 
-### Multi-cluster sessions
+- A **single application window**, never one browser window per resource.
+- The **hotbar is the cluster switcher** on the far left; the catalog is the
+  home view.
+- The **cluster name lives in the sidebar header**, not in the page title.
+- Resource **kinds are chosen in the sidebar**; a page-level tab strip shows the
+  **sibling kinds** of the active group (e.g. Pods / Deployments / StatefulSets),
+  mirroring Freelens' `SiblingsInTabLayout`.
+- Clicking a resource **opens a right-side details panel** (Freelens drawer
+  mechanic) rather than navigating away from the list.
+- **Logs and terminals live in the bottom dock**; terminal tabs stay mounted when
+  switching tabs.
+- Top-bar home/back, window controls and the drag region follow Freelens
+  placement.
+- Details panel has no backdrop and does not unmount the list.
 
-- `ClusterManager` в main держит map `ClusterId → ClusterSession`; каждая сессия — собственный kube-config, client, watch-подписки, exec/log-потоки.
-- В renderer — Zustand-стор на кластер: открытые вкладки, выбранные namespace, состояние фильтров, скролл. Переключение кластера не разрушает состояние остальных.
+**Where mLens intentionally differs**
+
+Freelens implements cluster isolation with one `<iframe>` per cluster (separate
+origin, DI container, MobX graph). mLens runs one React tree and keeps **one
+isolated Kubernetes session per cluster in the main process** (`KubeConfig`
+instance + watchers + PTYs) plus a **keyed renderer session** holding namespace,
+selected kind, filters, open details and terminal tabs. The user-visible
+contract is the same: switching clusters preserves navigation and open tabs;
+disconnecting a cluster tears down only that cluster's watchers and streams. The
+trade-off is documented in `ARCHITECTURE.md` §10.
+
+### 2.2 Top bar
+
+Left → right:
+
+1. Home (catalog).
+2. Back — when the details drawer is open, returns to the previously opened
+   resource; otherwise returns to the catalog.
+3. Forward — present but disabled; mLens has no route history yet, and disabled
+   is preferable to a fake action.
+4. Active cluster pill: health dot, cluster name, Kubernetes version.
+5. Command trigger (“Search clusters, resources and actions…”, `⌘K`).
+6. New terminal, theme toggle, settings.
+7. Window controls on Windows/Linux (minimise, maximise/restore, close). macOS
+   keeps native traffic lights (`hiddenInset`).
+
+The bar is the window drag region; every control is `no-drag`.
+
+### 2.3 Hotbar
+
+- 54px rail, deepest surface token (`--bg-sidebar`).
+- Catalog button at the top, then **favourites → recently opened → active**
+  clusters (maximum 9). A cluster appears after it is opened; mLens does not dump
+  all 100+ kubeconfig contexts into the rail.
+- Each cell: gradient tile with cluster initials, connection dot, tooltip with
+  context/server/state. Duplicate-looking names remain distinguishable by colour
+  and tooltip.
+- Bottom: import kubeconfig, settings.
+
+### 2.4 Cluster sidebar
+
+- Cluster header: avatar + health dot, cluster name, Kubernetes version and
+  context, overflow menu (favourite, copy context, refresh namespaces, settings,
+  catalog, disconnect).
+- Resource filter input.
+- Groups in Freelens order: Workloads, Network, Configuration, Storage, Access
+  Control, Cluster, Scaling, Other, then one group per CRD API group.
+- Group rows are collapsible and show the number of kinds; kind rows show icon,
+  display name and a server count.
+- Counts are lower-bound-aware and never invented: unavailable counts are blank;
+  the sidebar reports when counts cannot be read.
+- Bottom strip: namespace count + API server host.
+- Width is draggable 170–420px and persisted.
+
+### 2.5 Sibling resource tabs
+
+A 36px strip above the table lists the other listable kinds in the active
+sidebar group. It is the Freelens “resource tabs” mechanic: selecting a tab
+changes the active kind without leaving the page. It is hidden when the group
+contains a single kind.
+
+### 2.6 Dock
+
+- Collapsed height 34px, default open height 340px, minimum 140px, drag handle on
+  the top edge.
+- Tab strip: terminal icon + title + close; “new terminal”, maximise, collapse.
+- All terminal tabs stay mounted; only the active one is visible, so scrollback
+  and PTY state survive switching.
+- Local shells and pod exec share the same dock, visually identical to Radar's
+  console.
+- Double-clicking the dock header collapses/expands it.
+
+### 2.7 Details drawer
+
+- Right edge, inside the cluster frame, **not** a modal and **not** a new window.
+- Default width 560px; draggable 460px → 74% of the window; expand button morphs
+  to nearly full width.
+- Header: kind outline pill, status badge, API version, back-to-previous-resource,
+  refresh, pod exec (Pods only), expand, close. Below: name, copy, namespace,
+  age.
+- Tabs: **Overview, Details, YAML, Events, Logs, Related, Metrics**.
+- `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
+- Opening another row replaces the content and pushes the previous resource onto
+  a 25-entry back stack.
+
+### 2.8 Keyboard
+
+| Shortcut | Action |
+|---|---|
+| `⌘K` / `Ctrl+K` | Command palette |
+| `⌘,` / `Ctrl+,` | Settings |
+| `⌘T` / `Ctrl+T` | New local terminal |
+| `⌘W` / `Ctrl+W` | Close details drawer (when open) |
+| `Escape` | Close details |
+| `/` | Focus table search (when not typing) |
+| `↑` / `↓` / `Enter` | Move row highlight / open resource |
+| `⌘C` / `Ctrl+C` | Copy terminal selection (otherwise sends ^C) |
+| `⌘V` / `Ctrl+V` | Paste into terminal |
+| `⌘F` / `Ctrl+F` | Terminal search |
 
 ---
 
-## 5. Application Shell (Freelens-структура)
+## 3. Design system (Radar)
 
-Метрики shell (токены уже в `tokens.css`):
+### 3.1 Type
 
-| Токен | Значение | Назначение |
+| Role | Family | Usage |
 |---|---|---|
-| `--shell-topbar-height` | 44px | Верхняя панель: кастомный titlebar + строка управления |
-| `--shell-hotbar-width` | 54px | Левый icon-rail (как hotbar в Lens) |
-| `--shell-sidebar-width` | 236px | Дерево навигации кластера |
-| `--shell-tabstrip-height` | 36px | Вкладки открытых ресурсов |
-| `--shell-statusbar-height` | 24px | Статус подключения, версия, namespace |
-| `--shell-dock-default-height` | 340px | Dock (терминал/логи) снизу, ресайзится |
+| UI | **DM Sans Variable** (`@fontsource-variable/dm-sans`) | everything except code |
+| Code / terminal | **DM Mono** (`@fontsource/dm-mono`) | YAML, logs, terminal, identifiers, ages |
 
-### Компоновка
+Base 14px, line-height 1.5. Table body cells 14px; table headers 12px, 500,
+uppercase, letter-spacing wide. Detail section titles 13px/500; drawer title
+18px/600; dock tabs 12px; terminal 13px/1.2; logs 11px/20px.
+
+### 3.2 Colour tokens
+
+Dark is the default in mLens because the product is used next to terminals and
+dashboards; light mode is fully supported.
+
+| Token | Light | Dark |
+|---|---|---|
+| `--bg-sidebar` | `#E7ECF5` | `#080B16` |
+| `--bg-base` | `#F0F3F9` | `#0B0F1E` |
+| `--bg-surface` | `#F8FBFE` | `#14192A` |
+| `--bg-elevated` | `#E6ECF5` | `#1E2338` |
+| `--bg-hover` | `#DDE5F2` | `#282E48` |
+| `--bg-active` | `#D3DCEC` | `#1C2840` |
+| `--text-primary` | `#1A1C20` | `#F5F6F8` |
+| `--text-secondary` | `#555860` | `#D8DAE0` |
+| `--text-tertiary` | `#6B7080` | `#B0B5C0` |
+| `--text-disabled` | `#A0A4AC` | `#6A7080` |
+| `--border-default` | `#D8E0EE` | `#222840` |
+| `--border-light` | `#CDD6E8` | `#2C324A` |
+| brand / accent | `#4A7CC9` | `#6A9FE0` |
+| success | `#22C55E` | `#22C55E` |
+| warning | `#F59E0B` | `#F59E0B` |
+| alert | `#F97316` | `#F97316` |
+| error | `#EF4444` | `#EF4444` |
+| info | `#3B82F6` | `#3B82F6` |
+| terminal surface | `#0F172A` | `#0F172A` |
+
+Rules:
+
+- Never use raw Tailwind greys/blue for surfaces or text; use `bg-theme-*`,
+  `text-theme-*`, `border-theme-*`.
+- One brand hue only. Status hues are semantic and never used decoratively.
+- Terminal/log surfaces stay dark in both themes.
+- Selection uses `--selection-bg` / `selection-strong`; selected rows must also
+  carry a ring (`selection-ring`) in keyboard navigation.
+
+### 3.3 Geometry
+
+| Token | Value | Use |
+|---|---|---|
+| `rounded` | 6px | badges, chips, inline elements |
+| `rounded-md` | 8px | inputs, small containers |
+| `rounded-lg` | 10px | buttons, dropdowns, panels |
+| `rounded-xl` | 14px | dialogs, hero cards |
+| table row | **44px** | natural Radar density (`px-4 py-3`, 14px text) |
+| table header | 40px | `px-4`, 12px uppercase |
+| badge | 24px | 12px, 0.5px border, 20px line-height |
+| terminal dock tab strip | 34px | compact |
+| top bar / status bar | 44 / 24px | shell chrome |
+
+Shadows: `shadow-theme-sm/md/lg`, drawer shadow for the details panel. No
+gradients except the catalog hero background and cluster avatar tiles.
+
+### 3.4 Component contracts
+
+- **Buttons**: `.btn-brand` primary, `.btn-secondary`, `.btn-ghost`, icon buttons
+  28px. No floating action buttons.
+- **Badges**: `.badge` / `.badge-sm` + a status class. Never hand-roll status
+  colours in JSX. Kind identity uses `.kind-outline` (coloured text + outline,
+  no fill).
+- **Tables**: fixed layout, explicit column widths, hairline 0.5px row dividers,
+  sticky header, hover row tint, `selection-strong` for the open resource.
+- **Sections**: `.card-inner` / `.card-inner-lg`; collapsible sections use the
+  grid-rows disclosure primitive, not native `<details>`.
+- **Menus/dialogs**: `.menu-surface`, `.dialog`; portal, focus return on close,
+  Escape closes.
+- **Tooltips**: portal, 260ms delay, 11px, max 320px.
+- **Empty/error states**: honest text, retry action where possible.
+
+### 3.5 Resource browser composition
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│ Topbar: traffic lights · breadcrumb · actions · ⚙        │ 44px
-├────┬─────────────┬───────────────────────────────────────┤
-│H   │  Sidebar    │  Tab strip (вкладки ресурсов)         │ 36px
-│o   │  (дерево    ├───────────────────────────────────────┤
-│t   │   навигации │                                       │
-│b   │   Lens-     │   Рабочая область                     │
-│a   │   структура,│   (Resource Browser / Details —       │
-│r   │   Radar-    │    Radar-контент)                     │
-│    │   стиль)    │                                       │
-│54px│  236px      ├───────────────────────────────────────┤
-│    │             │  Dock: терминал / логи (вкладки)      │ ~340px
-├────┴─────────────┴───────────────────────────────────────┤
-│ Statusbar: cluster · context · namespace · watch status  │ 24px
-└──────────────────────────────────────────────────────────┘
+toolbar 48px : [kind icon] Kind  count  freshness | namespace · search · filters · columns · refresh · Create
+filter bar 32px (only when filters active)
+table      : fixed header + virtualised rows
+footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load more
 ```
 
-### Механика (Freelens)
+- Search is case-insensitive across name, namespace, labels and visible cell
+  values; regex mode is available and flagged red when invalid.
+- Per-column filters open from the funnel in the header or the toolbar. A column
+  is filterable when it has 2–60 distinct values. Filters are include-only
+  multi-select with value counts.
+- Sorting cycles ascending → descending → none; default is name ascending.
+- Namespaces: “All namespaces” + per-namespace scope; system namespaces hidden by
+  default and toggleable in settings.
+- Column visibility is per kind, persisted in the session; default-hidden
+  columns (Pod IP, QoS, images…) are declared per kind.
+- Rows open details on click and a context menu on right click (details, YAML,
+  logs, exec, scale, restart, copy kubectl command, delete).
+- Auto-update: live watch stream plus polling at the configured interval
+  (10/30/60/120s or manual). The freshness indicator is explicit: `Live`,
+  `Polling`, `Paused`, `Loading`, plus “Ns ago”.
 
-Эталонные компоненты Freelens (структурные ссылки, не копирование):
+### 3.6 Resource details content
 
-- Shell: `packages/core/src/renderer/components/cluster-manager/cluster-manager.tsx` (TopBar + `#lens-views` + HotbarMenu + StatusBar), `cluster-view.tsx`, `cluster-frame-handler.ts` (каждый кластер — собственный DOM-subtree/фрейм-контекст).
-- Layout: `renderer/components/layout/main-layout.tsx` (sidebar + resizable anchor + contents), `sidebar.tsx`, `sidebar-item.tsx`, `top-bar/`, `tab-layout.tsx`.
-- Hotbar: `renderer/components/hotbar/hotbar-menu.tsx` — левый rail иконок кластеров.
-- Dock (вкладки снизу): `renderer/components/dock/dock.tsx`, `dock-tabs.tsx`, `dock-tab-store/` — store вкладок с kind + payload (terminal, logs, edit-resource).
-- Welcome: `renderer/components/welcome/welcome.tsx` + расширяемый список пунктов меню; Add cluster: `add-cluster/add-cluster.tsx`; каталог: `catalog/` + `favorites/`.
-- Навигация: кастомный роутер (`packages/routing`, не react-router) — route-инъекции с `path` + component, `renderer/navigation/navigate`, history для back/forward.
-- Main: `main/kubeconfig-manager/` (несколько kubeconfig), `main/cluster-enumeration/` (enumeration contexts), `main/catalog/` + `catalog-sync-to-renderer/` (каталог в main, синк в renderer по IPC), `main/shell-session/` (node-pty).
+- **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
+  account, containers (image, readiness, restarts, requests/limits, ports),
+  conditions, volumes, scheduling. Workloads: replicas, rollout state,
+  conditions, container template. Node: capacity/allocatable bars, conditions,
+  system info, taints. Plus Services, Ingresses, ConfigMap/Secret (with explicit
+  reveal), storage, CRDs, HPA, Jobs, events, generic CRDs.
+- **Details** — metadata, owner references, labels, annotations, raw spec/status.
+- **YAML** — Monaco, read-only by default, edit + dry-run + apply.
+- **Events** — live event list, warning filter, search, counts, timestamps.
+- **Logs** — streaming pod logs; workload/service/node pod picker; container,
+  tail, follow, previous, timestamps, search, download, clear, line numbers;
+  error/warn lines tinted.
+- **Related** — owners, services selecting a Pod, pods managed by a workload,
+  replicasets of a deployment, jobs of a cronjob, mounted config refs, node pods,
+  bound PV. Every row navigates in the same drawer.
+- **Metrics** — real metrics.k8s.io usage for Pods/Nodes; when the API is absent
+  the panel says exactly that. No synthetic numbers; historical charts are not
+  implemented.
 
-Отличия mLens от Freelens (осознанные упрощения): вместо MobX + ogre-tools DI — Zustand и прямые модули; вместо per-cluster HTTPS-прокси — прямые IPC-вызовы через `ClusterSession`; вместо SCSS-модулей — Tailwind 4 + CSS-токены. Структурные роли компонентов сохраняются 1:1.
+### 3.7 Terminal and logs
 
-- **Welcome Screen** — стартовая страница без кластера: каталог, избранное, недавние, добавление kubeconfig (диалог/путь), быстрый connect, настройки.
-- **Cluster page** — после подключения: hotbar + sidebar с деревом ресурсов, tab strip с открытыми ресурсами, dock.
-- **Вкладки** — по модели Freelens: открытие ресурса создаёт запись в tab store (kind + payload), а не маршрут; вкладки переключаются, закрываются (×), дубли не создаются; back/forward через history навигации; состояние вкладок переживает переключение кластера (per-cluster frame-контекст как `cluster-frame-handler.ts`).
-- **Sidebar** — Lens-группировка: Cluster / Workloads (Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs) / Network (Services, Ingresses, NetworkPolicies) / Config (ConfigMaps, Secrets) / Storage (PV, PVC, StorageClasses) / Security/RBAC (SA, Roles, Bindings, ClusterRoles) / Policy (HPA, PDB) / Cluster (Nodes, Namespaces, Events) / **Custom Resources** (динамически из Discovery).
-- **Контекстные меню** — правый клик на ресурсе: Edit YAML, Delete, Scale, Restart, Logs, Exec, Copy Name.
-- **Dock** — панель снизу для терминала и логов, ресайз мышью, сворачивание, несколько вкладок.
-
-### Стиль (Radar)
-
-Все элементы shell рендерятся дизайн-системой Radar: DM Sans, компактные высоты, радиусы 6/8/10/14px, плоские поверхности без градиентов, brand blue `#4a7cc9`/`#6a9fe0`.
-
----
-
-## 6. Design System (Radar-визуальный язык)
-
-Источник токенов — `src/renderer/design-system/styles/tokens.css` (адаптация `radar/packages/k8s-ui/src/theme/variables.css`).
-
-### Поверхности (светлая / тёмная тема, `light-dark()`)
-
-| Токен | Light | Dark |
-|---|---|---|
-| `--bg-sidebar` | `#e7ecf5` | `#080b16` |
-| `--bg-base` | `#f0f3f9` | `#0b0f1e` |
-| `--bg-surface` | `#f8fbfe` | `#14192a` |
-| `--bg-elevated` | `#e6ecf5` | `#1e2338` |
-| `--color-brand` | `#4a7cc9` | `#6a9fe0` |
-
-### Семантика статусов
-
-`--color-success #22c55e` · `--color-warning #f59e0b` · `--color-error #ef4444` · `--color-info #3b82f6` · `--color-alert #f97316`
-
-### Типографика
-
-- UI: **DM Sans Variable** (400/500/600), base `line-height: 1.5`.
-- Данные/моно: **DM Mono** — имена ресурсов, age, IP, счётчики, YAML, терминал.
-- Таблицы (по Radar): заголовки `12px / 500 / uppercase / tracking-wide`; ячейки `14px` (`text-sm`); бейджи `12px / 500`.
-- Радиусы: `0.375rem` (badge), `0.5rem`, `0.625rem`, `0.875rem` (buttons/dialogs) — намеренно «круглее» дефолтов Tailwind.
-- Отступы: ячейки таблиц `px-4 py-3`, `gap-1.5`, поля страниц `px-6`.
-
-### Семантика статусов (двухслойная, по Radar)
-
-1. CSS-классы (`components.css`): `.status-healthy` (emerald), `.status-degraded` (amber), `.status-alert` (orange — между warning и error), `.status-unhealthy` (red), `.status-neutral` (sky — намеренные состояния: suspended, scaled-to-0, completed), `.status-unknown` (gray).
-2. JS-карта `badge-colors.ts`: running/active/succeeded/bound/ready → success; pending/progressing/suspended/waiting → warning; failed/crashloopbackoff/imagepullbackoff/evicted/oomkilled → error; completed/terminated → info. Severity-dot: emerald/amber/orange/red/sky-500.
-3. Бейдж: inline-flex, padding `0.125rem 0.5rem`, 12px/500, radius `0.375rem`, border 0.5px.
-4. Цвета K8s kind'ов (`--color-k8s-*`): pod `#84cc16`, deployment `#10b981`, service `#3b82f6`, ingress `#8b5cf6`, configmap `#f59e0b`, secret `#ef4444`, hpa `#ec4899`, job `#a855f7`, cronjob `#d946ef` и т.д.
-
-### Терминал
-
-Тёмная поверхность в обеих темах (`--terminal-bg #0f172a`), собственная ANSI-палитра (16 цветов, light/dark варианты уже в токенах).
-
-### Переиспользуемые компоненты (`design-system/`)
-
-Button, IconButton, Badge/StatusDot, Tooltip, Menu/Dropdown, Tabs, Input, Select, Panel, Drawer, Dialog, VirtualTable, YamlViewer (Monaco), TerminalChrome, EmptyState, Spinner, Kbd.
-
-**Анти-паттерны (запрещены):** SaaS-дашборд стиль, крупные карточки, градиенты, чрезмерные скругления, пустое пространство, декоративные элементы.
+- xterm.js surface `#0F172A`, foreground `#E2E8F0`, cursor `#60A5FA`, Radar ANSI
+  palette, 13px DM Mono, line-height 1.2, 5000-line scrollback.
+- Local shells are real PTYs via node-pty; pod shells are real Kubernetes exec
+  over WebSocket with resize frames.
+- Logs are DOM text (not xterm), DM Mono 11px, numbered, with a forced dark
+  palette, matching Radar's “console is not chrome” rule.
 
 ---
 
-## 7. Resource Browser (Radar)
+## 4. State and navigation model (as seen by the user)
 
-### Таблица
+Per cluster, the following survive switching clusters and are restored when the
+cluster is selected again:
 
-Эталон: `packages/k8s-ui/src/components/resources/ResourcesView.tsx` (главный референс-файл Radar) + `SortableTh`, `Badge`, `MiddleEllipsis`, `resource-utils.ts`.
+- namespace scope, selected kind, sibling tab position;
+- per-kind search text, regex flag, sort, column filters and hidden columns;
+- sidebar group expansion and sidebar width;
+- the open details resource, its active tab, and the back stack;
+- dock open state, height, terminal tabs and their live PTYs.
 
-- Виртуализованная таблица (`table-layout: fixed`, явные `<col>` ширины из Tailwind-классов: `w-24`→96px … `w-96`→384px; Name-колонка гибкая, min 200px; min-width колонки вычисляется по ширине заголовка, cap 320px).
-- Плотность: header `px-4 py-3 text-xs uppercase`; ячейки `px-4 py-3 text-sm` → **высота строки ~45–48px**; hover через `transition-colors`; длинные имена — middle-ellipsis + кнопка copy на hover.
-- Колонки по типу ресурса (curated, из `KNOWN_COLUMNS` Radar):
-  - **Pods:** Name · Namespace (192px) · Containers (128px, квадратики готовности per-container с tooltip) · Status (160px) · CPU (usage/limit) · Memory · Restarts (112px) · GPU/Pod IP (скрытые) · Node (176px) · Age (96px)
-  - **Deployments:** Name · Namespace · Status · Ready (ready/desired) · Up-to-date · Available · Images (192px) · Age
-  - **Nodes:** Name · Status (176px) · Roles (112px) · CPU · Memory · Pods (running/allocatable) · Conditions · Taints · Version · Age
-  - **CRD/unknown:** Name · Namespace · Status · Age + рендер `additionalPrinterColumns` из CRD.
-- **Status** — severity-dot + бейдж по семантике из раздела 6.
-- **Age** — k8s-стиль (`5m`, `3d`, `2y`), `formatAge`/`formatDuration`.
+Connections themselves also survive: switching clusters does not disconnect the
+previous cluster, and its watchers continue to keep data fresh.
 
-### Панель над таблицей
-
-- Поиск с режимом plain/regex (toggle), per-column faceted фильтры (появляются при 2–30 уникальных значениях; namespace без капа, node ≤200), режимы include/exclude, removable filter pills (`ActiveFilterBar`), спец-фильтр проблем Pod'ов (CrashLoopBackOff, ImagePullBackOff, OOMKilled…).
-- Сортировка: клик по заголовку asc → desc → none; иконки `ChevronUp/Down` при активной сортировке, dim `ArrowUpDown` как hint; состояние сортировки персистится per kind; дефолт — age desc.
-- Namespace-скоуп — на уровне приложения (switcher в topbar, `?namespaces=` передаётся во все запросы).
-- Счётчик ресурсов, индикатор live-обновления (watch), кнопка обновления, ColumnPicker.
-
-### Данные
-
-- `resources.discover(clusterId)` → полный список API-ресурсов, включая CRD (динамическое обнаружение, не жёсткий список).
-- `resources.watch` → подписка; таблица обновляется инкрементально по `WatchEventPayload` (ADDED/MODIFIED/DELETED).
-- RBAC-aware: недоступные ресурсы показываются с индикатором «нет прав», а не скрываются молча.
+Switching is done from the hotbar, catalog, command palette or settings. The
+catalog remains one click away (`Home`).
 
 ---
 
-## 8. Resource Details (Radar-контент в Lens-механике)
+## 5. Explicit non-goals / present limitations
 
-Открытие: клик по строке → **вкладка** в tab strip (механика Freelens). Внутри вкладки — Radar-стилизованный контент.
+These are stated so they are not mistaken for finished features:
 
-### Общая структура
-
-Эталон: `packages/k8s-ui/src/components/shared/DetailShell.tsx` + `ResourceRendererDispatch.tsx` + `ResourceActionsBar.tsx`.
-
-- **DetailShell**: строка breadcrumb → identity-заголовок (title + actions) → опциональный subheader (сводка статуса) → underline tab strip (активная вкладка: `text-primary + border-b-2 brand`, `py-2 px-3 text-sm`) → контент. Вкладки авто-компактятся (drop иконок) через ResizeObserver.
-- Заголовок: имя (моно, middle-ellipsis), kind, namespace, статус-бейдж, age, кнопки действий (Edit YAML, Delete, Restart, Scale…).
-- Секции/подвкладки: **Overview** · **YAML** · **Events** · **Logs** (для pod-подобных) · **Related** · **Conditions**.
-- Events: бейджи Normal=emerald / Warning=amber (`EVENT_TYPE_COLORS`).
-- YAML: Monaco + monaco-yaml — `EditableYamlView` (edit/apply с diff), read-only — shiki `CodeViewer`, изменения — `UnifiedDiff`.
-
-### Pod Details
-
-Основная информация (namespace, node, IP, QoS, priority) · container status'ы (image, ready, restarts, state) · conditions · events · logs (+ previous logs, выбор контейнера) · exec (открывает вкладку терминала в dock) · YAML · связанные Deployment/ReplicaSet/Service.
-
-### Deployment Details
-
-Replicas (desired/available/ready) · rollout status · conditions · дочерние ReplicaSets · Pods · events · YAML · конфигурация контейнеров.
-
-### Node Details
-
-Capacity/Allocatable · conditions · pods на узле · система (OS, runtime, version) · events.
-
-### YAML
-
-Monaco в режиме YAML: read-only viewer с переключением в режим apply (редактирование → `resources.apply`), подсветка, сворачивание.
-
----
-
-## 9. Terminal
-
-- **Внешний вид — Radar:** тёмная консольная поверхность, DM Mono, компактный chrome, ANSI-палитра из токенов; xterm позиционируется absolute-fill контейнера.
-- **Интеграция — Freelens:** терминал живёт в dock как вкладка, доступен из hotbar и из Pod Details (Exec).
-- Эталон Radar: `packages/k8s-ui/src/components/dock/BottomDock.tsx`, `TerminalTab.tsx` (exec), `LocalTerminalTab.tsx`, `TerminalSearchBar.tsx` (search addon), `terminalKeys.ts`, multiline paste confirm.
-- Реализация: `node-pty` в main (`pty-manager.ts`), xterm.js + addons (fit, search, web-links) в renderer, данные через IPC (`terminal:*`, `exec:*`).
-- Возможности: несколько вкладок, локальный shell, pod exec (выбор контейнера), copy/paste, resize, поиск, hotkeys.
-
----
-
-## 10. Kubernetes Integration (main-процесс)
-
-- **Kubeconfig:** список источников (несколько файлов), добавление через диалог/путь, удаление; contexts → ClusterSummary.
-- **Подключение:** `clusterConnect` создаёт изолированную `ClusterSession` (собственный kubeconfig-объект, client, watchers). Health-check, список namespaces, версия кластера.
-- **Discovery:** `/apis` + `/api` → все ресурсы, включая CRD; группировка для sidebar.
-- **CRUD:** list/get/delete/apply/scale/restart — через `@kubernetes/client-node` и прямые HTTP-вызовы.
-- **Watch:** подписки с ресинком, события пушатся в renderer. (Отличие от Radar: там polling 30–60s через REST; mLens использует нативный K8s watch через IPC — функционально эквивалентно, но без HTTP-бэкенда.)
-
----
-
-## 10.1. Эталонные файлы Radar (приложение А)
-
-Тема/токены: `packages/k8s-ui/src/theme/variables.css` ⭐, `tailwind-theme.css` ⭐, `components.css` ⭐, `web/src/index.css` ⭐ (fonts, breakpoints, radii, xterm/scrollbar).
-Таблицы: `components/resources/ResourcesView.tsx` ⭐, `ResourcesSidebar.tsx`, `ColumnPickerList.tsx`, `column-order.ts`, `ActiveFilterBar.tsx`, `resource-utils.ts`, `ui/Badge.tsx`, `ui/SortableTh.tsx`, `ui/MiddleEllipsis.tsx`.
-Детали: `shared/DetailShell.tsx` ⭐, `ResourceRendererDispatch.tsx`, `ResourceActionsBar.tsx`, `EditableYamlView.tsx`, `ui/CodeViewer.tsx`, `ui/EmptyState.tsx`.
-Логи/терминал: `logs/LogsViewer.tsx`, `LogCore.tsx`, `log-palette.ts`, `dock/BottomDock.tsx`, `TerminalTab.tsx`.
-Статусы: `utils/badge-colors.ts` ⭐.
-Навигация (только визуальный стиль): `web/src/components/nav/`, `scope-pill/`, `namespace-switcher/`.
-- **Logs:** потоковые, с фильтрацией по контейнеру, previous logs.
-- **Exec:** websocket exec через client, мультиплексированный в IPC-сессию.
-
----
-
-## 11. Сборка и дистрибуция
-
-- `electron-vite` — dev/build (main, preload, renderer).
-- `electron-builder` — installers: macOS (dmg, universal), Windows (nsis), Linux (AppImage/deb).
-- Самостоятельный binary: пользователю не нужны Node.js, Go, Docker.
-- Скрипты уже в `package.json`: `dev`, `build`, `dist`, `dist:mac|win|linux`.
-
----
-
-## 12. Этапы разработки
-
-| Этап | Содержание | Статус |
-|---|---|---|
-| 1. Исследование | Изучение Freelens и Radar, лицензии, таблица соответствия | ✅ (этот документ) |
-| 2. Проектирование | Архитектура, токены, IPC-контракт | ✅ частично (кодовая база уже начата) |
-| 3. Основной интерфейс | Electron app, Welcome, Catalog, kubeconfig, подключение, multi-cluster, shell, sidebar, вкладки, design system | 🚧 в работе |
-| 4. Kubernetes UX | Resource Browser, таблицы, поиск/фильтры, Details, YAML, Events, Logs, Terminal, Exec, CRD Discovery | 🚧 в работе |
-| 5. Дополнительно | Topology, Diagnostics, Timeline, Helm, GitOps, Metrics, Audit | ⏳ не начат |
-
-Нереализованная функциональность явно помечается в UI (EmptyState с пояснением), а не имитируется.
-
----
-
-## 13. Критерии качества (контракт)
-
-1. Никаких фиктивных страниц и кнопок без функциональности.
-2. Никаких mock-данных в готовых функциях — только реальная K8s-интеграция.
-3. Никакого Go, отдельного бэкенда, Docker.
-4. Shell/навигация/вкладки — только Freelens-механика; таблицы/детали — только Radar-стиль.
-5. Компоненты небольшие и композиционные; логика Electron и React не смешивается.
-6. Все привилегированные операции — в main; renderer — только через типизированный IPC.
-7. Атрибуция Radar (Apache-2.0) — в `THIRD_PARTY_NOTICES.md`.
+- **No extension system** (Freelens extensions are out of scope).
+- **No route-level back/forward history** across resource kinds; the forward
+  button is disabled, and back covers details history → catalog.
+- **No Helm, port-forward, topology, timeline, GitOps or audit views** yet.
+- **No Prometheus history charts**; only live metrics-server values.
+- **No multi-window** support; Freelens also assumes one main window.
+- **No iframe-per-cluster** isolation; sessions are isolated in the main process
+  and in keyed renderer state instead.
+- **No synthetic data anywhere.** If an integration is unavailable, the UI says
+  so and offers the relevant action.

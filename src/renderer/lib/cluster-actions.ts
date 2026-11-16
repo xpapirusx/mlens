@@ -5,7 +5,6 @@ import { toast } from "../design-system/components/Toast";
 
 /** Shared cluster activation used by the hotbar, catalog and command palette. */
 export async function openCluster(clusterId: string): Promise<void> {
-  try { localStorage.setItem("mlens-debug-open", `${new Date().toISOString()} ${clusterId}\n${new Error().stack}`); } catch {}
   const catalog = useCatalogStore.getState();
   const sessions = useSessionStore.getState();
   sessions.ensureSession(clusterId);
