@@ -18,7 +18,7 @@ interface ResourceTableProps {
   selectedRef?: { namespace?: string; name: string } | null;
   onOpen: (object: KubeObject) => void;
   onContextMenu: (object: KubeObject, event: React.MouseEvent) => void;
-  onFilterColumn: (column: ColumnDef) => void;
+  onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
   filterableKeys: Set<string>;
   loading: boolean;
   emptyState?: React.ReactNode;
@@ -133,7 +133,7 @@ export function ResourceTable({
                     className="ml-auto shrink-0 rounded p-0.5 text-theme-text-tertiary opacity-0 transition-opacity hover:bg-theme-hover hover:text-theme-text-primary group-hover/th:opacity-100"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onFilterColumn(column);
+                      onFilterColumn(column, event);
                     }}
                   >
                     <ListFilter className="h-3 w-3" />
