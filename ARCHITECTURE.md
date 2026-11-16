@@ -447,8 +447,6 @@ until the user presses “Reveal” for a specific key.
 
 ## 11. Extension points for the next stages
 
-- **Port forwarding**: main-process `PortForward` from the Kubernetes client,
-  surfaced as a dock tab.
 - **Helm**: parse release secrets (`sh.helm.release.v1.*`) in TypeScript; no Helm
   binary needed.
 - **Topology**: build a graph from owner references, selectors and service

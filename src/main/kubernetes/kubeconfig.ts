@@ -151,6 +151,14 @@ export class KubeconfigManager {
     return target;
   }
 
+  clearTerminalKubeconfigs(directory: string): void {
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+    } catch {
+      // best effort
+    }
+  }
+
   addContent(content: string, directory: string, fileName?: string): KubeconfigSource {
     if (!content.trim()) throw new Error("Kubeconfig content is empty.");
     const probe = new KubeConfig();

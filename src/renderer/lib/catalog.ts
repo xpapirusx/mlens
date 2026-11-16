@@ -227,20 +227,24 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
   return result;
 }
 
-function flatten(group: ResourceGroup): ApiResourceInfo[] {
-  return [...group.resources, ...(group.children ?? []).flatMap(flatten)];
-}
-
 export function siblingResources(
   groups: ResourceGroup[],
   selected: { apiVersion: string; kind: string } | null,
 ): ApiResourceInfo[] {
   if (!selected) return [];
+  const matches = (resources: ApiResourceInfo[]) =>
+    resources.some(
+      (resource) => resource.apiVersion === selected.apiVersion && resource.kind === selected.kind,
+    );
+
   for (const group of groups) {
-    const all = flatten(group);
-    if (all.some((resource) => resource.apiVersion === selected.apiVersion && resource.kind === selected.kind)) {
-      return all;
+    if (group.children) {
+      const child = group.children.find((entry) => matches(entry.resources));
+      if (child) return child.resources;
+      if (matches(group.resources)) return group.resources;
+      continue;
     }
+    if (matches(group.resources)) return group.resources;
   }
   return [];
 }

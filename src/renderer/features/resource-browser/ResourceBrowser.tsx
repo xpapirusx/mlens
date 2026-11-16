@@ -279,7 +279,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     });
   };
 
-  const selectedObjects = sorted.filter((object) => selectedKeys.has(rowKey(object)));
+  const selectedObjects = list.items.filter((object) => selectedKeys.has(rowKey(object)));
 
   const deleteSelected = async () => {
     if (!resource || selectedObjects.length === 0) return;

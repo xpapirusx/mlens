@@ -6,3 +6,8 @@ allowBuilds:
   electron: true
   node-pty: true
   electron-winstaller: false
+
+# Electron 45.3.3 is newer than the registry's minimum-release-age policy at the
+# time this prototype was assembled.
+minimumReleaseAgeExclude:
+  - electron@45.3.3

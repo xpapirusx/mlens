@@ -67,6 +67,7 @@ interface SessionStore {
   initialize: (id: ClusterId) => Promise<void>;
   dispose: (id: ClusterId) => void;
   setSelectedNamespaces: (id: ClusterId, namespaces: string[]) => void;
+  refreshNamespaces: (id: ClusterId) => Promise<void>;
   selectKind: (id: ClusterId, kind: { apiVersion: string; kind: string }) => void;
   kindState: (id: ClusterId, apiVersion: string, kind: string) => KindState;
   updateKindState: (
@@ -212,6 +213,25 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => ({
       sessions: { ...state.sessions, [id]: { ...state.sessions[id], selectedNamespaces: namespaces } },
     }));
+  },
+
+  refreshNamespaces: async (id) => {
+    const namespaces = await call(api.clusters.namespaces(id));
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const names = namespaces.map((entry) => entry.name);
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            namespaces: names,
+            selectedNamespaces: session.selectedNamespaces.filter((entry) => names.includes(entry)),
+          },
+        },
+      };
+    });
   },
 
   selectKind: (id, kind) => {

@@ -21,7 +21,7 @@ import { SearchInput } from "../../design-system/components/SearchInput";
 import { Menu, MenuItem, MenuSeparator } from "../../design-system/components/Menu";
 import { Spinner } from "../../design-system/components/Spinner";
 import { countFor, useResourceCounts } from "./useResourceCounts";
-import { api, call } from "../../lib/api";
+import { errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
 
 export function ResourceSidebar({
@@ -38,7 +38,7 @@ export function ResourceSidebar({
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const selectKind = useSessionStore((state) => state.selectKind);
   const toggleGroup = useSessionStore((state) => state.toggleGroup);
-  const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
+  const refreshNamespaces = useSessionStore((state) => state.refreshNamespaces);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const disconnect = useCatalogStore((state) => state.disconnect);
@@ -219,12 +219,9 @@ export function ResourceSidebar({
               <MenuItem
                 icon={<Download className="h-3.5 w-3.5" />}
                 onClick={() => {
-                  void call(api.clusters.namespaces(clusterId))
-                    .then((namespaces) => {
-                      setSelectedNamespaces(clusterId, []);
-                      toast.info("Namespaces refreshed", `${namespaces.length} namespaces`);
-                    })
-                    .catch((error) => toast.error("Cannot refresh namespaces", String(error)));
+                  void refreshNamespaces(clusterId)
+                    .then(() => toast.success("Namespaces refreshed"))
+                    .catch((error) => toast.error("Cannot refresh namespaces", errorText(error)));
                   close();
                 }}
               >

@@ -27,13 +27,13 @@ export function StartPortForwardDialog({
   onStarted?: () => void;
 }) {
   const [remotePort, setRemotePort] = useState(String(defaultRemotePort ?? 8080));
-  const [localPort, setLocalPort] = useState(defaultRemotePort ? String(defaultRemotePort) : "0");
+  const [localPort, setLocalPort] = useState("0");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setRemotePort(String(defaultRemotePort ?? 8080));
-    setLocalPort(defaultRemotePort ? String(defaultRemotePort) : "0");
+    setLocalPort("0");
   }, [open, defaultRemotePort]);
 
   const start = async () => {

@@ -137,7 +137,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   };
 
   const deleteResource = async () => {
-    if (!object || !resource) return;
+    if (!object) return;
     setDeleting(true);
     try {
       await call(

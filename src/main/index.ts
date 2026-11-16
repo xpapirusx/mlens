@@ -25,6 +25,7 @@ const isDev = !app.isPackaged;
 let mainWindow: BrowserWindowType | null = null;
 let settings: SettingsStore;
 let clusters: ClusterManager;
+let kubeconfigs: KubeconfigManager;
 let terminals: PtyManager;
 let portForwards: PortForwardManager;
 
@@ -170,7 +171,7 @@ if (!singleInstance) {
 
   void app.whenReady().then(() => {
     settings = new SettingsStore();
-    const kubeconfigs = new KubeconfigManager(settings);
+    kubeconfigs = new KubeconfigManager(settings);
     clusters = new ClusterManager(kubeconfigs, settings);
     terminals = new PtyManager();
     portForwards = new PortForwardManager((id) => clusters.connection(id));
@@ -209,5 +210,6 @@ if (!singleInstance) {
     portForwards?.closeAll();
     clusters?.disposeAll();
     terminals?.closeAll();
+    kubeconfigs?.clearTerminalKubeconfigs(path.join(app.getPath("userData"), "terminal-kubeconfigs"));
   });
 }

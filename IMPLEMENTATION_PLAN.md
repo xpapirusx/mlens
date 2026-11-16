@@ -185,7 +185,7 @@ configuration).
 | Multi-select | Pass — 2 rows selected, bulk bar + delete confirmation |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
-| Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg` built; packaged app launches, sees 98 contexts, connects and runs a PTY |
+| Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg`; packaged app launches, sees 98 contexts, connects, runs a PTY with the right kubectl context, and port-forwards a real pod (HTTP 200) |
 | Windows / Linux packaging | Configured (NSIS, AppImage, deb); not yet built on those OSes |
 
 ---

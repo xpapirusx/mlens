@@ -8,8 +8,8 @@ Docker, and no Node.js, kubectl or Helm installation required by the end user.
 
 > Status: **v0.1.0 working prototype**. Clusters, discovery, resource tables,
 > details, YAML, events, logs, local terminals and pod exec work against real
-> Kubernetes clusters. Advanced views (Helm, topology, port-forward, historical
-> metrics) are not implemented yet and are marked as such in the UI.
+> Kubernetes clusters. Advanced views (Helm, topology, historical metrics) are
+> not implemented yet and are marked as such in the UI.
 > See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
 ---

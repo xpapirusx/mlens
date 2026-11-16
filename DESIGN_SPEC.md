@@ -388,10 +388,11 @@ serialized navigation state.
 
 Per cluster, the following survive switching clusters:
 
-- namespace scope, selected kind, sibling tab position;
-- per-kind search text, regex flag, sort, column filters and hidden columns;
-- sidebar group expansion and sidebar width;
-- the open details resource, its active tab, and the back stack;
+- namespace scope (all / one / several), selected kind, sibling tab position;
+- per-kind search text, regex flag, sort, column filters, hidden columns and
+  column widths;
+- sidebar group expansion (including nested CRD groups) and sidebar width;
+- the open-resource tabs, the active resource, its details tab, and the back stack;
 - dock open state, height, terminal tabs and their live PTYs.
 
 Connections themselves also survive: switching clusters does not disconnect the
@@ -399,7 +400,8 @@ previous cluster, and its watchers continue to keep data fresh. Hidden workspace
 stop their polling loops but keep their watch streams, so returning to a cluster
 shows current data without refetching everything.
 
-Switching is done from the hotbar, catalog, command palette or settings. The
+Switching is done from the cluster tab strip, the hotbar, catalog, command
+palette or settings. Open resources switch from the resource tab strip. The
 catalog remains one click away (`Home`).
 
 ---
