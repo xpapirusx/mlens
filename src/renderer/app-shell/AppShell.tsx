@@ -100,9 +100,11 @@ export function AppShell() {
           {/* Freelens keeps cluster frames alive when switching. mLens keeps a
               mounted workspace per cluster (hidden with CSS) so table scroll,
               open drawers and terminal PTYs all survive a switch. */}
-          <div className={cn("flex min-h-0 flex-1", activeClusterId && "hidden")}>
-            <CatalogPage />
-          </div>
+          {!activeClusterId ? (
+            <div className="flex min-h-0 flex-1">
+              <CatalogPage />
+            </div>
+          ) : null}
           {sessionIds.map((id) => (
             <div key={id} className={cn("flex min-h-0 flex-1", id !== activeClusterId && "hidden")}>
               <ClusterWorkspace clusterId={id} active={id === activeClusterId} />

@@ -1,5 +1,8 @@
+# pnpm v12 blocks install scripts unless explicitly allowed.
+# Electron needs its postinstall to download the runtime; node-pty needs its
+# installer to select/chmod the bundled spawn helper (scripts/postinstall.cjs
+# also enforces the executable bit).
 allowBuilds:
-  electron-winstaller: set this to true or false
-  node-pty: set this to true or false
-minimumReleaseAgeExclude:
-  - electron@45.3.3
+  electron: true
+  node-pty: true
+  electron-winstaller: false
