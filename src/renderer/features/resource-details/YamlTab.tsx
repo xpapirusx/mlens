@@ -1,0 +1,101 @@
+import { useEffect, useMemo, useState } from "react";
+import { stringify } from "yaml";
+import { Check, Copy, Pencil, RefreshCw, Save, X } from "lucide-react";
+import type { KubeObject } from "@shared/types";
+import { YamlEditor } from "../../design-system/components/YamlEditor";
+import { Button } from "../../design-system/components/Button";
+import { api, call, errorText } from "../../lib/api";
+import { toast } from "../../design-system/components/Toast";
+
+export function YamlTab({
+  clusterId,
+  object,
+  onApplied,
+}: {
+  clusterId: string;
+  object: KubeObject;
+  onApplied: () => void;
+}) {
+  const source = useMemo(() => stringify(object, { lineWidth: 0 }), [object]);
+  const [value, setValue] = useState(source);
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!editing) setValue(source);
+  }, [source, editing]);
+
+  const apply = async (dryRun: boolean) => {
+    setBusy(true);
+    try {
+      const result = await call(api.resources.apply({ clusterId, yaml: value, dryRun }));
+      toast.success(
+        dryRun ? "Server dry run succeeded" : `Applied ${result.map((entry) => `${entry.kind}/${entry.name}`).join(", ")}`,
+      );
+      if (!dryRun) {
+        setEditing(false);
+        onApplied();
+      }
+    } catch (error) {
+      toast.error(dryRun ? "Dry run failed" : "Apply failed", errorText(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-theme-border bg-theme-base px-2">
+        <span className="font-mono text-[10px] text-theme-text-tertiary">
+          {object.apiVersion}/{object.kind}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => {
+              void navigator.clipboard.writeText(value);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            }}
+          >
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            Copy
+          </Button>
+          {editing ? (
+            <>
+              <Button size="xs" variant="ghost" onClick={() => void apply(true)} disabled={busy}>
+                <RefreshCw className="h-3 w-3" />
+                Dry run
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  setValue(source);
+                  setEditing(false);
+                }}
+              >
+                <X className="h-3 w-3" />
+                Cancel
+              </Button>
+              <Button size="xs" variant="primary" onClick={() => void apply(false)} disabled={busy}>
+                <Save className="h-3 w-3" />
+                {busy ? "Applying…" : "Apply"}
+              </Button>
+            </>
+          ) : (
+            <Button size="xs" variant="secondary" onClick={() => setEditing(true)}>
+              <Pencil className="h-3 w-3" />
+              Edit
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        <YamlEditor value={value} onChange={setValue} readOnly={!editing} />
+      </div>
+    </div>
+  );
+}

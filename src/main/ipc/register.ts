@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from "electron";
+import path from "node:path";
 import type {
   ApplyYamlRequest,
   DeleteResourceRequest,
@@ -99,6 +100,14 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, getWin
   });
 
   ipcMain.handle(IPC.kubeconfigAddPath, (_event, path: unknown) => kubeconfigs.addPath(assertString(path, "path")));
+
+  ipcMain.handle(IPC.kubeconfigAddContent, (_event, content: unknown, fileName: unknown) =>
+    kubeconfigs.addContent(
+      assertString(content, "kubeconfig content"),
+      path.join(app.getPath("userData"), "kubeconfigs"),
+      typeof fileName === "string" ? fileName : undefined,
+    ),
+  );
 
   ipcMain.handle(IPC.kubeconfigRemove, async (_event, path: unknown) => {
     const target = assertString(path, "path");

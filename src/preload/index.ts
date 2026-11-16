@@ -59,6 +59,8 @@ const api: MlensApi = {
       }>,
     addKubeconfigDialog: () => ipcRenderer.invoke(IPC.kubeconfigAddDialog) as Promise<AddKubeconfigResult>,
     addKubeconfigPath: (path) => ipcRenderer.invoke(IPC.kubeconfigAddPath, path) as Promise<KubeconfigSource>,
+    addKubeconfigContent: (content, fileName) =>
+      ipcRenderer.invoke(IPC.kubeconfigAddContent, content, fileName) as Promise<KubeconfigSource>,
     removeKubeconfig: (path) => ipcRenderer.invoke(IPC.kubeconfigRemove, path) as Promise<void>,
     connect: (id) => ipcRenderer.invoke(IPC.clusterConnect, id) as Promise<ClusterConnectionInfo>,
     disconnect: (id) => ipcRenderer.invoke(IPC.clusterDisconnect, id) as Promise<void>,

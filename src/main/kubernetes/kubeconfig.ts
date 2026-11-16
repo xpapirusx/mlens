@@ -126,8 +126,25 @@ export class KubeconfigManager {
     return { id, kubeconfigPath, contextName, kubeConfig };
   }
 
-  addPath(kubeconfigPath: string): KubeconfigSource {
-    const resolved = path.resolve(kubeconfigPath.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? "~"));
+  addContent(content: string, directory: string, fileName?: string): KubeconfigSource {
+    if (!content.trim()) throw new Error("Kubeconfig content is empty.");
+    const probe = new KubeConfig();
+    probe.loadFromString(content, { onInvalidEntry: "throw" });
+    if (probe.getContexts().length === 0) {
+      throw new Error("The pasted kubeconfig does not define any contexts.");
+    }
+
+    fs.mkdirSync(directory, { recursive: true });
+    const safeName = (fileName ?? "imported")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "imported";
+    const target = path.join(directory, `${safeName}-${Date.now()}.yaml`);
+    fs.writeFileSync(target, content, { mode: 0o600 });
+    return this.addPath(target);
+  }
+
+  addPath(kubeconfigPath: string): KubeconfigSource {    const resolved = path.resolve(kubeconfigPath.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? "~"));
     if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
     const probe = new KubeConfig();
     probe.loadFromFile(resolved); // throws with a useful message for invalid YAML

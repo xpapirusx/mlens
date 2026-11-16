@@ -45,6 +45,7 @@ export const IPC = {
   kubeconfigList: "kube:config-list",
   kubeconfigAddDialog: "kube:config-add-dialog",
   kubeconfigAddPath: "kube:config-add-path",
+  kubeconfigAddContent: "kube:config-add-content",
   kubeconfigRemove: "kube:config-remove",
   clusterConnect: "kube:cluster-connect",
   clusterDisconnect: "kube:cluster-disconnect",
@@ -102,6 +103,7 @@ export interface MlensApi {
     listKubeconfigs(): Promise<{ sources: KubeconfigSource[]; clusters: ClusterSummary[] }>;
     addKubeconfigDialog(): Promise<AddKubeconfigResult>;
     addKubeconfigPath(path: string): Promise<KubeconfigSource>;
+    addKubeconfigContent(content: string, fileName?: string): Promise<KubeconfigSource>;
     removeKubeconfig(path: string): Promise<void>;
     connect(id: ClusterId): Promise<ClusterConnectionInfo>;
     disconnect(id: ClusterId): Promise<void>;
