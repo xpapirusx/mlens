@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AppSettings, ClusterHealth, ClusterId, ClusterSummary, KubeconfigSource } from "@shared/types";
 import { api, call, errorText } from "../lib/api";
 import { toast } from "../design-system/components/Toast";
+import { useSessionStore } from "./session-store";
 
 interface CatalogStore {
   settings: AppSettings | null;
@@ -103,6 +104,11 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   removeKubeconfig: async (path) => {
     try {
       await call(api.clusters.removeKubeconfig(path));
+      const activeId = get().activeClusterId;
+      if (activeId?.startsWith(`${path}::`)) {
+        useSessionStore.getState().dispose(activeId);
+        set({ activeClusterId: null });
+      }
       await get().loadCatalog();
     } catch (error) {
       toast.error("Cannot remove kubeconfig", errorText(error));

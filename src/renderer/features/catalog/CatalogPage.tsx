@@ -103,7 +103,7 @@ export function CatalogPage() {
 
   const statusOf = (cluster: ClusterSummary) => {
     const session = sessions[cluster.id];
-    if (session?.status === "connected") return { text: cluster.name && session.info ? `v${session.info.version}` : "Connected", tone: "connected" as const };
+    if (session?.status === "connected") return { text: session.info ? `v${session.info.version}` : "Connected", tone: "connected" as const };
     if (session?.status === "connecting") return { text: "Connecting…", tone: "connecting" as const };
     if (session?.status === "error" || health[cluster.id]?.status === "error") return { text: "Error", tone: "error" as const };
     if (health[cluster.id]?.status === "disconnected") return { text: "Disconnected", tone: "idle" as const };
