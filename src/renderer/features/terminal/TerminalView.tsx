@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -11,7 +11,7 @@ import { api, errorText } from "../../lib/api";
 import { cn } from "../../lib/cn";
 import { toast } from "../../design-system/components/Toast";
 
-const TERMINAL_THEME = {
+const RADAR_TERMINAL_THEME = {
   background: "#0f172a",
   foreground: "#e2e8f0",
   cursor: "#60a5fa",
@@ -35,6 +35,54 @@ const TERMINAL_THEME = {
   brightWhite: "#f8fafc",
 };
 
+const DRACULA_TERMINAL_THEME = {
+  background: "#282A36",
+  foreground: "#F8F8F2",
+  cursor: "#F8F8F2",
+  cursorAccent: "#282A36",
+  selectionBackground: "#44475A",
+  black: "#21222C",
+  red: "#FF5555",
+  green: "#50FA7B",
+  yellow: "#F1FA8C",
+  blue: "#BD93F9",
+  magenta: "#FF79C6",
+  cyan: "#8BE9FD",
+  white: "#F8F8F2",
+  brightBlack: "#6272A4",
+  brightRed: "#FF6E6E",
+  brightGreen: "#69FF94",
+  brightYellow: "#FFFFA5",
+  brightBlue: "#D6ACFF",
+  brightMagenta: "#FF92DF",
+  brightCyan: "#A4FFFF",
+  brightWhite: "#FFFFFF",
+};
+
+const FREELENS_TERMINAL_THEME = {
+  background: "#000000",
+  foreground: "#ffffff",
+  cursor: "#ffffff",
+  cursorAccent: "#000000",
+  selectionBackground: "#264f78",
+  black: "#2e3436",
+  red: "#cc0000",
+  green: "#4e9a06",
+  yellow: "#c4a000",
+  blue: "#3465a4",
+  magenta: "#75507b",
+  cyan: "#06989a",
+  white: "#d3d7cf",
+  brightBlack: "#555753",
+  brightRed: "#ef2929",
+  brightGreen: "#8ae234",
+  brightYellow: "#fce94f",
+  brightBlue: "#729fcf",
+  brightMagenta: "#ad7fa8",
+  brightCyan: "#34e2e2",
+  brightWhite: "#eeeeec",
+};
+
 export function TerminalView({ target, active }: { target: TerminalTarget; active: boolean }) {
   const settings = useCatalogStore((state) => state.settings);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -48,6 +96,16 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
 
   const fontSize = settings?.terminalFontSize ?? 13;
   const fontFamily = settings?.terminalFontFamily ?? "DM Mono";
+  const themeName = settings?.colorTheme ?? "radar";
+  const terminalTheme = useMemo(
+    () =>
+      themeName === "dracula"
+        ? DRACULA_TERMINAL_THEME
+        : themeName === "freelens"
+          ? FREELENS_TERMINAL_THEME
+          : RADAR_TERMINAL_THEME,
+    [themeName],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -63,7 +121,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
       lineHeight: 1.2,
       allowProposedApi: true,
       scrollback: 5000,
-      theme: TERMINAL_THEME,
+      theme: terminalTheme,
       macOptionIsMeta: true,
     });
     const fit = new FitAddon();
@@ -196,6 +254,20 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
     // The session is intentionally created once per mounted terminal tab.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
+
+  useEffect(() => {
+    const terminal = xtermRef.current;
+    if (terminal) terminal.options.theme = terminalTheme;
+  }, [terminalTheme]);
+
+  useEffect(() => {
+    const terminal = xtermRef.current;
+    if (!terminal) return;
+    terminal.options.fontSize = fontSize;
+    terminal.options.fontFamily = `"${fontFamily}", ui-monospace, Menlo, Monaco, monospace`;
+    const timer = window.setTimeout(() => fitRef.current?.fit(), 30);
+    return () => window.clearTimeout(timer);
+  }, [fontSize, fontFamily]);
 
   useEffect(() => {
     if (!active) return;

@@ -42,7 +42,14 @@ export function AppShell() {
     if (!settings) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
-      const dark = settings.theme === "dark" || (settings.theme === "system" && media.matches);
+      const themeName = settings.colorTheme ?? "radar";
+      document.documentElement.classList.toggle("theme-dracula", themeName === "dracula");
+      document.documentElement.classList.toggle("theme-freelens", themeName === "freelens");
+      const forcedDark = themeName === "dracula" || themeName === "freelens";
+      const dark =
+        forcedDark ||
+        settings.theme === "dark" ||
+        (settings.theme === "system" && media.matches);
       document.documentElement.classList.toggle("dark", dark);
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
     };

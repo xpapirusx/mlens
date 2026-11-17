@@ -15,7 +15,15 @@ interface YamlEditorProps {
 }
 
 export function YamlEditor({ value, onChange, readOnly = true, height = "100%", className }: YamlEditorProps) {
-  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+  const root = typeof document !== "undefined" ? document.documentElement : null;
+  const isDark = Boolean(root?.classList.contains("dark"));
+  const editorTheme = root?.classList.contains("theme-dracula")
+    ? "mlens-dracula"
+    : root?.classList.contains("theme-freelens")
+      ? "mlens-freelens"
+      : isDark
+        ? "mlens-dark"
+        : "mlens-light";
   const editorRef = useRef<Parameters<NonNullable<React.ComponentProps<typeof Editor>["onMount"]>>[0] | null>(null);
 
   useEffect(() => {
@@ -29,14 +37,14 @@ export function YamlEditor({ value, onChange, readOnly = true, height = "100%", 
       <Editor
         height="100%"
         defaultLanguage="yaml"
-        theme={isDark ? "mlens-dark" : "mlens-light"}
+        theme={editorTheme}
         value={value}
         onChange={(next) => onChange?.(next ?? "")}
         onMount={(editor) => {
           editorRef.current = editor;
         }}
         beforeMount={(instance: Monaco) => {
-          instance.editor.setTheme(isDark ? "mlens-dark" : "mlens-light");
+          instance.editor.setTheme(editorTheme);
         }}
         options={{
           readOnly,

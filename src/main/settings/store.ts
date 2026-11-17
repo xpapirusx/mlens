@@ -29,10 +29,11 @@ export function defaultSettings(): AppSettings {
 
   return {
     theme: "dark",
+    colorTheme: "radar",
     kubeconfigPaths,
     favorites: [],
     recentClusters: [],
-    refreshIntervalSeconds: 30,
+    refreshIntervalSeconds: 60,
     terminalFontSize: 13,
     terminalFontFamily: "DM Mono",
     confirmBeforeDelete: true,
@@ -43,6 +44,10 @@ export function defaultSettings(): AppSettings {
     collapseCatalogGroups: true,
     favoriteKinds: [],
     hiddenClusters: [],
+    hotbarOrder: [],
+    sidebarGroupOrder: [],
+    tableColumnWidths: {},
+    tableColumnOrder: {},
   };
 }
 
@@ -53,6 +58,7 @@ function clamp(value: number, min: number, max: number): number {
 function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   const out: Partial<AppSettings> = { ...input };
   if (out.theme && !["light", "dark", "system"].includes(out.theme)) delete out.theme;
+  if (out.colorTheme && !["radar", "dracula", "freelens"].includes(out.colorTheme)) delete out.colorTheme;
   if (out.kubeconfigPaths) {
     out.kubeconfigPaths = [...new Set(out.kubeconfigPaths.filter((entry) => typeof entry === "string"))];
   }
@@ -75,7 +81,7 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
     out.dockHeight = clamp(Math.round(out.dockHeight), 160, 900);
   }
   if (typeof out.tableRowHeight === "number") {
-    out.tableRowHeight = [36, 40, 44].includes(Math.round(out.tableRowHeight))
+    out.tableRowHeight = [24, 28, 30, 32, 36, 40, 44, 48, 52].includes(Math.round(out.tableRowHeight))
       ? Math.round(out.tableRowHeight)
       : 44;
   }
@@ -84,6 +90,24 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (out.hiddenClusters) {
     out.hiddenClusters = [...new Set(out.hiddenClusters.filter((entry) => typeof entry === "string"))] as ClusterId[];
+  }
+  if (out.hotbarOrder) {
+    out.hotbarOrder = [...new Set(out.hotbarOrder.filter((entry) => typeof entry === "string"))] as ClusterId[];
+  }
+  if (out.sidebarGroupOrder) {
+    out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");
+  }
+  if (out.tableColumnWidths) {
+    out.tableColumnWidths = Object.fromEntries(
+      Object.entries(out.tableColumnWidths)
+        .filter(([, value]) => typeof value === "number" && Number.isFinite(value))
+        .map(([key, value]) => [key, clamp(Math.round(value), 60, 1200)]),
+    );
+  }
+  if (out.tableColumnOrder) {
+    out.tableColumnOrder = Object.fromEntries(
+      Object.entries(out.tableColumnOrder).filter(([, value]) => Array.isArray(value)),
+    );
   }
   return out;
 }

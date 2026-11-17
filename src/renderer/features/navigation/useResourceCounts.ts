@@ -76,7 +76,7 @@ export function useResourceCounts(options: {
       });
 
     if (!refreshSeconds) return;
-    const interval = Math.max(60, refreshSeconds) * 1000;
+    const interval = Math.max(120, refreshSeconds) * 1000;
     const timer = window.setInterval(() => {
       if (document.hidden) return;
       setNonce((value) => value + 1);

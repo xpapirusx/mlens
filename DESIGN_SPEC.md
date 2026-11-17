@@ -134,9 +134,10 @@ The bar is the window drag region; every control is `no-drag`.
 ### 2.3 Hotbar
 
 - 54px rail, deepest surface token (`--bg-sidebar`).
-- Catalog button at the top, then **favourites → recently opened → active**
-  clusters (maximum 9). A cluster appears after it is opened; mLens does not dump
-  all 100+ kubeconfig contexts into the rail.
+- The rail is the **favourite clusters** rail, like Freelens. Open clusters live
+  in the top cluster-tab strip, so the hotbar is curated rather than a copy of
+  open sessions. Favourite tiles can be dragged to reorder them (persisted in
+  `hotbarOrder`); clicking launches/activates the cluster.
 - Each cell: gradient tile with cluster initials, connection dot, tooltip with
   context/server/state. Duplicate-looking names remain distinguishable by colour
   and tooltip.
@@ -238,6 +239,19 @@ contains a single kind.
 ---
 
 ## 3. Design system (Radar)
+
+### 3.0 Colour themes
+
+Radar is the default contract (light/dark/system). Two additional themes
+override tokens globally and force dark mode:
+
+- **Dracula** — `#282A36` base, `#21222C` surfaces, `#44475A` elevated,
+  `#BD93F9` accent, `#F8F8F2` text; terminal palette from the Dracula ANSI scheme.
+- **Freelens** — `#1E2124` base, `#262B2F` surface, `#36393E` sidebar, teal
+  `#00A7A0` accent, Freelens terminal palette.
+
+Theme classes live in `design-system/styles/themes.css`; no component-specific
+theme hacks.
 
 ### 3.1 Type
 
@@ -341,11 +355,19 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   confirmation listing the selected objects.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
+- Status is surfaced three ways: the status badge column, per-column status
+  filters, and a **Problems** toggle that keeps only warning/error resources
+  across any kind.
 - CPU and Memory columns use Radar's bullet-bar pattern: usage / limit, request
   marker, percentage, and a per-container tooltip. Without metrics the cell shows
-  “–”; there are no synthetic values. Row height is configurable (36/40/44px).
+  “–”; there are no synthetic values. Row height is configurable (24–52px).
 - Resource kind favorites are pinned in a Favorites section; the pin appears on
   row hover and is stored in settings.
+- Column order is editable up/down in the column picker and stored per kind, so
+  it survives cluster switches. Column widths are stored globally per
+  kind+column, so resizing Name in Pods applies to Pods in every cluster while
+  Deployment keeps its own widths.
+- Top-level sidebar groups can be dragged to reorder them; the order is global.
 - Groups start collapsed when the setting is enabled (on by default); the
   expanded state is remembered per cluster.
 - Sorting cycles ascending → descending → none; default is name ascending.

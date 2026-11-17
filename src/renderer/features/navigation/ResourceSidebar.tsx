@@ -5,6 +5,7 @@ import {
   Copy,
   DoorOpen,
   Download,
+  GripVertical,
   LogOut,
   Pin,
   RefreshCw,
@@ -48,21 +49,81 @@ export function ResourceSidebar({
   const dispose = useSessionStore((state) => state.dispose);
 
   const [search, setSearch] = useState("");
+  const searching = search.trim().length > 0;
+  const [draggingGroup, setDraggingGroup] = useState<string | null>(null);
   const refreshSeconds = settings?.refreshIntervalSeconds ?? 30;
 
   const resources = session?.resources ?? [];
-  const groups = useMemo(() => buildResourceGroups(resources), [resources]);
+  const baseGroups = useMemo(() => buildResourceGroups(resources), [resources]);
+  const groupOrder = settings?.sidebarGroupOrder ?? [];
+  const groups = useMemo(() => {
+    if (groupOrder.length === 0) return baseGroups;
+    return [...baseGroups].sort((a, b) => {
+      const ai = groupOrder.indexOf(a.id);
+      const bi = groupOrder.indexOf(b.id);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [baseGroups, groupOrder.join("|")]);
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
+
+  const reorderGroups = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const ids = groups.map((group) => group.id);
+    const from = ids.indexOf(sourceId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, sourceId);
+    void updateSettings({ sidebarGroupOrder: ids });
+  };
+  const countResources = useMemo(() => {
+    const defaultExpanded = !(settings?.collapseCatalogGroups ?? true);
+    const isOpen = (id: string) => searching || (session?.expandedGroups[id] ?? defaultExpanded);
+    const list: typeof resources = [];
+    for (const group of groups) {
+      if (group.standalone) {
+        list.push(...group.resources);
+      } else if (group.children) {
+        if (isOpen(group.id)) {
+          for (const child of group.children) {
+            if (isOpen(child.id)) list.push(...child.resources);
+          }
+        }
+      } else if (isOpen(group.id)) {
+        list.push(...group.resources);
+      }
+    }
+    for (const key of settings?.favoriteKinds ?? []) {
+      const [apiVersion, kind] = key.split("|");
+      const found = resources.find((resource) => resource.apiVersion === apiVersion && resource.kind === kind);
+      if (found) list.push(found);
+    }
+    const unique = new Map<string, (typeof resources)[number]>();
+    for (const resource of list) {
+      if (isListable(resource)) unique.set(`${resource.apiVersion}|${resource.kind}`, resource);
+    }
+    return [...unique.values()];
+  }, [
+    groups,
+    resources,
+    searching,
+    session?.expandedGroups,
+    settings?.collapseCatalogGroups,
+    settings?.favoriteKinds,
+  ]);
+
   const counts = useResourceCounts({
     clusterId,
     namespaces: session?.selectedNamespaces ?? [],
-    resources: resources.filter(isListable),
+    resources: countResources,
     refreshSeconds: active ? refreshSeconds : 0,
   });
 
   const selected = session?.selectedKind;
   const isFavorite = settings?.favorites.includes(clusterId) ?? false;
-  const searching = search.trim().length > 0;
 
   const totalCount = (list: typeof resources): number | null => {
     let total = 0;
@@ -138,8 +199,35 @@ export function ResourceSidebar({
   };
 
   const renderGroup = (group: ResourceGroup, depth = 0) => {
+    const dragHandlers =
+      depth === 0 && !searching
+        ? {
+            draggable: true,
+            onDragStart: (event: React.DragEvent) => {
+              setDraggingGroup(group.id);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", group.id);
+            },
+            onDragOver: (event: React.DragEvent) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            },
+            onDrop: (event: React.DragEvent) => {
+              event.preventDefault();
+              const source = event.dataTransfer.getData("text/plain") || draggingGroup;
+              if (source) reorderGroups(source, group.id);
+              setDraggingGroup(null);
+            },
+            onDragEnd: () => setDraggingGroup(null),
+          }
+        : {};
+
     if (group.standalone) {
-      return <div key={group.id}>{renderKindRow(group.resources[0], 0)}</div>;
+      return (
+        <div key={group.id} {...dragHandlers} className={cn(draggingGroup === group.id && "opacity-40")}>
+          {renderKindRow(group.resources[0], 0)}
+        </div>
+      );
     }
     const defaultExpanded = searching ? true : !(settings?.collapseCatalogGroups ?? true);
     const expanded = session?.expandedGroups[group.id] ?? defaultExpanded;
@@ -152,15 +240,22 @@ export function ResourceSidebar({
       : totalCount(group.resources);
 
     return (
-      <div key={group.id} className={cn("mb-0.5", depth > 0 && "mt-0.5")}>
+      <div
+        key={group.id}
+        {...dragHandlers}
+        className={cn("mb-0.5", depth > 0 && "mt-0.5", draggingGroup === group.id && "opacity-40")}
+      >
         <button
           type="button"
           onClick={() => toggleGroup(clusterId, group.id, expanded)}
           className={cn(
-            "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
+            "group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
             depth > 0 ? "pl-4" : "pl-1.5",
           )}
         >
+          {depth === 0 ? (
+            <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-theme-text-disabled opacity-0 group-hover:opacity-100" />
+          ) : null}
           {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
           <GroupIcon className={cn("shrink-0", depth > 0 ? "h-3 w-3" : "h-3.5 w-3.5")} />
           <span className="truncate">{group.title}</span>

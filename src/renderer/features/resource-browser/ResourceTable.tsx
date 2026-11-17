@@ -19,7 +19,7 @@ interface ResourceTableProps {
   onContextMenu: (object: KubeObject, event: React.MouseEvent) => void;
   onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
   columnWidths: Record<string, number>;
-  onResizeColumn: (key: string, width: number) => void;
+  onResizeEnd: (key: string, width: number) => void;
   onResetColumnWidth: (key: string) => void;
   filterableKeys: Set<string>;
   loading: boolean;
@@ -44,7 +44,7 @@ export function ResourceTable({
   onContextMenu,
   onFilterColumn,
   columnWidths,
-  onResizeColumn,
+  onResizeEnd,
   onResetColumnWidth,
   filterableKeys,
   loading,
@@ -59,6 +59,7 @@ export function ResourceTable({
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
+  const [previewWidths, setPreviewWidths] = useState<Record<string, number>>({});
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -75,13 +76,14 @@ export function ResourceTable({
     setHighlight(-1);
   }, [columns]);
 
+  const effectiveWidths = { ...columnWidths, ...previewWidths };
   const gridTemplate = `${selectionMode ? "40px " : ""}${columns
-    .map((column) => formatColumnWidth(column, columnWidths[column.key]))
+    .map((column) => formatColumnWidth(column, effectiveWidths[column.key]))
     .join(" ")}`;
   const minWidth =
     (selectionMode ? 40 : 0) +
     columns.reduce(
-      (sum, column) => sum + (columnWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
+      (sum, column) => sum + (effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
       0,
     );
   const allSelected = rows.length > 0 && rows.every((row) => selectedKeys.has(row.metadata?.uid ?? `${row.metadata?.namespace}/${row.metadata?.name}`));
@@ -185,6 +187,11 @@ export function ResourceTable({
                   onClick={(event) => event.stopPropagation()}
                   onDoubleClick={(event) => {
                     event.stopPropagation();
+                    setPreviewWidths((current) => {
+                      const next = { ...current };
+                      delete next[column.key];
+                      return next;
+                    });
                     onResetColumnWidth(column.key);
                   }}
                   onPointerDown={(event) => {
@@ -192,13 +199,21 @@ export function ResourceTable({
                     event.stopPropagation();
                     const startX = event.clientX;
                     const startWidth =
-                      columnWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+                      effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+                    let finalWidth = startWidth;
                     const onMove = (moveEvent: PointerEvent) => {
-                      onResizeColumn(column.key, Math.max(72, Math.round(startWidth + moveEvent.clientX - startX)));
+                      finalWidth = Math.max(72, Math.round(startWidth + moveEvent.clientX - startX));
+                      setPreviewWidths((current) => ({ ...current, [column.key]: finalWidth }));
                     };
                     const onUp = () => {
                       window.removeEventListener("pointermove", onMove);
                       window.removeEventListener("pointerup", onUp);
+                      onResizeEnd(column.key, finalWidth);
+                      setPreviewWidths((current) => {
+                        const next = { ...current };
+                        delete next[column.key];
+                        return next;
+                      });
                     };
                     window.addEventListener("pointermove", onMove);
                     window.addEventListener("pointerup", onUp);

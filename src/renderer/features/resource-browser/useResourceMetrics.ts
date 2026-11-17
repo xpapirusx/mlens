@@ -119,7 +119,7 @@ export function useResourceMetrics(options: {
     };
 
     void load();
-    const interval = refreshSeconds > 0 ? Math.max(10, refreshSeconds) : 0;
+    const interval = refreshSeconds > 0 ? Math.max(60, refreshSeconds) : 0;
     if (!interval) return () => { disposed = true; };
     const timer = window.setInterval(() => {
       if (!document.hidden) void load();

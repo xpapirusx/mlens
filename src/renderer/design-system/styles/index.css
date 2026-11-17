@@ -3,6 +3,7 @@
 @import "@fontsource/dm-mono";
 @import "./tokens.css";
 @import "./theme.css";
+@import "./themes.css";
 @import "./components.css";
 
 /* Theme is driven by the `.dark` class on <html>, not prefers-color-scheme. */

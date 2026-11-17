@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, Columns3, FolderOpen, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Columns3, FolderOpen, Search } from "lucide-react";
 import { Menu, MenuLabel } from "../../design-system/components/Menu";
 import { cn } from "../../lib/cn";
 import type { ColumnDef } from "../../lib/columns";
@@ -141,10 +141,12 @@ export function ColumnPicker({
   columns,
   hidden,
   onChange,
+  onMove,
 }: {
   columns: ColumnDef[];
   hidden: Set<string>;
   onChange: (hidden: string[]) => void;
+  onMove: (key: string, direction: "up" | "down") => void;
 }) {
   return (
     <Menu
@@ -178,26 +180,50 @@ export function ColumnPicker({
               const disabled = column.key === "name";
               const checked = !hidden.has(column.key);
               return (
-                <button
+                <div
                   key={column.key}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    const next = new Set(hidden);
-                    if (checked) next.add(column.key);
-                    else next.delete(column.key);
-                    onChange([...next]);
-                  }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-theme-text-secondary hover:bg-theme-elevated hover:text-theme-text-primary disabled:opacity-50"
+                  className="flex items-center gap-1 rounded px-1.5 py-1 text-xs text-theme-text-secondary hover:bg-theme-elevated"
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    readOnly
-                    className="h-3 w-3 rounded border-theme-border accent-skyhook-500"
-                  />
-                  <span className="min-w-0 flex-1 truncate">{column.label}</span>
-                </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      const next = new Set(hidden);
+                      if (checked) next.add(column.key);
+                      else next.delete(column.key);
+                      onChange([...next]);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 py-0.5 text-left hover:text-theme-text-primary disabled:opacity-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      readOnly
+                      className="h-3 w-3 rounded border-theme-border accent-skyhook-500"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{column.label}</span>
+                  </button>
+                  {column.key !== "name" ? (
+                    <span className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        title="Move column up"
+                        className="rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                        onClick={() => onMove(column.key, "up")}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Move column down"
+                        className="rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                        onClick={() => onMove(column.key, "down")}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
               );
             })}
           </div>

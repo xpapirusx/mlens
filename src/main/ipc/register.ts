@@ -137,7 +137,7 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
 
   // ── Resources ─────────────────────────────────────────────────
   ipcMain.handle(IPC.resourcesDiscover, (_event, clusterId: unknown) =>
-    clusters.connection(assertString(clusterId, "cluster id")).catalog.refresh(true),
+    clusters.connection(assertString(clusterId, "cluster id")).catalog.refresh(),
   );
 
   ipcMain.handle(IPC.resourcesList, (_event, raw: unknown) =>

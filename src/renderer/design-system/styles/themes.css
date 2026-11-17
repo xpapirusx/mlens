@@ -1,0 +1,116 @@
+/*
+ * Additional colour themes. They override the Radar token contract so every
+ * existing component (including tables, details, terminal chrome and dialogs)
+ * follows automatically.
+ */
+
+html.theme-dracula {
+  color-scheme: dark;
+
+  --color-brand: #bd93f9;
+  --color-brand-light: #d6acff;
+  --brand-rgb: 189 147 249;
+
+  --bg-sidebar: #21222c;
+  --bg-base: #282a36;
+  --bg-surface: #21222c;
+  --bg-elevated: #44475a;
+  --bg-hover: #44475a;
+  --bg-active: #343746;
+
+  --text-primary: #f8f8f2;
+  --text-secondary: #d8dae0;
+  --text-tertiary: #9aa3c7;
+  --text-disabled: #6272a4;
+  --warning-text: #f1fa8c;
+
+  --border-default: #44475a;
+  --border-light: #52556b;
+  --border-subtle: rgba(248, 248, 242, 0.06);
+  --border-emphasis: #6272a4;
+
+  --accent: #bd93f9;
+  --accent-light: #d6acff;
+  --accent-muted: rgba(189, 147, 249, 0.16);
+  --accent-text: #d6acff;
+
+  --selection-bg: rgba(189, 147, 249, 0.18);
+  --selection-bg-strong: rgba(189, 147, 249, 0.3);
+  --selection-text: #f8f8f2;
+  --selection-border: rgba(189, 147, 249, 0.42);
+
+  --color-success: #50fa7b;
+  --color-warning: #f1fa8c;
+  --color-error: #ff5555;
+  --color-alert: #ffb86c;
+  --color-info: #8be9fd;
+
+  /* Tailwind brand utilities used by filters/checks/rings. */
+  --color-skyhook-300: #e2cfff;
+  --color-skyhook-400: #d6acff;
+  --color-skyhook-500: #bd93f9;
+  --color-skyhook-600: #a679e8;
+  --color-skyhook-700: #8b5fcf;
+  --color-skyhook-800: #6d44a8;
+
+  --terminal-bg: #282a36;
+  --terminal-border: #44475a;
+  --scrollbar-track: #21222c;
+  --scrollbar-thumb: #44475a;
+  --scrollbar-thumb-hover: #6272a4;
+}
+
+html.theme-freelens {
+  color-scheme: dark;
+
+  --color-brand: #00a7a0;
+  --color-brand-light: #00c2ba;
+  --brand-rgb: 0 167 160;
+
+  --bg-sidebar: #36393e;
+  --bg-base: #1e2124;
+  --bg-surface: #262b2f;
+  --bg-elevated: #2e3136;
+  --bg-hover: #3a3e44;
+  --bg-active: #414448;
+
+  --text-primary: #dcddde;
+  --text-secondary: #a0a0a0;
+  --text-tertiary: #909ba6;
+  --text-disabled: #6d747c;
+  --warning-text: #ffb74d;
+
+  --border-default: #4c5053;
+  --border-light: #5a5e63;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-emphasis: #6d747c;
+
+  --accent: #00a7a0;
+  --accent-light: #00c2ba;
+  --accent-muted: rgba(0, 167, 160, 0.16);
+  --accent-text: #4dd6cf;
+
+  --selection-bg: rgba(0, 167, 160, 0.16);
+  --selection-bg-strong: rgba(0, 167, 160, 0.28);
+  --selection-text: #ffffff;
+  --selection-border: rgba(0, 167, 160, 0.45);
+
+  --color-success: #43a047;
+  --color-warning: #ff9800;
+  --color-error: #ce3933;
+  --color-alert: #e85555;
+  --color-info: #00a7a0;
+
+  --color-skyhook-300: #66d6d0;
+  --color-skyhook-400: #33c7c0;
+  --color-skyhook-500: #00a7a0;
+  --color-skyhook-600: #008f89;
+  --color-skyhook-700: #007772;
+  --color-skyhook-800: #005f5b;
+
+  --terminal-bg: #000000;
+  --terminal-border: #303136;
+  --scrollbar-track: #1e2124;
+  --scrollbar-thumb: #414448;
+  --scrollbar-thumb-hover: #5f6064;
+}

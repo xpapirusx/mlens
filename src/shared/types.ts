@@ -5,6 +5,7 @@
 
 export type ClusterId = string;
 export type ThemeMode = "light" | "dark" | "system";
+export type ColorTheme = "radar" | "dracula" | "freelens";
 
 export interface KubeconfigSource {
   path: string;
@@ -282,6 +283,7 @@ export interface ClusterHealth {
 
 export interface AppSettings {
   theme: ThemeMode;
+  colorTheme: ColorTheme;
   kubeconfigPaths: string[];
   favorites: ClusterId[];
   recentClusters: Array<{ id: ClusterId; openedAt: number }>;
@@ -297,6 +299,10 @@ export interface AppSettings {
   collapseCatalogGroups: boolean;
   favoriteKinds: string[];
   hiddenClusters: ClusterId[];
+  hotbarOrder: ClusterId[];
+  sidebarGroupOrder: string[];
+  tableColumnWidths: Record<string, number>;
+  tableColumnOrder: Record<string, string[]>;
 }
 
 export interface AddKubeconfigResult {

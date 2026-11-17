@@ -330,7 +330,7 @@ details { ref, tab } + detailsHistory,
 dock { open, height, tabs, activeTabId }
 ```
 
-Settings add `tableRowHeight` (36/40/44), `collapseCatalogGroups` (default true),
+Settings add `tableRowHeight` (24–52), `collapseCatalogGroups` (default true),
 `favoriteKinds` (pinned sidebar kinds) and `hiddenClusters` (catalog removal).
 Removing a cluster only drops it from the visible catalog: the kubeconfig file is
 never modified. Hidden sessions are disconnected and disposed, and the Removed

@@ -86,8 +86,14 @@ configuration).
 | Context menu actions | **Done** | Details, YAML, logs, exec, scale, restart, copy kubectl, delete |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
 | Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
+| Dracula / Freelens themes | **Done** | Token-level themes, Monaco themes, terminal palettes |
+| Status problems filter | **Done** | Warning/error toggle with live count across kinds |
+| Column order + global widths | **Done** | Per-kind order; widths keyed kind+column across clusters |
+| Hotbar favourites + drag reorder | **Done** | Open clusters in top tabs; hotbar is reorderable favourites |
+| Sidebar group reorder | **Done** | Drag top-level catalog groups; persisted in settings |
+| Request-volume reduction | **Done** | Counts only expanded/favourite groups (≥120s), metrics only when visible (≥60s), 60s default polling |
 | CPU/Memory table columns | **Done** | Radar-style bullet bars, request markers, per-container tooltips; Node usage/allocatable bars; “–” without metrics |
-| Configurable row height | **Done** | Settings: 36 / 40 / 44px |
+| Configurable row height | **Done** | Settings: 24–52px |
 | Sidebar kind favorites | **Done** | Pinned kinds section + settings list, stored globally |
 | Groups collapsed by default | **Done** | Settings toggle, on by default; expanded state kept per cluster |
 
@@ -191,6 +197,9 @@ configuration).
 | CPU / Memory bars | Pass — live metrics-server samples with limit bars, % and request markers |
 | Quick port forward | Pass — clicking port 8080 started a loopback forward |
 | Sidebar favorites / collapsed groups | Pass — pinned kinds appear at top; groups start folded |
+| Dracula / Freelens themes | Pass — theme tokens, shell, tables, details and terminal palettes |
+| Problems status filter | Pass — 115 warning/error rows isolated on a live cluster |
+| Column order | Pass — up/down in the column picker, persisted per kind |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
 | Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg`; packaged app launches, sees 98 contexts, connects, runs a PTY with the right kubectl context, and port-forwards a real pod (HTTP 200) |

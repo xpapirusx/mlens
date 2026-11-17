@@ -239,45 +239,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
-              onClick={() => setDetailsTab(clusterId, "logs")}
-              title="Logs"
-            >
-              <ScrollText className="h-3.5 w-3.5" />
-            </button>
-            {isPod ? (
-              <button type="button" className="shell-icon-button h-6 w-6" onClick={() => void openShell()} title="Attach / exec into pod">
-                <SquareTerminal className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-            {isPod ? (
-              <button
-                type="button"
-                className="shell-icon-button h-6 w-6"
-                onClick={() => setForwardPort(8080)}
-                title="Port forward"
-              >
-                <Plug className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
-              onClick={() => setDetailsTab(clusterId, "yaml")}
-              title="Edit YAML"
-            >
-              <FileCode className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6 text-red-500/80 hover:text-red-500"
-              onClick={() => setConfirmDelete(true)}
-              title="Delete resource"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
               onClick={() => setExpanded((value) => !value)}
               title={expanded ? "Restore drawer" : "Expand drawer"}
             >
@@ -387,6 +348,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 groups={related.groups}
                 loading={related.loading}
                 error={related.error}
+                warnings={related.warnings}
                 onNavigate={navigate}
               />
             ) : null}
@@ -402,10 +364,63 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         )}
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-disabled">
-        <ChevronLeft className="h-2.5 w-2.5" />
-        <span className="font-mono">{resource?.plural ?? details.ref.kind}</span>
-        <span className="ml-auto">{data.loading ? "Refreshing…" : "Live data"}</span>
+      <div className="flex h-9 shrink-0 items-center gap-1 border-t border-theme-border bg-theme-base px-2">
+        <ChevronLeft className="h-2.5 w-2.5 text-theme-text-disabled" />
+        <span className="font-mono text-[10px] text-theme-text-disabled">
+          {resource?.plural ?? details.ref.kind}
+        </span>
+        <span className="text-[10px] text-theme-text-disabled">· {data.loading ? "refreshing…" : "live"}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={() => setDetailsTab(clusterId, "logs")}
+            title="Logs"
+          >
+            <ScrollText className="h-3.5 w-3.5" />
+            Logs
+          </button>
+          {isPod ? (
+            <button
+              type="button"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+              onClick={() => void openShell()}
+              title="Attach / exec into pod"
+            >
+              <SquareTerminal className="h-3.5 w-3.5" />
+              Attach
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={() => setDetailsTab(clusterId, "yaml")}
+            title="Edit YAML"
+          >
+            <FileCode className="h-3.5 w-3.5" />
+            YAML
+          </button>
+          {isPod ? (
+            <button
+              type="button"
+              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+              onClick={() => setForwardPort(8080)}
+              title="Port forward"
+            >
+              <Plug className="h-3.5 w-3.5" />
+              Forward
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-red-500 hover:bg-red-500/10"
+            onClick={() => setConfirmDelete(true)}
+            title="Delete resource"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
       </div>
 
       {isPod && details.ref.namespace && object ? (

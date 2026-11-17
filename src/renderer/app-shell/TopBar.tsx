@@ -63,6 +63,10 @@ export function TopBar({
 
   const toggleTheme = () => {
     if (!settings) return;
+    if ((settings.colorTheme ?? "radar") !== "radar") {
+      void updateSettings({ colorTheme: "radar", theme: "light" });
+      return;
+    }
     const next = settings.theme === "dark" ? "light" : "dark";
     void updateSettings({ theme: next });
   };

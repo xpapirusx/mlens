@@ -44,7 +44,7 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   terminal PTYs.
 - Multiple namespace selection per cluster (all, one, or several).
 - Sidebar favorites (pinned resource kinds), collapsible groups starting folded
-  by default, and a configurable table row height (36/40/44px).
+  by default, and a configurable table row height (24–52px).
 - Health, latency, Kubernetes version, context and API server in the UI.
 - Per-cluster isolation: each cluster has its own Kubernetes client/auth context
   in the main process.
@@ -83,6 +83,16 @@ related-resource resolution. Secrets reveal only on request.
   live forwards panel, start/stop, and one-click port forwarding from the Pod
   Ports table, no kubectl process.
 - xterm.js search, copy/paste, Radar console theme.
+
+### Themes and layout
+
+- Radar (light/dark/system), **Dracula**, and **Freelens** colour themes; each
+  theme also selects its terminal ANSI palette.
+- Reorderable favourite-cluster hotbar (open clusters stay in the top tab strip).
+- Reorderable sidebar groups, column order, column widths (remembered per kind
+  across clusters), and configurable row height from 24 to 52px.
+- Problems filter for warning/error statuses, plus the regular status badges and
+  per-column status filters.
 
 ### Design system
 
@@ -178,6 +188,8 @@ mLens is MIT licensed (`LICENSE`).
   patterns; token values and component recipes are adapted with attribution.
   The Apache license text is included in `licenses/Apache-2.0.txt`.
 - Fonts (DM Sans, DM Mono) are OFL 1.1, loaded via `@fontsource` packages.
+- Build story and full context: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
+- Agent/contributor rules: [`AGENTS.md`](AGENTS.md).
 - Full third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 mLens is an independent project and is not affiliated with Freelens, Skyhook, or

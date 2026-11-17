@@ -59,6 +59,36 @@ export function SettingsDialog() {
     >
       <div className="space-y-6">
         <Section title="Appearance" icon={<Sun />}>
+          <Field label="Color theme" hint="Dracula and Freelens are dark themes; Radar follows the mode below.">
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  { value: "radar", label: "Radar" },
+                  { value: "dracula", label: "Dracula" },
+                  { value: "freelens", label: "Freelens" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    void updateSettings({
+                      colorTheme: option.value,
+                      ...(option.value === "radar" ? {} : { theme: "dark" as const }),
+                    })
+                  }
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs transition-colors",
+                    (settings.colorTheme ?? "radar") === option.value
+                      ? "border-skyhook-500/60 bg-skyhook-500/10 text-accent-text"
+                      : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </Field>
           <div className="flex items-center gap-2">
             {(
               [
@@ -72,7 +102,7 @@ export function SettingsDialog() {
                 <button
                   key={option.value}
                   type="button"
-                  onClick={() => void updateSettings({ theme: option.value })}
+                  onClick={() => void updateSettings({ theme: option.value, colorTheme: "radar" })}
                   className={cn(
                     "flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs transition-colors",
                     settings.theme === option.value
@@ -140,9 +170,14 @@ export function SettingsDialog() {
               onChange={(event) => void updateSettings({ tableRowHeight: Number(event.target.value) })}
               className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
             >
-              <option value={36}>Compact · 36px</option>
-              <option value={40}>Normal · 40px</option>
+              <option value={24}>Ultra compact · 24px</option>
+              <option value={28}>Dense · 28px</option>
+              <option value={32}>Compact · 32px</option>
+              <option value={36}>Normal · 36px</option>
+              <option value={40}>Relaxed · 40px</option>
               <option value={44}>Comfortable · 44px</option>
+              <option value={48}>Roomy · 48px</option>
+              <option value={52}>Large · 52px</option>
             </select>
           </Field>
           <Field

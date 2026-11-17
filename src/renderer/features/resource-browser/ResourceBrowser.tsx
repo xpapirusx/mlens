@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Scale,
+  TriangleExclamationPoint,
   ScrollText,
   SquareTerminal,
   Trash2,
@@ -20,6 +21,7 @@ import type { KubeObject } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
 import { findResource } from "../../lib/catalog";
+import { resourceStatus } from "../../lib/status";
 import { getColumnsForKind, sortObjects, type ColumnDef } from "../../lib/columns";
 import { getKindIcon, kindLabel } from "../../lib/icons";
 import { cn } from "../../lib/cn";
@@ -65,14 +67,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const selectedNamespaces = session?.selectedNamespaces ?? [];
   const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
   const list = useResourceList({ clusterId, resource, namespaces: selectedNamespaces, refreshSeconds });
-  const metrics = useResourceMetrics({
-    clusterId,
-    resource,
-    resources: session?.resources ?? [],
-    namespaces: selectedNamespaces,
-    refreshSeconds,
-    active,
-  });
 
   const kindState: KindState = session && resource
     ? (session.kindStates[`${resource.apiVersion}|${resource.kind}`] ?? {
@@ -86,10 +80,33 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [], columnWidths: {} };
 
   const showNamespace = Boolean(resource?.namespaced && selectedNamespaces.length !== 1);
-  const columns = useMemo(
+  const baseColumns = useMemo(
     () => (resource ? getColumnsForKind(resource, showNamespace) : []),
     [resource, showNamespace],
   );
+  const columnOrderKey = resource ? `${resource.apiVersion}|${resource.kind}` : "";
+  const preferredOrder = settings?.tableColumnOrder?.[columnOrderKey] ?? [];
+  const columns = useMemo(() => {
+    const originalIndex = new Map(baseColumns.map((column, index) => [column.key, index]));
+    return [...baseColumns].sort((a, b) => {
+      const ai = preferredOrder.indexOf(a.key);
+      const bi = preferredOrder.indexOf(b.key);
+      if (ai === -1 && bi === -1) return (originalIndex.get(a.key) ?? 0) - (originalIndex.get(b.key) ?? 0);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseColumns, preferredOrder.join("|")]);
+
+  const columnWidths = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const column of baseColumns) {
+      const value = settings?.tableColumnWidths?.[`${resource?.kind}|${column.key}`];
+      if (typeof value === "number") result[column.key] = value;
+    }
+    return result;
+  }, [baseColumns, settings?.tableColumnWidths, resource?.kind]);
   // Columns marked `defaultHidden` (Pod IP, QoS, images, …) start hidden for
   // each kind. Persist that initial choice through the kind state so the
   // column picker and the user's later toggles agree.
@@ -104,6 +121,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   const hidden = useMemo(() => new Set(kindState.hiddenColumns), [kindState.hiddenColumns]);
   const visible = useMemo(() => columns.filter((column) => !hidden.has(column.key)), [columns, hidden]);
+  const metrics = useResourceMetrics({
+    clusterId,
+    resource,
+    resources: session?.resources ?? [],
+    namespaces: selectedNamespaces,
+    refreshSeconds,
+    active: active && visible.some((column) => column.key === "cpu" || column.key === "memory"),
+  });
 
   const filterData = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildFilterOptions>>();
@@ -124,6 +149,20 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       return true;
     }
   }, [kindState.search, kindState.regex]);
+
+
+  const [problemsOnly, setProblemsOnly] = useState(false);
+
+  const problemCount = useMemo(
+    () =>
+      resource
+        ? list.items.filter((object) => {
+            const tone = resourceStatus(object, resource.kind).tone;
+            return tone === "warning" || tone === "error";
+          }).length
+        : 0,
+    [list.items, resource],
+  );
 
   const filtered = useMemo(() => {
     let rows = list.items;
@@ -151,6 +190,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       });
     }
 
+    if (problemsOnly && resource) {
+      rows = rows.filter((object) => {
+        const tone = resourceStatus(object, resource.kind).tone;
+        return tone === "warning" || tone === "error";
+      });
+    }
+
     const activeFilters = Object.entries(kindState.filters).filter(([, values]) => values.length > 0);
     if (activeFilters.length > 0) {
       rows = rows.filter((row) =>
@@ -162,7 +208,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       );
     }
     return rows;
-  }, [list.items, kindState.search, kindState.regex, kindState.filters, columns]);
+  }, [list.items, kindState.search, kindState.regex, kindState.filters, columns, problemsOnly, resource]);
 
   const sorted = useMemo(() => {
     const sortColumn = kindState.sort ? columns.find((column) => column.key === kindState.sort?.key) : undefined;
@@ -197,6 +243,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   useEffect(() => {
     setSelectedKeys(new Set());
+    setProblemsOnly(false);
   }, [kindStateKey, selectedNamespaces.join(",")]);
 
   if (!session) return null;
@@ -487,7 +534,37 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             columns={columns}
             hidden={hidden}
             onChange={(next) => setKindPatch({ hiddenColumns: next })}
+            onMove={(key, direction) => {
+              if (!resource) return;
+              const keys = columns.map((column) => column.key);
+              const index = keys.indexOf(key);
+              const target = direction === "up" ? index - 1 : index + 1;
+              if (index < 0 || target < 0 || target >= keys.length) return;
+              [keys[index], keys[target]] = [keys[target], keys[index]];
+              void updateSettings({
+                tableColumnOrder: {
+                  ...(settings?.tableColumnOrder ?? {}),
+                  [columnOrderKey]: keys,
+                },
+              });
+            }}
           />
+
+          <button
+            type="button"
+            onClick={() => setProblemsOnly((value) => !value)}
+            className={cn(
+              "flex h-8 items-center gap-1 rounded-lg border px-2 text-[11px] transition-colors",
+              problemsOnly
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
+            )}
+            title="Show only resources with warning/error status"
+          >
+            <TriangleExclamationPoint className="h-3 w-3" />
+            <span className="hidden xl:inline">Problems</span>
+            {problemCount > 0 ? <span className="font-mono">{problemCount}</span> : null}
+          </button>
 
           <button
             type="button"
@@ -515,6 +592,16 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           </Button>
         </div>
       </div>
+
+      {problemsOnly ? (
+        <div className="flex h-7 shrink-0 items-center gap-2 border-b border-theme-border bg-amber-500/5 px-3 text-[11px] text-amber-700 dark:text-amber-300">
+          <TriangleExclamationPoint className="h-3 w-3" />
+          Showing {problemCount} resource{problemCount === 1 ? "" : "s"} with warning/error status
+          <button type="button" className="ml-auto underline" onClick={() => setProblemsOnly(false)}>
+            clear
+          </button>
+        </div>
+      ) : null}
 
       {selectedKeys.size > 0 ? (
         <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
@@ -598,14 +685,21 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onOpen={(object) => openTab(object)}
           onContextMenu={(object, event) => setMenu({ object, x: event.clientX, y: event.clientY })}
           onFilterColumn={openFilter}
-          columnWidths={kindState.columnWidths}
-          onResizeColumn={(key, width) =>
-            setKindPatch({ columnWidths: { ...kindState.columnWidths, [key]: width } })
-          }
+          columnWidths={columnWidths}
+          onResizeEnd={(key, width) => {
+            if (!resource) return;
+            void updateSettings({
+              tableColumnWidths: {
+                ...(settings?.tableColumnWidths ?? {}),
+                [`${resource.kind}|${key}`]: width,
+              },
+            });
+          }}
           onResetColumnWidth={(key) => {
-            const next = { ...kindState.columnWidths };
-            delete next[key];
-            setKindPatch({ columnWidths: next });
+            if (!resource) return;
+            const next = { ...(settings?.tableColumnWidths ?? {}) };
+            delete next[`${resource.kind}|${key}`];
+            void updateSettings({ tableColumnWidths: next });
           }}
           filterableKeys={new Set(filterData.keys())}
           rowHeight={settings?.tableRowHeight ?? 44}

@@ -115,6 +115,13 @@ export interface RelatedGroup {
   items: RelatedItem[];
 }
 
+export interface RelatedResult {
+  groups: RelatedGroup[];
+  loading: boolean;
+  error: string | null;
+  warnings: string[];
+}
+
 function toItem(object: KubeObject, relationship: string): RelatedItem {
   const status = resourceStatus(object, object.kind);
   return {
@@ -137,14 +144,16 @@ export function useRelatedResources(
   ref: ResourceKey | null,
   object: KubeObject | null,
   enabled = true,
-): { groups: RelatedGroup[]; loading: boolean; error: string | null } {
+): RelatedResult {
   const [groups, setGroups] = useState<RelatedGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   useEffect(() => {
     if (!ref || !object || !enabled) {
       setGroups([]);
+      setWarnings([]);
       return;
     }
     let disposed = false;
@@ -152,17 +161,23 @@ export function useRelatedResources(
     const namespace = object.metadata?.namespace;
 
     const list = async (apiVersion: string, listKind: string, listNamespace?: string, fieldSelector?: string) => {
-      const result = await call(
-        api.resources.list({
-          clusterId,
-          apiVersion,
-          kind: listKind,
-          namespace: listNamespace,
-          fieldSelector,
-          limit: 1000,
-        }),
-      );
-      return result.items;
+      try {
+        const result = await call(
+          api.resources.list({
+            clusterId,
+            apiVersion,
+            kind: listKind,
+            namespace: listNamespace,
+            fieldSelector,
+            limit: 1000,
+          }),
+        );
+        return result.items;
+      } catch (listError) {
+        const message = errorText(listError);
+        setWarnings((current) => (current.includes(message) ? current : [...current, message]));
+        return [];
+      }
     };
 
     const load = async () => {
@@ -294,5 +309,5 @@ export function useRelatedResources(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clusterId, ref, object, enabled]);
 
-  return { groups, loading, error };
+  return { groups, loading, error, warnings };
 }

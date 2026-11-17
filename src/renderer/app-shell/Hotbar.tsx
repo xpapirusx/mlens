@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Blocks, Plus, Settings } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Blocks, Plus, Settings, Star } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { cn } from "../lib/cn";
@@ -27,27 +27,35 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const openSettings = useCatalogStore((state) => state.openSettings);
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
+  const updateSettings = useCatalogStore((state) => state.updateSettings);
   const sessions = useSessionStore((state) => state.sessions);
 
   // Freelens' hotbar is a curated rail, not a dump of every kubeconfig
   // context. Show favorites, then recently opened clusters, then the active one.
+  const [dragging, setDragging] = useState<string | null>(null);
+
+  // Open clusters live in the top cluster tabs. The hotbar is the curated,
+  // reorderable rail of favourite clusters, like Freelens' hotbar.
   const ordered = useMemo(() => {
     const byId = new Map(clusters.map((cluster) => [cluster.id, cluster]));
-    const ids = [
-      ...(settings?.favorites ?? []),
-      ...(settings?.recentClusters ?? []).map((entry) => entry.id),
-      ...(activeClusterId ? [activeClusterId] : []),
-    ];
-    const seen = new Set<string>();
-    const items: ClusterSummary[] = [];
-    for (const id of ids) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      const cluster = byId.get(id);
-      if (cluster) items.push(cluster);
-    }
-    return items;
-  }, [clusters, settings?.favorites, settings?.recentClusters, activeClusterId]);
+    const favorites = settings?.favorites ?? [];
+    const preferred = (settings?.hotbarOrder ?? []).filter((id) => favorites.includes(id));
+    const remaining = favorites.filter((id) => !preferred.includes(id));
+    return [...preferred, ...remaining]
+      .map((id) => byId.get(id))
+      .filter((cluster): cluster is ClusterSummary => Boolean(cluster));
+  }, [clusters, settings?.favorites, settings?.hotbarOrder]);
+
+  const reorder = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return;
+    const ids = ordered.map((cluster) => cluster.id);
+    const from = ids.indexOf(sourceId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    ids.splice(from, 1);
+    ids.splice(to, 0, sourceId);
+    void updateSettings({ hotbarOrder: ids });
+  };
 
   return (
     <nav
@@ -98,10 +106,28 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
             >
               <button
                 type="button"
+                draggable
+                onDragStart={(event) => {
+                  setDragging(cluster.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", cluster.id);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const source = event.dataTransfer.getData("text/plain") || dragging;
+                  if (source) reorder(source, cluster.id);
+                  setDragging(null);
+                }}
+                onDragEnd={() => setDragging(null)}
                 onClick={() => void openCluster(cluster.id)}
                 className={cn(
                   "relative flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-semibold text-white shadow-theme-sm transition-all",
                   active ? "ring-2 ring-skyhook-500 ring-offset-1 ring-offset-theme-sidebar" : "opacity-85 hover:opacity-100",
+                  dragging === cluster.id && "opacity-40",
                 )}
                 style={{
                   background: `linear-gradient(135deg, hsl(${(cluster.name.charCodeAt(0) * 37) % 360} 45% 42%), hsl(${(cluster.name.charCodeAt(0) * 37 + 40) % 360} 48% 30%))`,
@@ -116,13 +142,13 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         })}
 
         {ordered.length === 0 ? (
-          <Tooltip content="Open a cluster from the catalog — it will appear here" side="bottom">
+          <Tooltip content="Star clusters in the catalog to pin them here. Drag to reorder." side="bottom">
             <button
               type="button"
               onClick={() => setActiveCluster(null)}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-theme-border text-theme-text-tertiary hover:text-theme-text-primary"
             >
-              <Plus className="h-4 w-4" />
+              <Star className="h-4 w-4" />
             </button>
           </Tooltip>
         ) : null}

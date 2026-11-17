@@ -270,6 +270,25 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         },
         statusColumn("Pod"),
         {
+          key: "ports",
+          label: "Ports",
+          width: 132,
+          value: (object) =>
+            ((object.spec?.containers ?? []) as Array<Record<string, any>>)
+              .flatMap((container) => container.ports ?? [])
+              .map((port: any) => port.containerPort)
+              .join(","),
+          cell: (object) => {
+            const ports = ((object.spec?.containers ?? []) as Array<Record<string, any>>)
+              .flatMap((container) =>
+                ((container.ports ?? []) as Array<Record<string, any>>).map(
+                  (port) => `${port.containerPort}/${port.protocol ?? "TCP"}`,
+                ),
+              );
+            return <TextCell>{ports.join(", ") || "–"}</TextCell>;
+          },
+        },
+        {
           key: "cpu",
           label: "CPU",
           width: 196,
@@ -294,7 +313,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "restarts",
           label: "Restarts",
-          width: 104,
+          width: 112,
           align: "right",
           sortable: true,
           value: (object) =>
@@ -316,6 +335,20 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
             );
           },
           filterValue: () => undefined,
+        },
+        {
+          key: "owner",
+          label: "Controlled by",
+          width: 190,
+          defaultHidden: true,
+          value: (object) =>
+            object.metadata?.ownerReferences?.[0]
+              ? `${object.metadata.ownerReferences[0].kind}/${object.metadata.ownerReferences[0].name}`
+              : "",
+          cell: (object) => {
+            const owner = object.metadata?.ownerReferences?.[0];
+            return <TextCell>{owner ? `${owner.kind}/${owner.name}` : "–"}</TextCell>;
+          },
         },
         {
           key: "node",

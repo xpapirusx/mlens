@@ -342,13 +342,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: 
       </DetailSection>
 
       <DetailSection title="Affinity" icon={<Settings2 />} defaultOpen={false} count={object.spec?.affinity ? 1 : 0}>
-        {object.spec?.affinity ? (
-          <div className="min-w-0 overflow-x-auto rounded-md border border-theme-border-subtle p-2">
-            <NestedObject value={object.spec.affinity} />
-          </div>
-        ) : (
-          <div className="text-xs text-theme-text-tertiary">No affinity rules.</div>
-        )}
+        <AffinityView affinity={object.spec?.affinity} />
       </DetailSection>
     </div>
   );
@@ -866,6 +860,110 @@ function HpaOverview({ object }: OverviewProps) {
       <DetailSection title="Conditions" icon={<ShieldCheck />}>
         <ConditionsList conditions={status.conditions ?? []} />
       </DetailSection>
+    </div>
+  );
+}
+
+function MatchExpressions({ selector }: { selector: any }) {
+  const labels = Object.entries(selector?.matchLabels ?? {}) as Array<[string, string]>;
+  const expressions = (selector?.matchExpressions ?? []) as Array<Record<string, any>>;
+  if (labels.length === 0 && expressions.length === 0) {
+    return <span className="text-[11px] text-theme-text-tertiary">any</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {labels.map(([key, value]) => (
+        <span key={key} className="badge-sm status-unknown max-w-full truncate font-mono">
+          {key}={value}
+        </span>
+      ))}
+      {expressions.map((expression, index) => (
+        <span key={`${expression.key}-${index}`} className="badge-sm status-unknown max-w-full truncate font-mono">
+          {expression.key} {expression.operator}
+          {expression.values?.length ? ` (${expression.values.join(", ")})` : ""}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function AffinityView({ affinity }: { affinity: any }) {
+  if (!affinity) return <div className="text-xs text-theme-text-tertiary">No affinity rules.</div>;
+
+  const node = affinity.nodeAffinity;
+  const pod = affinity.podAffinity;
+  const anti = affinity.podAntiAffinity;
+  const requiredTerms = node?.requiredDuringSchedulingIgnoredDuringExecution?.nodeSelectorTerms ?? [];
+  const preferredTerms = node?.preferredDuringSchedulingIgnoredDuringExecution ?? [];
+
+  const renderPodTerms = (terms: any[], label: string) => {
+    if (!terms?.length) return null;
+    return (
+      <div>
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">{label}</div>
+        <div className="space-y-1">
+          {terms.map((term, index) => (
+            <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2 text-[11px]">
+              <div className="flex flex-wrap items-center gap-2 text-theme-text-secondary">
+                {term.weight !== undefined ? <span className="badge-sm status-neutral">weight {term.weight}</span> : null}
+                <span>
+                  topology: <span className="font-mono text-theme-text-primary">{term.topologyKey ?? "–"}</span>
+                </span>
+                {term.namespaces?.length ? (
+                  <span className="truncate text-theme-text-tertiary">namespaces: {term.namespaces.join(", ")}</span>
+                ) : null}
+              </div>
+              <div className="mt-1">
+                <MatchExpressions selector={term.labelSelector} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-3 text-[11px]">
+      {requiredTerms.length > 0 ? (
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+            Node affinity · required
+          </div>
+          <div className="space-y-1">
+            {requiredTerms.map((term: any, index: number) => (
+              <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2">
+                <MatchExpressions selector={{ matchExpressions: term.matchExpressions, matchFields: term.matchFields }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {preferredTerms.length > 0 ? (
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+            Node affinity · preferred
+          </div>
+          <div className="space-y-1">
+            {preferredTerms.map((term: any, index: number) => (
+              <div key={index} className="flex flex-wrap items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base p-2">
+                <span className="badge-sm status-neutral">weight {term.weight}</span>
+                <MatchExpressions selector={{ matchExpressions: term.preference?.matchExpressions, matchFields: term.preference?.matchFields }} />
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {renderPodTerms(pod?.requiredDuringSchedulingIgnoredDuringExecution, "Pod affinity · required")}
+      {renderPodTerms(pod?.preferredDuringSchedulingIgnoredDuringExecution, "Pod affinity · preferred")}
+      {renderPodTerms(anti?.requiredDuringSchedulingIgnoredDuringExecution, "Pod anti-affinity · required")}
+      {renderPodTerms(anti?.preferredDuringSchedulingIgnoredDuringExecution, "Pod anti-affinity · preferred")}
+
+      {requiredTerms.length === 0 && preferredTerms.length === 0 && !pod && !anti ? (
+        <div className="text-xs text-theme-text-tertiary">No affinity rules.</div>
+      ) : null}
     </div>
   );
 }

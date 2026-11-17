@@ -1,4 +1,4 @@
-import { Network, Puzzle, Server } from "lucide-react";
+import { AlertTriangle, Network, Puzzle, Server } from "lucide-react";
 import type { RelatedGroup } from "./useDetailsData";
 import { getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
@@ -10,11 +10,13 @@ export function RelatedTab({
   groups,
   loading,
   error,
+  warnings,
   onNavigate,
 }: {
   groups: RelatedGroup[];
   loading: boolean;
   error: string | null;
+  warnings?: string[];
   onNavigate: (kind: string, name: string, namespace?: string) => void;
 }) {
   if (loading && groups.length === 0) {
@@ -29,11 +31,26 @@ export function RelatedTab({
   }
   if (groups.length === 0) {
     return (
-      <EmptyState
-        icon={<Network />}
-        title="No related resources"
-        description="mLens checks owner references, label selectors, services, mounted configuration and pod-to-node relationships for this kind."
-      />
+      <div>
+        {warnings?.length ? (
+          <div className="m-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+            <div className="flex items-center gap-1.5 font-medium">
+              <AlertTriangle className="h-3 w-3" />
+              Some relations could not be read (RBAC or API errors)
+            </div>
+            {warnings.map((warning) => (
+              <div key={warning} className="mt-1 break-words font-mono text-[10px] opacity-80">
+                {warning}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <EmptyState
+          icon={<Network />}
+          title="No related resources"
+          description="mLens checks owner references, label selectors, services, mounted configuration and pod-to-node relationships for this kind."
+        />
+      </div>
     );
   }
 
@@ -82,6 +99,11 @@ export function RelatedTab({
           </div>
         </div>
       ))}
+      {warnings?.length ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-700 dark:text-amber-300">
+          Some relations could not be read: {warnings[0]}
+        </div>
+      ) : null}
       <div className="flex items-center gap-1.5 text-[10px] text-theme-text-disabled">
         <Puzzle className="h-3 w-3" />
         Relationships are computed from the live API, not inferred from static manifests.
