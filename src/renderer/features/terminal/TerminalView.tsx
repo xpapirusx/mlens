@@ -83,6 +83,31 @@ const FREELENS_TERMINAL_THEME = {
   brightWhite: "#eeeeec",
 };
 
+/** luci-theme-proton2025 palette: slate #0f1419, accent #5e9eff, its status hues. */
+const PROTON_TERMINAL_THEME = {
+  background: "#0f1419",
+  foreground: "#c5cad5",
+  cursor: "#5e9eff",
+  cursorAccent: "#0f1419",
+  selectionBackground: "#5e9eff59",
+  black: "#1a1f2e",
+  red: "#ff6b6b",
+  green: "#6bcf7f",
+  yellow: "#ffd93d",
+  blue: "#5e9eff",
+  magenta: "#c792ea",
+  cyan: "#56d4dd",
+  white: "#f5f7fa",
+  brightBlack: "#9299a8",
+  brightRed: "#ff8787",
+  brightGreen: "#8fe39f",
+  brightYellow: "#ffe680",
+  brightBlue: "#7db2ff",
+  brightMagenta: "#d4b5ff",
+  brightCyan: "#84e5ee",
+  brightWhite: "#ffffff",
+};
+
 export function TerminalView({ target, active }: { target: TerminalTarget; active: boolean }) {
   const settings = useCatalogStore((state) => state.settings);
   const allClusters = useCatalogStore((state) => state.allClusters);
@@ -107,7 +132,9 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
         ? DRACULA_TERMINAL_THEME
         : themeName === "freelens"
           ? FREELENS_TERMINAL_THEME
-          : RADAR_TERMINAL_THEME,
+          : themeName === "proton"
+            ? PROTON_TERMINAL_THEME
+            : RADAR_TERMINAL_THEME,
     [themeName],
   );
 

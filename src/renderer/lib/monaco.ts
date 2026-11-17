@@ -5,6 +5,14 @@ import "monaco-editor/languages/definitions/yaml/register.js";
 // contributions, so this import is what makes the shortcut work (Radar
 // registers the same file).
 import "monaco-editor/features/find/register.js";
+// Indentation folding: the gutter fold controls and Ctrl+Shift+[ / ] folding
+// of YAML blocks. Without this contribution `folding: true` does nothing.
+import "monaco-editor/editor/contrib/folding/browser/folding.js";
+// The find widget draws its chevrons and arrows with codicon glyphs; the font
+// only exists once this stylesheet is bundled (editor.api never pulls it in).
+// The `features/*` entry point is the one the package exports map resolves —
+// the raw `base/...` CSS path does not.
+import "monaco-editor/features/codicon/register.js";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 
 // Monaco runs its language services in a worker. YAML highlighting is token
@@ -98,6 +106,36 @@ monaco.editor.defineTheme("mlens-light", {
     "editor.lineHighlightBackground": "#F0F3F9",
     "editorIndentGuide.background1": "#E6ECF5",
     "editorGutter.background": "#F8FBFE",
+  },
+});
+
+monaco.editor.defineTheme("mlens-proton", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "5E9EFF" },
+    { token: "key", foreground: "7DB2FF" },
+    { token: "string", foreground: "6BCF7F" },
+    { token: "number", foreground: "FFD93D" },
+    { token: "comment", foreground: "9299A8", fontStyle: "italic" },
+  ],
+  colors: {
+    "editor.background": "#0F1419",
+    "editor.foreground": "#F5F7FA",
+    "editorLineNumber.foreground": "#4A5160",
+    "editorLineNumber.activeForeground": "#9299A8",
+    "editor.selectionBackground": "#5E9EFF59",
+    "editor.lineHighlightBackground": "#1A1F2E80",
+    "editorIndentGuide.background1": "#23293D",
+    "editorGutter.background": "#0F1419",
+    // Stock find widget: keep its chrome on the Proton surfaces.
+    "editorWidget.background": "#161C26",
+    "editorWidget.border": "rgba(255,255,255,0.14)",
+    "input.background": "#0F1419",
+    "input.border": "rgba(255,255,255,0.14)",
+    "findMatchHighlightBackground": "#FFD93D59",
+    "findMatchHighlightBorder": "#FFD93D",
+    "editor.findMatchHighlightBackground": "#FFD93D59",
   },
 });
 

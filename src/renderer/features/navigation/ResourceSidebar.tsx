@@ -16,7 +16,7 @@ import {
 import type { ClusterSummary } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore } from "../../stores/session-store";
-import { buildResourceGroups, filterGroups, isListable, type ResourceGroup } from "../../lib/catalog";
+import { buildResourceGroups, filterGroups, isListable, mergeGroupOrder, type ResourceGroup } from "../../lib/catalog";
 import { kindColor, kindLabel, getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { CountBadge } from "../../design-system/components/Badge";
@@ -57,17 +57,14 @@ export function ResourceSidebar({
   const resources = session?.resources ?? [];
   const baseGroups = useMemo(() => buildResourceGroups(resources), [resources]);
   const groupOrder = settings?.sidebarGroupOrder ?? [];
+  const orderedIds = useMemo(
+    () => (groupOrder.length > 0 ? mergeGroupOrder(baseGroups.map((group) => group.id), groupOrder) : []),
+    [baseGroups, groupOrder.join("|")],
+  );
   const groups = useMemo(() => {
-    if (groupOrder.length === 0) return baseGroups;
-    return [...baseGroups].sort((a, b) => {
-      const ai = groupOrder.indexOf(a.id);
-      const bi = groupOrder.indexOf(b.id);
-      if (ai === -1 && bi === -1) return 0;
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
-    });
-  }, [baseGroups, groupOrder.join("|")]);
+    if (orderedIds.length === 0) return baseGroups;
+    return [...baseGroups].sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
+  }, [baseGroups, orderedIds]);
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
   const reorderGroups = (sourceId: string, targetId: string) => {

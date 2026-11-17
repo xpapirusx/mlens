@@ -209,8 +209,12 @@ Freelens gets isolation from iframes. mLens instead:
 **Resource browser**
 
 - Dynamic discovery incl. CRDs; Freelens-ordered sidebar with:
-  Favorites, Nodes, Workloads, Config, Network, Storage, Namespaces, Events,
-  User Management, Custom Resources (Definitions + CRD API groups).
+  Favorites, Nodes, Workloads, Config, Control, Network, Storage, Namespaces,
+  Events, User Management, Custom Resources (Definitions + CRD API groups).
+  Config holds workload configuration; Control holds the cluster machinery
+  (Lease, APIService, ControllerRevision, CSR, FlowSchema, quotas, limit
+  ranges, webhooks, admission policies), and a category added by an update
+  keeps its default position in a saved drag order.
 - Groups collapsed by default (setting), remembered per cluster; drag to reorder
   top-level groups; pinned kind favourites.
 - Radar table: 44px default rows (24–52 setting), 40px uppercase header,
@@ -308,8 +312,8 @@ Freelens gets isolation from iframes. mLens instead:
 
 **Themes/settings**
 
-- Radar light/dark/system, Dracula, Freelens (app tokens, Monaco and terminal
-  palettes).
+- Radar light/dark/system, Dracula, Freelens and Proton (luci-theme-proton2025
+  palette) — app tokens, Monaco and terminal palettes for each.
 - Settings: color theme, mode, refresh interval (default 60s), system namespaces,
   table row height, collapse groups, sidebar favourite kinds, terminal font,
   kubeconfig sources, clusters, about.

@@ -61,7 +61,7 @@ function clamp(value: number, min: number, max: number): number {
 function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   const out: Partial<AppSettings> = { ...input };
   if (out.theme && !["light", "dark", "system"].includes(out.theme)) delete out.theme;
-  if (out.colorTheme && !["radar", "dracula", "freelens"].includes(out.colorTheme)) delete out.colorTheme;
+  if (out.colorTheme && !["radar", "dracula", "freelens", "proton"].includes(out.colorTheme)) delete out.colorTheme;
   if (out.kubeconfigPaths) {
     out.kubeconfigPaths = [...new Set(out.kubeconfigPaths.filter((entry) => typeof entry === "string"))];
   }

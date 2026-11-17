@@ -114,3 +114,65 @@ html.theme-freelens {
   --scrollbar-thumb: #414448;
   --scrollbar-thumb-hover: #5f6064;
 }
+
+/*
+ * Proton2025 — adapted from luci-theme-proton2025 (Apache-2.0, ChesterGoodiny).
+ * A dark slate palette (#0f1419) with a single bright blue accent (#5e9eff),
+ * green/yellow/red status hues and 12px radii. Like Dracula and Freelens it
+ * forces dark mode; the source theme's light variant is not ported.
+ */
+html.theme-proton {
+  color-scheme: dark;
+
+  --color-brand: #5e9eff;
+  --color-brand-light: #7db2ff;
+  --brand-rgb: 94 158 255;
+
+  --bg-sidebar: #0f1419;
+  --bg-base: #0f1419;
+  --bg-surface: #161c26;
+  --bg-elevated: #1a1f2e;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: #23293d;
+
+  --text-primary: #f5f7fa;
+  --text-secondary: #c5cad5;
+  --text-tertiary: #9299a8;
+  --text-disabled: rgba(245, 247, 250, 0.4);
+  --warning-text: #ffd93d;
+
+  --border-default: rgba(255, 255, 255, 0.14);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-emphasis: rgba(255, 255, 255, 0.28);
+
+  --accent: #5e9eff;
+  --accent-light: #7db2ff;
+  --accent-muted: rgba(94, 158, 255, 0.16);
+  --accent-text: #7db2ff;
+
+  --selection-bg: rgba(94, 158, 255, 0.18);
+  --selection-bg-strong: rgba(94, 158, 255, 0.3);
+  --selection-text: #f5f7fa;
+  --selection-border: rgba(94, 158, 255, 0.42);
+
+  --color-success: #6bcf7f;
+  --color-warning: #ffd93d;
+  --color-error: #ff6b6b;
+  --color-alert: #ffa94d;
+  --color-info: #5e9eff;
+
+  /* Tailwind brand utilities used by filters/checks/rings. */
+  --color-skyhook-300: #9cc4ff;
+  --color-skyhook-400: #7db2ff;
+  --color-skyhook-500: #5e9eff;
+  --color-skyhook-600: #4a8af0;
+  --color-skyhook-700: #3a74d6;
+  --color-skyhook-800: #2f5db0;
+
+  --terminal-bg: #0f1419;
+  --terminal-border: #1a1f2e;
+  --scrollbar-track: #0f1419;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.14);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
+}

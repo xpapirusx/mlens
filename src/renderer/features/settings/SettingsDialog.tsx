@@ -59,13 +59,14 @@ export function SettingsDialog() {
     >
       <div className="space-y-6">
         <Section title="Appearance" icon={<Sun />}>
-          <Field label="Color theme" hint="Dracula and Freelens are dark themes; Radar follows the mode below.">
+          <Field label="Color theme" hint="Dracula, Freelens and Proton are dark themes; Radar follows the mode below.">
             <div className="flex flex-wrap items-center gap-2">
               {(
                 [
                   { value: "radar", label: "Radar" },
                   { value: "dracula", label: "Dracula" },
                   { value: "freelens", label: "Freelens" },
+                  { value: "proton", label: "Proton" },
                 ] as const
               ).map((option) => (
                 <button

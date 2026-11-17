@@ -57,7 +57,7 @@ configuration).
 | Cluster tabs / open-resource tabs | **Done** | Top cluster tabs with Home/Back/Forward in the tab strip (close = disconnect), and per-cluster resource tabs with back stack |
 | Multiple namespace scopes | **Done** | All / one / several; merged lists, per-namespace watches, summed counts |
 | Application shell (Freelens layout) | **Done** | Sidebar, sibling tabs, dock, drawer, status bar |
-| Sidebar resource catalog | **Done** | Dynamic discovery incl. CRDs; counts; collapse; filter |
+| Sidebar resource catalog | **Done** | Dynamic discovery incl. CRDs; counts; collapse; filter; Config and **Control** split (workload config vs cluster machinery), new categories land at their default position |
 | Radar design system | **Done** | Tokens, typography, badges, tables, menus, terminal theme |
 | Settings | **Done** | Theme, refresh interval, terminal font, system namespaces, sources, clusters, about |
 | Command palette | **Done** | Clusters, kinds, actions, appearance |
@@ -123,6 +123,7 @@ configuration).
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
 | Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
 | Dracula / Freelens themes | **Done** | Token-level themes, Monaco themes, terminal palettes |
+| Proton theme | **Done** | luci-theme-proton2025 palette (`#0F1419` / accent `#5E9EFF`): token overrides, `mlens-proton` Monaco theme, terminal ANSI palette, forced dark |
 | Status problems filter | **Done** | Warning/error toggle with live count across kinds |
 | Column order + global widths | **Done** | Per-kind order; widths keyed kind+column across clusters |
 | Hotbar favourites + drag reorder | **Done** | 10 fixed slots, pointer/HTML5 drag, context-menu move fallback; open clusters in top tabs |
@@ -167,6 +168,7 @@ configuration).
 | Specification & Status | **Done** | Sorted flat fields; complex objects/arrays are collapsed JSON blocks (drawer height stable) |
 | Related resources | **Done** | Restored by request; owners, selectors, services, config, node and volume relationships |
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
+| YAML find + folding | **Done** | Stock Monaco find widget (Ctrl/Cmd+F, regex, case, whole word, counter, replace) with the codicon font bundled so its icons render; indentation folding registered for collapsing YAML blocks |
 | Metrics tab | **Partial** | Real metrics-server values for Pods only; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
 | Port forwarding | **Done** | Loopback TCP forward over Kubernetes WebSocket; one-click from the Ports table; verified HTTP 200 from a real pod; active forwards panel |

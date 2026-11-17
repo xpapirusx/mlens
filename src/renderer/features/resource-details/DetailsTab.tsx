@@ -114,7 +114,7 @@ export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavig
           <Property label="Name" value={metadata.name} copyable mono />
           <Property label="Namespace" value={metadata.namespace ?? "cluster-scoped"} copyable />
           <Property label="Kind" value={object.kind} />
-          <Property label="API version" value={object.apiVersion} mono />
+          <Property label="API versionsss" value={object.apiVersion} mono />
           <Property label="UID" value={metadata.uid} copyable mono />
           <Property label="Created" value={formatTimestamp(metadata.creationTimestamp)} />
           <Property label="Age" value={formatAge(metadata.creationTimestamp)} />

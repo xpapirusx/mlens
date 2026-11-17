@@ -39,9 +39,11 @@ export const YamlEditor = forwardRef<YamlEditorHandle, YamlEditorProps>(function
     ? "mlens-dracula"
     : root?.classList.contains("theme-freelens")
       ? "mlens-freelens"
-      : isDark
-        ? "mlens-dark"
-        : "mlens-light";
+      : root?.classList.contains("theme-proton")
+        ? "mlens-proton"
+        : isDark
+          ? "mlens-dark"
+          : "mlens-light";
   const editorRef = useRef<EditorInstance | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
 

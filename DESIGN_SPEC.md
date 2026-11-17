@@ -49,6 +49,7 @@ Both reference repositories were studied at source level before implementation.
 |---|---|---|
 | Freelens | MIT | Shell structure and interaction concepts; no source files copied |
 | Radar | Apache-2.0 | Design-token values and component recipes adapted; attribution in `THIRD_PARTY_NOTICES.md` and `licenses/Apache-2.0.txt` |
+| luci-theme-proton2025 | Apache-2.0 | Colour palette of the Proton theme adapted to mLens tokens; attribution in `THIRD_PARTY_NOTICES.md` |
 | DM Sans / DM Mono | SIL OFL 1.1 | Bundled through `@fontsource` packages; fonts are not sold separately |
 | lucide icons | ISC | Icon components |
 
@@ -192,11 +193,16 @@ palette and settings only see visible clusters.
   context, overflow menu (favourite, copy context, refresh namespaces, settings,
   catalog, disconnect).
 - Resource filter input.
-- Groups follow Freelens order: **Favorites, Nodes, Workloads, Config, Network,
-  Storage, Namespaces, Events, User Management, Custom Resources**. Nodes,
-  Namespaces and Events are direct rows without submenus. Config absorbs the
-  remaining cluster-scoped kinds (webhooks, API services, admission policies,
-  HPAs, PDBs, etc.).
+- Groups follow Freelens order: **Favorites, Nodes, Workloads, Config, Control,
+  Network, Storage, Namespaces, Events, User Management, Custom Resources**.
+  Nodes, Namespaces and Events are direct rows without submenus. Config keeps
+  workload configuration (ConfigMap, Secret, HPA/VPA, PDB, PriorityClass,
+  PriorityLevelConfiguration, RuntimeClass, PodTemplate); **Control** holds the
+  cluster machinery Config used to absorb (Lease, APIService, ControllerRevision,
+  CertificateSigningRequest, FlowSchema, ResourceQuota, LimitRange, mutating /
+  validating webhooks and admission policies). A category an update adds appears
+  at its default position, not after everything the user already reordered
+  (`mergeGroupOrder`).
 - Custom Resources is a parent group with a **Definitions** child and one child
   per CRD API group; both levels collapse independently.
 - Groups start collapsed by default (settings toggle), and the expanded state is
@@ -276,13 +282,20 @@ contains a single kind.
 
 ### 3.0 Colour themes
 
-Radar is the default contract (light/dark/system). Two additional themes
+Radar is the default contract (light/dark/system). Three additional themes
 override tokens globally and force dark mode:
 
 - **Dracula** — `#282A36` base, `#21222C` surfaces, `#44475A` elevated,
   `#BD93F9` accent, `#F8F8F2` text; terminal palette from the Dracula ANSI scheme.
 - **Freelens** — `#1E2124` base, `#262B2F` surface, `#36393E` sidebar, teal
   `#00A7A0` accent, Freelens terminal palette.
+- **Proton** — adapted from *luci-theme-proton2025* (Apache-2.0,
+  ChesterGoodiny): `#0F1419` slate base, `#161C26` cards, `#1A1F2E` elevated,
+  `#23293D` active, blue accent `#5E9EFF` (hover `#7DB2FF`), text
+  `#F5F7FA / #C5CAD5 / #9299A8`, status hues `#6BCF7F / #FFD93D / #FF6B6B`,
+  hairlines `rgba(255,255,255,…)`; matching Monaco (`mlens-proton`) and
+  terminal palettes. The source theme ships a light variant too; only its dark
+  palette is ported, like Dracula and Freelens.
 
 Theme classes live in `design-system/styles/themes.css`; no component-specific
 theme hacks.
@@ -549,14 +562,19 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   exactly as Radar registers it): `Ctrl/Cmd+F` opens it with match case, whole
   word, **regex**, the `n of m` counter, next/previous and replace; replace is
   disabled while the editor is read-only. The toolbar's Find/Replace buttons
-  trigger the same widget.
+  trigger the same widget, and `lib/monaco.ts` also bundles the codicon font
+  the widget draws its chevrons and arrows with. **Indentation folding** is
+  registered as well: the gutter chevrons (and `Ctrl+Shift+[` / `]`) collapse
+  and expand YAML blocks.
 - **Events** — live event list, warning filter, search, counts, timestamps.
 - **Related** — owners/selectors/config/node/volume relationships, refreshed
   from the live API; empty state says when nothing is related. Owner references
   are opened with their own apiVersion and without a namespace, so cluster-scoped
   owners (e.g. CAPI `PinataHost`) resolve correctly. A sticky filter bar narrows
   the list — substring or regex over kind/name/namespace/relation/status — with
-  kind chips as facets and `visible / total` counts in every group header.
+  kind chips as facets and `visible / total` counts in every group header. The
+  bar renders whenever there is anything to filter, including single-group
+  kinds such as a Node's Pods-on-node list.
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
   timestamps, search, download, clear, line numbers; error/warn lines tinted.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,

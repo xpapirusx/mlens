@@ -1562,7 +1562,6 @@ function statusFieldLabel(key: string): string {
 
 function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
   const status = (object.status ?? {}) as Record<string, unknown>;
-  const spec = (object.spec ?? {}) as Record<string, unknown>;
   const metadata = object.metadata ?? {};
   const printerColumns = (resource.printerColumns ?? []) as Array<{
     name: string;
@@ -1722,13 +1721,13 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
+      {/* <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
         {Object.keys(spec).length ? (
           <NestedObject value={spec} />
         ) : (
-          <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>
+          <div className="overflow-hidden text-xs text-theme-text-tertiary">This resource has no spec.</div>
         )}
-      </DetailSection>
+      </DetailSection> */}
     </div>
   );
 }

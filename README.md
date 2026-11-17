@@ -137,8 +137,9 @@ Secrets reveal only on request.
 
 ### Themes and layout
 
-- Radar (light/dark/system), **Dracula**, and **Freelens** colour themes; each
-  theme also selects its terminal ANSI palette.
+- Radar (light/dark/system), **Dracula**, **Freelens** and **Proton** (from
+  luci-theme-proton2025) colour themes; each theme also selects its terminal
+  ANSI palette and a Monaco theme.
 - Hotbar with **pages** (75px rail, 10 slots per page, 40px cells, 12px spacing
   like Freelens): three-letter short names, seeded tile colours, a status LED,
   press/shake animations, drag-and-drop and a context-menu "Move to slot"

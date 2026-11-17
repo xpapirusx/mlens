@@ -9,6 +9,7 @@ import {
   Puzzle,
   ShieldCheck,
   SlidersHorizontal,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
@@ -29,6 +30,7 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: "workloads", title: "Workloads", icon: Boxes, order: 20 },
   { id: "network", title: "Network", icon: Network, order: 40 },
   { id: "config", title: "Config", icon: SlidersHorizontal, order: 30 },
+  { id: "control", title: "Control", icon: Wrench, order: 35 },
   { id: "storage", title: "Storage", icon: HardDrive, order: 50 },
 
   { id: "access-control", title: "User Management", icon: ShieldCheck, order: 80 },
@@ -57,30 +59,38 @@ const WORKLOAD_KINDS = new Set([
   "CronJob",
 ]);
 
+/** Configuration and autoscaling kinds — the Config group. */
 const CONFIG_KINDS = new Set([
   "ConfigMap",
   "Secret",
   "HorizontalPodAutoscaler",
   "VerticalPodAutoscaler",
   "PodDisruptionBudget",
-  "Lease",
   "PriorityClass",
   "PriorityLevelConfiguration",
+  "RuntimeClass",
+  "PodTemplate",
+]);
+
+/**
+ * Cluster machinery that Config used to absorb: coordination leases, the
+ * aggregated API surface, admission webhooks/policies, quotas and request
+ * defaults. Split out so Config stays about workload configuration.
+ */
+const CONTROL_KINDS = new Set([
+  "Lease",
+  "APIService",
+  "ControllerRevision",
+  "CertificateSigningRequest",
+  "FlowSchema",
+  "ResourceQuota",
+  "LimitRange",
   "MutatingWebhookConfiguration",
   "ValidatingWebhookConfiguration",
   "ValidatingAdmissionPolicy",
   "ValidatingAdmissionPolicyBinding",
   "MutatingAdmissionPolicy",
   "MutatingAdmissionPolicyBinding",
-  "RuntimeClass",
-  "ResourceQuota",
-  "LimitRange",
-  "PodTemplate",
-  "APIService",
-  "ControllerRevision",
-  "CertificateSigningRequest",
-  "FlowSchema",
-
 ]);
 
 const NETWORK_KINDS = new Set([
@@ -120,28 +130,31 @@ const KIND_ORDER: Record<string, number> = {
   Job: 70,
   CronJob: 80,
 
+  // Config
   ConfigMap: 10,
   Secret: 20,
-  ResourceQuota: 30,
-  LimitRange: 40,
-  HorizontalPodAutoscaler: 50,
-  VerticalPodAutoscaler: 50,
-  PodDisruptionBudget: 60,
-  RuntimeClass: 70,
-  Lease: 80,
-  PriorityClass: 85,
-  APIService: 90,
-  CertificateSigningRequest: 90,
-  FlowSchema: 95,
-  PriorityLevelConfiguration: 96,
-  MutatingWebhookConfiguration: 100,
-  ValidatingWebhookConfiguration: 100,
-  ValidatingAdmissionPolicy: 110,
-  ValidatingAdmissionPolicyBinding: 120,
-  MutatingAdmissionPolicy: 130,
-  MutatingAdmissionPolicyBinding: 140,
-  ControllerRevision: 105,
+  HorizontalPodAutoscaler: 30,
+  VerticalPodAutoscaler: 31,
+  PodDisruptionBudget: 40,
   PodTemplate: 45,
+  PriorityClass: 50,
+  PriorityLevelConfiguration: 55,
+  RuntimeClass: 60,
+
+  // Control (cluster machinery)
+  ResourceQuota: 10,
+  LimitRange: 20,
+  Lease: 30,
+  APIService: 40,
+  CertificateSigningRequest: 45,
+  FlowSchema: 50,
+  MutatingWebhookConfiguration: 60,
+  ValidatingWebhookConfiguration: 61,
+  MutatingAdmissionPolicy: 70,
+  MutatingAdmissionPolicyBinding: 71,
+  ValidatingAdmissionPolicy: 80,
+  ValidatingAdmissionPolicyBinding: 81,
+  ControllerRevision: 90,
 
   Service: 10,
   EndpointSlice: 20,
@@ -278,15 +291,17 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
       ? "workloads"
       : CONFIG_KINDS.has(kind)
         ? "config"
-        : NETWORK_KINDS.has(kind)
-          ? "network"
-          : STORAGE_KINDS.has(kind)
-            ? "storage"
-            : ACCESS_KINDS.has(kind)
-              ? "access-control"
-              : meta.id === "nodes" || meta.id === "namespaces" || meta.id === "events"
-                ? "config"
-                : meta.id;
+        : CONTROL_KINDS.has(kind)
+          ? "control"
+          : NETWORK_KINDS.has(kind)
+            ? "network"
+            : STORAGE_KINDS.has(kind)
+              ? "storage"
+              : ACCESS_KINDS.has(kind)
+                ? "access-control"
+                : meta.id === "nodes" || meta.id === "namespaces" || meta.id === "events"
+                  ? "config"
+                  : meta.id;
     if (!byId.has(id)) byId.set(id, makeGroup(CATEGORIES.find((entry) => entry.id === id) ?? CATEGORIES[0]));
     byId.get(id)!.resources.push(resource);
   }
@@ -402,6 +417,28 @@ export function findResource(
   return resources.find(
     (resource) => resource.apiVersion === selected.apiVersion && resource.kind === selected.kind,
   );
+}
+
+/**
+ * Applies a saved sidebar order while keeping categories the user has never
+ * seen (one added by an update) at their default position instead of dropping
+ * them after everything they saved. Ids that no longer exist are ignored.
+ */
+export function mergeGroupOrder(baseIds: string[], saved: string[]): string[] {
+  const result = baseIds.filter((id) => saved.includes(id));
+  for (const id of baseIds.filter((entry) => !saved.includes(entry))) {
+    const canonical = baseIds.indexOf(id);
+    let insertAt = 0;
+    for (let index = canonical - 1; index >= 0; index -= 1) {
+      const position = result.indexOf(baseIds[index]);
+      if (position >= 0) {
+        insertAt = position + 1;
+        break;
+      }
+    }
+    result.splice(insertAt, 0, id);
+  }
+  return result;
 }
 
 export function filterGroups(groups: ResourceGroup[], search: string): ResourceGroup[] {

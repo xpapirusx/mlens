@@ -2,7 +2,6 @@ import {
   Command,
   Minus,
   Moon,
-  Plug,
   Settings,
   Square,
   SquareTerminal,
@@ -21,10 +20,10 @@ const isMac = window.mlens.platform === "darwin";
 export function TopBar({
   activeClusterId,
   onOpenPalette,
-  onOpenPortForwards,
 }: {
   activeClusterId: string | null;
   onOpenPalette: () => void;
+  /** Still declared so the commented-out Port forwards button keeps its wiring. */
   onOpenPortForwards: () => void;
 }) {
   const settings = useCatalogStore((state) => state.settings);

@@ -95,8 +95,9 @@ export function RelatedTab({
     return <div className="p-4 text-sm text-red-600 dark:text-red-400">Cannot resolve related resources: {error}</div>;
   }
 
-  const toolbar = hasFilters || availableKinds.length > 1 ? (
-    <div className="sticky top-0 z-10 -mx-3 -mt-3 border-b border-theme-border bg-theme-surface px-3 py-2">
+  const toolbar =
+    totalCount > 0 ? (
+      <div className="sticky top-0 z-10 -mx-3 -mt-3 border-b border-theme-border bg-theme-surface px-3 py-2">
       <div className="flex items-center gap-2">
         <div className="w-64 min-w-32">
           <SearchInput

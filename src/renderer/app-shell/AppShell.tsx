@@ -54,7 +54,8 @@ export function AppShell() {
       const themeName = settings.colorTheme ?? "radar";
       document.documentElement.classList.toggle("theme-dracula", themeName === "dracula");
       document.documentElement.classList.toggle("theme-freelens", themeName === "freelens");
-      const forcedDark = themeName === "dracula" || themeName === "freelens";
+      document.documentElement.classList.toggle("theme-proton", themeName === "proton");
+      const forcedDark = themeName === "dracula" || themeName === "freelens" || themeName === "proton";
       const dark =
         forcedDark ||
         settings.theme === "dark" ||

@@ -5,7 +5,7 @@
 
 export type ClusterId = string;
 export type ThemeMode = "light" | "dark" | "system";
-export type ColorTheme = "radar" | "dracula" | "freelens";
+export type ColorTheme = "radar" | "dracula" | "freelens" | "proton";
 
 export interface KubeconfigSource {
   path: string;

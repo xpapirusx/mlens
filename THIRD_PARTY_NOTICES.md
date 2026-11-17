@@ -19,6 +19,19 @@ Copyright (c) Freelens Authors; Copyright (c) OpenLens Authors.
 
 ---
 
+## luci-theme-proton2025
+
+- Source: https://github.com/ChesterGoodiny/luci-theme-proton2025
+- License: Apache License 2.0 (`licenses/Apache-2.0.txt`)
+- Copyright 2025-2026 ChesterGoodiny.
+- Use: colour palette of the **Proton** theme — the `html.theme-proton` token
+  values in `design-system/styles/themes.css`, the `mlens-proton` Monaco theme
+  and the Proton terminal ANSI palette are derived from the theme's `--proton-*`
+  custom properties (slate `#0F1419`, accent `#5E9EFF`, status hues) and adapted
+  to mLens' token contract. Only the dark palette is ported.
+
+---
+
 ## Skyhook Radar
 
 - Source: https://github.com/skyhook-io/radar

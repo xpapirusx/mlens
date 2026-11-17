@@ -159,9 +159,13 @@ Important:
 - Catalog: clusters with a live session (open) sort to the top; Status says
   **Connected**, not the Kubernetes version (version has its own column). A sort
   control offers open/status, name, recent and kubeconfig source.
-- Sidebar order (Freelens): Favorites, Nodes, Workloads, Config, Network, Storage,
-  Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
-  are direct rows. Custom Resources contains Definitions + one child per API group.
+- Sidebar order (Freelens): Favorites, Nodes, Workloads, Config, Control, Network,
+  Storage, Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
+  are direct rows. Config = workload configuration (ConfigMap/Secret/HPA/VPA/PDB/
+  PriorityClass/PriorityLevelConfiguration/RuntimeClass/PodTemplate); Control =
+  cluster machinery (Lease, APIService, ControllerRevision, CSR, FlowSchema,
+  ResourceQuota, LimitRange, webhooks, admission policies). Custom Resources
+  contains Definitions + one child per API group.
 - Custom resources and CRD definitions open on **Details** by default (Freelens
   field order); their Overview is still one click away and uses Radar-style cards.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
