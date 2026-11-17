@@ -26,7 +26,7 @@ import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
 import { findResource } from "../../lib/catalog";
 import { resourceStatus } from "../../lib/status";
-import { getColumnsForKind, sortObjects, type ColumnDef } from "../../lib/columns";
+import { getColumnsForKind, sortObjects, type CellContext, type ColumnDef } from "../../lib/columns";
 import { getKindIcon, kindLabel } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { Button } from "../../design-system/components/Button";
@@ -45,6 +45,7 @@ import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./Resour
 import { SetImageDialog } from "../resource-details/SetImageDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
+import { useClaimPods } from "./useClaimPods";
 import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
@@ -139,6 +140,42 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     const rest = shown.filter((column) => !pinnedKeys.has(column.key));
     return [...pinned, ...rest];
   }, [columns, hidden, pinnedKeys]);
+  const claimPods = useClaimPods({
+    clusterId,
+    resource,
+    namespaces: selectedNamespaces,
+    active,
+    refreshSeconds,
+  });
+  const cellContext = useMemo<CellContext>(
+    () => ({ showNamespace, claimPods }),
+    [showNamespace, claimPods],
+  );
+  const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
+    const lower = target.kind.toLowerCase();
+    const match = (session?.resources ?? []).find(
+      (entry) => entry.kind.toLowerCase() === lower && (!target.apiVersion || entry.apiVersion === target.apiVersion),
+    );
+    const apiVersion = target.apiVersion ?? match?.apiVersion;
+    if (!apiVersion) {
+      toast.error("Cannot open resource", `${target.kind} is not discovered in this cluster.`);
+      return;
+    }
+    const namespaced = match ? match.namespaced : Boolean(target.namespace);
+    const namespace = namespaced
+      ? (target.namespace ??
+        list.items.find((item) => item.metadata?.name === target.name)?.metadata?.namespace ??
+        selectedNamespaces[0])
+      : undefined;
+    openDetails(clusterId, {
+      clusterId,
+      apiVersion,
+      kind: match?.kind ?? target.kind,
+      namespace,
+      name: target.name,
+    });
+  };
+
   const metrics = useResourceMetrics({
     clusterId,
     resource,
@@ -155,11 +192,11 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       // Namespace has a dedicated scope picker, so it must not open a second
       // namespace menu from the column header.
       if (column.key === "namespace") continue;
-      const options = buildFilterOptions(list.items, column);
+      const options = buildFilterOptions(list.items, column, cellContext);
       if (options.length >= 2 && options.length <= 60) map.set(column.key, options);
     }
     return map;
-  }, [columns, list.items]);
+  }, [columns, list.items, cellContext]);
 
   const searchError = useMemo(() => {
     if (!kindState.search || !kindState.regex) return false;
@@ -229,13 +266,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       );
     }
     return rows;
-  }, [list.items, kindState.search, kindState.regex, kindState.filters, columns, problemsOnly, resource]);
+  }, [list.items, kindState.search, kindState.regex, kindState.filters, columns, problemsOnly, resource, cellContext]);
 
   const sorted = useMemo(() => {
     const sortColumn = kindState.sort ? columns.find((column) => column.key === kindState.sort?.key) : undefined;
-    if (sortColumn) return sortObjects(filtered, sortColumn, kindState.sort!.direction);
-    return sortObjects(filtered, columns.find((column) => column.key === "name"), "asc");
-  }, [filtered, kindState.sort, columns]);
+    if (sortColumn) return sortObjects(filtered, sortColumn, kindState.sort!.direction, cellContext);
+    return sortObjects(filtered, columns.find((column) => column.key === "name"), "asc", cellContext);
+  }, [filtered, kindState.sort, columns, cellContext]);
 
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
@@ -820,6 +857,8 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onOpenNode={(name) =>
             openDetails(clusterId, { clusterId, apiVersion: "v1", kind: "Node", name })
           }
+          onOpenRef={openRef}
+          claimPods={claimPods}
           selectionMode
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}

@@ -26,7 +26,7 @@ Both reference repositories were studied at source level before implementation.
 |---|---|---|
 | Application shell / window layout | **Freelens** | `packages/core/src/renderer/components/cluster-manager`, `layout/main-layout.tsx` |
 | Top bar | **Freelens** | 40px drag region; home/back/forward on the left, window controls on Win/Linux |
-| Hotbar (cluster rail) | **Freelens** | 75px in Freelens; curated cells, not a raw context dump |
+| Hotbar (cluster rail) | **Freelens** | 75px, 40px cells with 12px margins; curated cells, not a raw context dump |
 | Cluster catalog | **Freelens** | `Catalog` page with its own menu sidebar and list layout |
 | Welcome screen | **Freelens** | Centered welcome column + actions; mLens merges it into the catalog hero |
 | Sidebar layout | **Freelens** | Cluster header + ordered/collapsible resource groups, 150–400px |
@@ -71,7 +71,7 @@ not ship a Go backend.
 │ Hot  │ ┌────────────┬──────────────────────────────────────────────┐ │
 │      │ │            │ Open-resource tabs · 32px                    │ │
 │ bar  │ │ Sidebar    │ Sibling resource tabs (36px)                 │ │
-│ 54px │ │ 236px      │ ┌──────────────────────────────────────────┐ │ │
+│ 75px │ │ 236px      │ ┌──────────────────────────────────────────┐ │ │
 │      │ │ resizable  │ │ Resource browser (Radar table)           │ │ │
 │      │ │ 170–420    │ │                    ┌─────────────────────┼─┤ │
 │      │ │            │ │                    │ Details drawer      │ │ │
@@ -129,17 +129,21 @@ Left → right:
 7. Window controls on Windows/Linux (minimise, maximise/restore, close). macOS
    keeps native traffic lights (`hiddenInset`).
 
-The bar is the window drag region; every control is `no-drag`.
+The **whole shell** is a window drag region (any chrome or background area moves
+the window); interactive controls, table rows, scroll areas, terminals and
+editors are `no-drag`, so selection, scrolling and editing keep working.
 
 ### 2.3 Hotbar
 
-- 54px rail, deepest surface token (`--bg-sidebar`).
+- 75px rail, deepest surface token (`--bg-sidebar`); cells are 40×40px with
+  12px margins, like Freelens.
 - The rail has **10 slots** and shows favourite clusters only, like Freelens. Open
   clusters live in the top cluster-tab strip. Favourite tiles can be dragged to
   reorder them (persisted in `hotbarOrder`); empty slots open the catalog.
-- Each cell: gradient tile with cluster initials, connection dot, tooltip with
-  context/server/state. Duplicate-looking names remain distinguishable by colour
-  and tooltip.
+- Each cell: a solid seeded-colour tile (`hsl(FNV1a(name) , 60%, 27%)`) with the
+  Freelens three-letter short name (`msk-avg-dev…` → `MAD`), a status LED at the
+  top-left with a glow when connected, a press animation on click (empty slots
+  shake), hover/active ring shadows, and a tooltip with context/server/state.
 - Bottom: import kubeconfig, settings.
 
 ### 2.3a Cluster tabs and open-resource tabs
@@ -221,7 +225,8 @@ contains a single kind.
 - Default width 560px; draggable 460px → 74% of the window; expand button morphs
   to nearly full width.
 - Header: kind outline pill, status badge, API version, Back, Delete, Reload,
-  Expand and Close. Delete sits next to Close and always asks for confirmation.
+  Minimize, Expand and Close. Minimize hides the drawer without closing it — the
+  open-resource tabs stay and a floating pill at the bottom-right restores it. Delete sits next to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
   Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
   ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
@@ -384,6 +389,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   filters, and a **Problems** toggle that keeps only warning/error resources
   across any kind.
 - Namespace cells are clickable: clicking one scopes the table to that namespace.
+- Reference cells are clickable too: Controlled by, PVC Pods/Volume/Storage
+  class, and every reference field in Details (`volumeName`, `claimRef`,
+  `storageClassName`, `imagePullSecrets`, HPA `scaleTargetRef`, owner refs…).
 - Workload actions (row context menu and drawer action row): Scale for
   Deployment/StatefulSet/ReplicaSet (merge patch `spec.replicas`, refused when an
   HPA owns the replica count), Restart for Deployment/StatefulSet/DaemonSet,
@@ -435,7 +443,10 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   explicit reveal), storage, CRDs, HPA, Jobs (with Suspend/Resume), events,
   generic CRDs.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
-- **YAML** — Monaco, read-only by default, edit + dry-run + apply.
+- **YAML** — Monaco, read-only by default, edit + dry-run + apply. The editor
+  has its own find/replace bar (built on `model.findMatches`, because the
+  standalone Monaco build ships without the find contribution): match counter,
+  match case, next/previous, replace and replace all.
 - **Events** — live event list, warning filter, search, counts, timestamps.
 - **Related** — owners/selectors/config/node/volume relationships, refreshed
   from the live API; empty state says when nothing is related. Owner references
@@ -447,7 +458,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   secret/configMap/field references. Ref badges have an eye that fetches the
   referenced ConfigMap/Secret and shows the decoded value inline (no navigation).
 - **ConfigMap / Secret** — the resource name and key count sit above the value
-  table, and each key is stacked over its value (not side by side). Secret values
+  table, each key is stacked over its value (not side by side), values render in
+  a line-number gutter, and a type header shows `type`/`kind`, key counts and
+  size. Secret values
   are decoded for editing and encoded back on save; add/remove keys with a merge
   patch.
 - Specification/Status fields are sorted; complex objects/arrays are collapsed

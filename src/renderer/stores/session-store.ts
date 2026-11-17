@@ -55,6 +55,8 @@ export interface ClusterSession {
   expandedGroups: Record<string, boolean>;
   sidebarWidth: number;
   details: DetailsState | null;
+  /** Drawer hidden while every open resource tab is kept. */
+  detailsMinimized: boolean;
   detailsHistory: ResourceKey[];
   resourceTabs: ResourceKey[];
   dock: {
@@ -85,6 +87,8 @@ interface SessionStore {
   openDetails: (id: ClusterId, ref: ResourceKey) => void;
   setDetailsTab: (id: ClusterId, tab: DetailTab) => void;
   closeDetails: (id: ClusterId) => void;
+  minimizeDetails: (id: ClusterId) => void;
+  restoreDetails: (id: ClusterId) => void;
   activateResource: (id: ClusterId, ref: ResourceKey) => void;
   closeResourceTab: (id: ClusterId, ref: ResourceKey) => void;
   detailsBack: (id: ClusterId) => void;
@@ -118,6 +122,7 @@ function createSession(id: ClusterId, selectedNamespaces: string[] = [], sidebar
     expandedGroups: {},
     sidebarWidth,
     details: null,
+    detailsMinimized: false,
     detailsHistory: [],
     resourceTabs: [],
     dock: { open: false, height: dockHeight, tabs: [], activeTabId: null },
@@ -326,6 +331,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
                   : defaultTab,
             },
             detailsHistory: history,
+            detailsMinimized: false,
             resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
           },
         },
@@ -360,6 +366,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ...session,
             resourceTabs: tabs,
             details: next ? { ...session.details, ref: next } : null,
+            detailsMinimized: false,
           },
         },
       };
@@ -383,9 +390,30 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
                   ? "overview"
                   : (session.details?.tab ?? "overview"),
             },
+            detailsMinimized: false,
             resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
           },
         },
+      };
+    });
+  },
+
+  minimizeDetails: (id) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session?.details) return state;
+      return {
+        sessions: { ...state.sessions, [id]: { ...session, detailsMinimized: true } },
+      };
+    });
+  },
+
+  restoreDetails: (id) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return {
+        sessions: { ...state.sessions, [id]: { ...session, detailsMinimized: false } },
       };
     });
   },

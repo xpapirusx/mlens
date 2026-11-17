@@ -853,6 +853,22 @@ function IngressOverview({ object }: OverviewProps) {
 function DataOverview({ object, onEditData }: OverviewProps) {
   const isSecret = object.kind === "Secret";
   const data = isSecret ? (object.data ?? {}) : { ...(object.data ?? {}), ...(object.binaryData ?? {}) };
+  const rawBytes = Object.values(data as Record<string, string>).reduce<number>((sum, value) => sum + String(value ?? "").length, 0);
+  const size = formatBytes(isSecret ? Math.floor((rawBytes * 3) / 4) : rawBytes);
+  const typeMeta = isSecret ? (
+    <>
+      <span className="text-theme-text-secondary">type: {String(object.type ?? "Opaque")}</span>
+      <span>· keys: {Object.keys(object.data ?? {}).length}</span>
+      <span>· size: {size}</span>
+    </>
+  ) : (
+    <>
+      <span className="text-theme-text-secondary">kind: ConfigMap</span>
+      <span>· keys: {Object.keys(object.data ?? {}).length}</span>
+      <span>· binary: {Object.keys(object.binaryData ?? {}).length}</span>
+      <span>· size: {size}</span>
+    </>
+  );
   return (
     <div className="space-y-4">
       <DetailSection title={isSecret ? "Secret" : "ConfigMap"} icon={<FileSliders />}>
@@ -879,7 +895,7 @@ function DataOverview({ object, onEditData }: OverviewProps) {
           <span>{Object.keys(data).length} keys</span>
           {object.metadata?.namespace ? <span>· {object.metadata.namespace}</span> : null}
         </div>
-        <KeyValueList data={data as Record<string, string>} secret={isSecret} />
+        <KeyValueList data={data as Record<string, string>} secret={isSecret} meta={typeMeta} />
       </DetailSection>
     </div>
   );
@@ -1063,7 +1079,10 @@ function StorageOverview({ object, onNavigate }: OverviewProps) {
           <Property label="Status" value={<StatusPill object={object} kind={object.kind} />} />
           <Property label="Capacity" value={status.capacity?.storage} mono />
           <Property label="Access modes" value={(spec.accessModes ?? []).join(", ")} />
-          <Property label="Storage class" value={spec.storageClassName} />
+          <Property
+            label="Storage class"
+            value={<ResourceLink kind="StorageClass" name={spec.storageClassName} onNavigate={onNavigate} />}
+          />
           <Property label="Volume mode" value={spec.volumeMode ?? "Filesystem"} />
           {isPvc ? (
             <>

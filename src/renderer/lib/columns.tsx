@@ -18,9 +18,16 @@ export interface ColumnDef {
   sortable?: boolean;
   defaultHidden?: boolean;
   tooltip?: string;
-  value?: (object: AnyObject) => string | number | undefined;
+  value?: (object: AnyObject, context?: CellContext) => string | number | undefined;
   cell: (object: AnyObject, context: CellContext) => ReactNode;
-  filterValue?: (object: AnyObject) => string | undefined;
+  filterValue?: (object: AnyObject, context?: CellContext) => string | undefined;
+}
+
+export interface RefTarget {
+  kind: string;
+  name: string;
+  namespace?: string;
+  apiVersion?: string;
 }
 
 export interface CellContext {
@@ -29,6 +36,10 @@ export interface CellContext {
   nodeMetrics?: Map<string, NodeUsage>;
   onSelectNamespace?: (namespace: string) => void;
   onOpenNode?: (name: string) => void;
+  /** Opens any discovered resource from a table cell (owner, PV, PVC pod, …). */
+  onOpenRef?: (target: RefTarget) => void;
+  /** `${namespace}/${claimName}` → pod names that mount the claim. */
+  claimPods?: Map<string, string[]>;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -380,9 +391,27 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
             object.metadata?.ownerReferences?.[0]
               ? `${object.metadata.ownerReferences[0].kind}/${object.metadata.ownerReferences[0].name}`
               : "",
-          cell: (object) => {
+          cell: (object, context) => {
             const owner = object.metadata?.ownerReferences?.[0];
-            return <TextCell>{owner ? `${owner.kind}/${owner.name}` : "–"}</TextCell>;
+            if (!owner) return <TextCell>–</TextCell>;
+            return (
+              <button
+                type="button"
+                className="truncate text-left text-accent-text hover:underline"
+                title={`Open owner ${owner.kind}/${owner.name}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  context.onOpenRef?.({
+                    kind: owner.kind,
+                    apiVersion: owner.apiVersion,
+                    namespace: owner.namespace ?? object.metadata?.namespace,
+                    name: owner.name,
+                  });
+                }}
+              >
+                {owner.kind}/{owner.name}
+              </button>
+            );
           },
         },
         {
@@ -937,11 +966,61 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
       base.push(
         statusColumn("PersistentVolumeClaim", 112),
         {
+          key: "pods",
+          label: "Pods",
+          width: 220,
+          value: (object, context) =>
+            (context?.claimPods?.get(`${object.metadata?.namespace}/${object.metadata?.name}`) ?? []).join(","),
+          cell: (object, context) => {
+            const names = context.claimPods?.get(`${object.metadata?.namespace}/${object.metadata?.name}`) ?? [];
+            if (names.length === 0) return <TextCell>–</TextCell>;
+            return (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                {names.slice(0, 3).map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    className="truncate text-left text-accent-text hover:underline"
+                    title={`Open pod ${name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      context.onOpenRef?.({ kind: "Pod", namespace: object.metadata?.namespace, name });
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+                {names.length > 3 ? (
+                  <span className="text-[10px] text-theme-text-disabled">+{names.length - 3}</span>
+                ) : null}
+              </div>
+            );
+          },
+          filterValue: (object, context) =>
+            (context?.claimPods?.get(`${object.metadata?.namespace}/${object.metadata?.name}`) ?? []).join(","),
+        },
+        {
           key: "volume",
           label: "Volume",
           width: 200,
           value: (object) => object.spec?.volumeName ?? "",
-          cell: (object) => <Mono>{object.spec?.volumeName ?? "–"}</Mono>,
+          cell: (object, context) =>
+            object.spec?.volumeName ? (
+              <button
+                type="button"
+                className="truncate text-left font-mono text-accent-text hover:underline"
+                title={`Open PersistentVolume ${object.spec.volumeName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  context.onOpenRef?.({ kind: "PersistentVolume", name: object.spec.volumeName });
+                }}
+              >
+                {object.spec.volumeName}
+              </button>
+            ) : (
+              <Mono>–</Mono>
+            ),
+          filterValue: (object) => object.spec?.volumeName,
         },
         {
           key: "capacity",
@@ -965,7 +1044,22 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           width: 160,
           sortable: true,
           value: (object) => object.spec?.storageClassName ?? "",
-          cell: (object) => <TextCell>{object.spec?.storageClassName ?? "–"}</TextCell>,
+          cell: (object, context) =>
+            object.spec?.storageClassName ? (
+              <button
+                type="button"
+                className="truncate text-left text-accent-text hover:underline"
+                title={`Open StorageClass ${object.spec.storageClassName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  context.onOpenRef?.({ kind: "StorageClass", name: object.spec.storageClassName });
+                }}
+              >
+                {object.spec.storageClassName}
+              </button>
+            ) : (
+              <TextCell>–</TextCell>
+            ),
           filterValue: (object) => object.spec?.storageClassName,
         },
       );
@@ -1012,7 +1106,22 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           width: 160,
           sortable: true,
           value: (object) => object.spec?.storageClassName ?? "",
-          cell: (object) => <TextCell>{object.spec?.storageClassName ?? "–"}</TextCell>,
+          cell: (object, context) =>
+            object.spec?.storageClassName ? (
+              <button
+                type="button"
+                className="truncate text-left text-accent-text hover:underline"
+                title={`Open StorageClass ${object.spec.storageClassName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  context.onOpenRef?.({ kind: "StorageClass", name: object.spec.storageClassName });
+                }}
+              >
+                {object.spec.storageClassName}
+              </button>
+            ) : (
+              <TextCell>–</TextCell>
+            ),
           filterValue: (object) => object.spec?.storageClassName,
         },
       );
@@ -1314,12 +1423,17 @@ function printerValue(object: AnyObject, jsonPath: string | undefined, type: str
   return String(current);
 }
 
-export function sortObjects(objects: AnyObject[], column: ColumnDef | undefined, direction: "asc" | "desc"): AnyObject[] {
+export function sortObjects(
+  objects: AnyObject[],
+  column: ColumnDef | undefined,
+  direction: "asc" | "desc",
+  context?: CellContext,
+): AnyObject[] {
   if (!column?.value) return objects;
   const factor = direction === "asc" ? 1 : -1;
   return [...objects].sort((a, b) => {
-    const left = column.value!(a);
-    const right = column.value!(b);
+    const left = column.value!(a, context);
+    const right = column.value!(b, context);
     if (typeof left === "number" && typeof right === "number") return (left - right) * factor;
     return String(left ?? "").localeCompare(String(right ?? ""), undefined, { numeric: true }) * factor;
   });

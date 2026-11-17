@@ -137,3 +137,73 @@
 .terminal-surface .xterm .xterm-rows > div:hover {
   background-color: rgba(96, 165, 250, 0.08);
 }
+
+/* ── Hotbar tiles (Freelens-style press feedback) ──────────────────────────── */
+@keyframes hotbar-press {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(2px);
+  }
+}
+.hotbar-press {
+  animation: hotbar-press 0.1s ease;
+}
+
+@keyframes hotbar-shake {
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+.hotbar-shake {
+  animation: hotbar-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ── Window dragging ─────────────────────────────────────────────────────────
+   The whole shell is a drag region so the window can be moved from any
+   chrome/background area. Interactive controls, table rows, scroll areas,
+   terminals and editors stay native so selection, scrolling and editing keep
+   working (dragging them moves nothing). */
+#root {
+  -webkit-app-region: drag;
+}
+#root button,
+#root input,
+#root select,
+#root textarea,
+#root a,
+#root [contenteditable="true"],
+#root [role="button"],
+#root [role="tab"],
+#root [role="menuitem"],
+#root [role="checkbox"],
+#root [role="row"],
+#root [role="columnheader"],
+#root .xterm,
+#root .monaco-editor,
+#root .app-no-drag,
+#root .overflow-auto,
+#root .overflow-y-auto,
+#root .overflow-x-auto {
+  -webkit-app-region: no-drag;
+}
+
+/* Find matches inside the YAML editor. */
+.yaml-find-match {
+  background-color: rgba(245, 158, 11, 0.32);
+}

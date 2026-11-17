@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Server, ServerCrash } from "lucide-react";
+import { ChevronUp, Server, ServerCrash } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { ResourceSidebar } from "../features/navigation/ResourceSidebar";
@@ -31,7 +31,7 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
   useEffect(() => {
     if (!resizing) return;
     const onMove = (event: PointerEvent) => {
-      const next = Math.min(Math.max(180, event.clientX - 54), 420);
+      const next = Math.min(Math.max(180, event.clientX - 75), 420);
       setSidebarWidth(clusterId, next);
     };
     const onUp = () => {
@@ -145,6 +145,19 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <ResourceBrowser clusterId={clusterId} active={active} />
           <ResourceDetails clusterId={clusterId} />
+          {session?.details && session.detailsMinimized ? (
+            <button
+              type="button"
+              onClick={() => useSessionStore.getState().restoreDetails(clusterId)}
+              className="absolute bottom-3 right-3 z-40 flex max-w-[70%] items-center gap-1.5 rounded-lg border border-theme-border bg-theme-elevated px-2.5 py-1.5 text-[11px] text-theme-text-secondary shadow-theme-md transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              title="Show the minimized resource details"
+            >
+              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {session.details.ref.kind}/{session.details.ref.name}
+              </span>
+            </button>
+          ) : null}
         </div>
         {tabsCollapsed ? (
           <ResourceTabsTray clusterId={clusterId} onExpand={() => setTabsCollapsed(false)} />

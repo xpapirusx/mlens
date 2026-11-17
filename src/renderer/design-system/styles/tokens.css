@@ -110,7 +110,7 @@
 
   /* Shell metrics (Freelens-inspired desktop chrome, Radar scale) */
   --shell-topbar-height: 44px;
-  --shell-hotbar-width: 54px;
+  --shell-hotbar-width: 75px;
   --shell-sidebar-width: 236px;
   --shell-tabstrip-height: 36px;
   --shell-statusbar-height: 24px;

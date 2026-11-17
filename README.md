@@ -76,6 +76,11 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   kubectl command, delete and force delete (`gracePeriodSeconds: 0`).
 - Columns can be pinned to the left edge; open-resource tabs can be collapsed
   into a shadow tray above the terminal dock with every tab still clickable.
+- The details drawer can be minimized (chevron) without closing anything: the
+  open-resource tabs stay and a floating pill restores the drawer.
+- Reference fields are clickable everywhere: owner references, `volumeName`,
+  `claimRef`, `storageClassName`, `serviceAccountName`, HPA `scaleTargetRef`, …,
+  plus the Controlled-by column and the PVC Pods/Volume/Storage-class columns.
 - Init containers are marked in the Containers column (outlined square,
   separator, `+N init`) and listed in their own Pod Overview section.
 - Custom resources and CRDs show their kind name in the sidebar (apiVersion in
@@ -114,9 +119,11 @@ Secrets reveal only on request.
 
 - Radar (light/dark/system), **Dracula**, and **Freelens** colour themes; each
   theme also selects its terminal ANSI palette.
-- Ten-slot favourite-cluster hotbar with drag-and-drop and a context-menu
-  "Move to slot" fallback; open clusters stay in the top tab strip. Home/Back
-  navigation lives in the tab strip.
+- Ten-slot favourite-cluster hotbar (75px rail, 40px cells, 12px spacing like
+  Freelens) with three-letter short names, seeded tile colours, a status LED,
+  press/shake animations, drag-and-drop and a context-menu "Move to slot"
+  fallback; open clusters stay in the top tab strip. Home/Back navigation lives
+  in the tab strip.
 - Reorderable sidebar groups, column order, column widths (remembered per kind
   across clusters), and configurable row height from 24 to 52px.
 - Problems filter for warning/error statuses, plus the regular status badges and

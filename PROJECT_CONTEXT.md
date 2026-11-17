@@ -195,8 +195,10 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
 - Catalog: open clusters rise to the top, Status reads Connected (version is a
   separate column), with status/name/recent/source sorting.
-- Hotbar is a 10-slot reorderable favourites rail (drag or context-menu move);
-  open clusters live in top tabs with the Home/Back/Forward controls.
+- Hotbar is a 10-slot reorderable favourites rail on a 75px Freelens-style rail
+  (40px tiles, 12px spacing, three-letter short names, seeded colours, status LED,
+  press/shake animation; drag or context-menu move); open clusters live in top
+  tabs with the Home/Back/Forward controls.
 
 **Resource browser**
 
@@ -243,6 +245,9 @@ Freelens gets isolation from iframes. mLens instead:
   filtering, download.
 - Port forwarding over WebSocket, active forwards panel, quick forward with a
   random local port in 30000–65355.
+- Reference navigation: owner references, spec/status reference fields and the
+  Controlled-by/PVC columns open their targets; the details drawer minimizes to
+  a floating pill so the table can be used with tabs still open.
 - Workload actions (scale/restart/pause/resume/suspend) plus Node cordon, in
   the leading row menu and the drawer header, with an HPA guard on manual
   scaling; clickable namespace and node cells, force delete, attach, init

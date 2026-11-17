@@ -195,9 +195,11 @@ export function NestedObject({ value, depth = 0 }: { value: unknown; depth?: num
 export function KeyValueList({
   data,
   secret,
+  meta,
 }: {
   data: Record<string, string>;
   secret?: boolean;
+  meta?: React.ReactNode;
 }) {
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const entries = Object.entries(data ?? {});
@@ -208,6 +210,11 @@ export function KeyValueList({
 
   return (
     <div className="space-y-2">
+      {meta ? (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-theme-text-tertiary">
+          {meta}
+        </div>
+      ) : null}
       {entries.map(([key, value]) => {
         const decoded = secret ? safeBase64(value) : value;
         const shown = !secret || revealed.has(key);
@@ -242,9 +249,7 @@ export function KeyValueList({
                 <Copy className="h-3 w-3" />
               </button>
             </div>
-            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-theme-text-primary">
-              {shown ? decoded : "••••••••••••"}
-            </pre>
+            <ValueBlock value={shown ? decoded : "••••••••••••"} masked={!shown} />
             <div className="mt-1 flex justify-end">
               <button
                 type="button"
@@ -258,6 +263,29 @@ export function KeyValueList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+const MAX_RENDERED_LINES = 400;
+
+/** Value with a Freelens-style line-number gutter, capped so huge blobs stay cheap. */
+function ValueBlock({ value, masked }: { value: string; masked?: boolean }) {
+  const allLines = value.split("\n");
+  const lines = allLines.slice(0, MAX_RENDERED_LINES);
+  const overflow = allLines.length - lines.length;
+  return (
+    <div className="mt-1 flex max-h-64 overflow-auto rounded border border-theme-border-subtle bg-theme-base">
+      <div className="sticky left-0 shrink-0 select-none border-r border-theme-border-subtle bg-theme-elevated px-1.5 py-1 text-right font-mono text-[10px] leading-[1.45] text-theme-text-disabled">
+        {lines.map((_, index) => (
+          <div key={index}>{index + 1}</div>
+        ))}
+      </div>
+      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all px-2 py-1 font-mono text-[11px] leading-[1.45] text-theme-text-primary">
+        {lines.join("\n")}
+        {overflow > 0 ? `\n… +${overflow} lines` : ""}
+      </pre>
+      {masked ? <span className="sr-only">masked</span> : null}
     </div>
   );
 }

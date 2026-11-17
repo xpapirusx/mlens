@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Ban,
   Box,
+  ChevronDown,
   ChevronLeft,
   Copy,
   FileCode,
@@ -64,9 +65,11 @@ import { MetricsTab } from "./MetricsTab";
 
 export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const details = useSessionStore((state) => state.sessions[clusterId]?.details ?? null);
+  const minimized = useSessionStore((state) => state.sessions[clusterId]?.detailsMinimized ?? false);
   const resources = useSessionStore((state) => state.sessions[clusterId]?.resources ?? []);
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const closeDetails = useSessionStore((state) => state.closeDetails);
+  const minimizeDetails = useSessionStore((state) => state.minimizeDetails);
   const detailsBack = useSessionStore((state) => state.detailsBack);
   const detailsHistory = useSessionStore((state) => state.sessions[clusterId]?.detailsHistory ?? []);
   const openDetails = useSessionStore((state) => state.openDetails);
@@ -123,7 +126,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     };
   }, [resizing]);
 
-  if (!details) return null;
+  if (!details || minimized) return null;
 
   const navigate = (kind: string, name: string, namespace?: string, apiVersion?: string) => {
     if (!kind || !name) return;
@@ -398,6 +401,14 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
+              onClick={() => minimizeDetails(clusterId)}
+              title="Minimize details (open resource tabs stay)"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-6"
               onClick={() => setExpanded((value) => !value)}
               title={expanded ? "Restore drawer" : "Expand drawer"}
             >
@@ -594,7 +605,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 clusterId={clusterId}
               />
             ) : null}
-            {tab === "details" ? <DetailsTab object={object} /> : null}
+            {tab === "details" ? <DetailsTab object={object} onNavigate={navigate} /> : null}
             {tab === "yaml" ? (
               <YamlTab clusterId={clusterId} object={object} onApplied={() => void data.refresh()} />
             ) : null}

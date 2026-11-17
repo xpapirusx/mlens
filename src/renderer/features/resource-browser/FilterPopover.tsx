@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Search, X } from "lucide-react";
 import type { KubeObject } from "@shared/types";
-import type { ColumnDef } from "../../lib/columns";
+import type { CellContext, ColumnDef } from "../../lib/columns";
 import { cn } from "../../lib/cn";
 
 export interface FilterOption {
@@ -10,11 +10,11 @@ export interface FilterOption {
   count: number;
 }
 
-export function buildFilterOptions(rows: KubeObject[], column: ColumnDef): FilterOption[] {
+export function buildFilterOptions(rows: KubeObject[], column: ColumnDef, context?: CellContext): FilterOption[] {
   if (!column.filterValue) return [];
   const counts = new Map<string, number>();
   for (const row of rows) {
-    const value = column.filterValue(row);
+    const value = column.filterValue(row, context);
     if (!value) continue;
     counts.set(value, (counts.get(value) ?? 0) + 1);
   }

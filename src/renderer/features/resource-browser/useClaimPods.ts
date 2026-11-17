@@ -1,0 +1,72 @@
+import { useEffect, useMemo, useState } from "react";
+import type { ApiResourceInfo, KubeObject } from "@shared/types";
+import { api, call } from "../../lib/api";
+
+/**
+ * Maps `${namespace}/${claimName}` → pod names that mount the claim. Only used
+ * while a PersistentVolumeClaim table is on screen, so the extra Pod list costs
+ * one request per namespace scope and nothing at all for other kinds.
+ */
+export function useClaimPods({
+  clusterId,
+  resource,
+  namespaces,
+  active,
+  refreshSeconds,
+}: {
+  clusterId: string;
+  resource: ApiResourceInfo | undefined;
+  namespaces: string[];
+  active: boolean;
+  refreshSeconds: number;
+}): Map<string, string[]> {
+  const [pods, setPods] = useState<KubeObject[]>([]);
+  const enabled = active && resource?.kind === "PersistentVolumeClaim";
+  const scopeKey = namespaces.join("|");
+
+  useEffect(() => {
+    if (!enabled) {
+      setPods([]);
+      return;
+    }
+    let disposed = false;
+    const load = async (quiet: boolean) => {
+      if (!quiet) setPods([]);
+      const scopes = namespaces.length ? namespaces : [undefined];
+      const results = await Promise.allSettled(
+        scopes.map((namespace) =>
+          call(api.resources.list({ clusterId, apiVersion: "v1", kind: "Pod", namespace, limit: 1000 })),
+        ),
+      );
+      if (disposed) return;
+      const found: KubeObject[] = [];
+      for (const result of results) {
+        if (result.status === "fulfilled") found.push(...result.value.items);
+      }
+      setPods(found);
+    };
+    void load(false);
+    const interval =
+      refreshSeconds > 0 ? window.setInterval(() => void load(true), Math.max(30, refreshSeconds) * 1000) : null;
+    return () => {
+      disposed = true;
+      if (interval) window.clearInterval(interval);
+    };
+  }, [enabled, clusterId, scopeKey, refreshSeconds]);
+
+  return useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const pod of pods) {
+      const namespace = pod.metadata?.namespace ?? "";
+      for (const volume of ((pod.spec?.volumes ?? []) as Array<Record<string, any>>)) {
+        const claim = volume.persistentVolumeClaim?.claimName;
+        if (!claim) continue;
+        const key = `${namespace}/${claim}`;
+        const list = map.get(key) ?? [];
+        if (pod.metadata?.name && !list.includes(pod.metadata.name)) list.push(pod.metadata.name);
+        map.set(key, list);
+      }
+    }
+    return map;
+  }, [pods]);
+}

@@ -11,21 +11,31 @@ import type { ClusterSummary } from "@shared/types";
 
 const SLOT_COUNT = 10;
 
-function initials(name: string): string {
-  const parts = name
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[parts.length - 2][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
+/**
+ * Freelens' `computeDefaultShortName`: first letter of the first three name
+ * parts (whitespace → dashes/underscores → `@`), uppercased, e.g.
+ * "msk-avg-dev-iaas-mgmt" → "MAD".
+ */
+function shortName(name: string): string {
+  if (!name) return "??";
+  const byWhitespace = name.split(/\s+/);
+  const parts =
+    byWhitespace.length > 1 ? byWhitespace : name.split(/[-_]+/).length > 1 ? name.split(/[-_]+/) : name.split(/@+/);
+  const [rawFirst, rawSecond, rawThird] = parts;
+  const first = [...rawFirst];
+  const second = rawSecond ? [...rawSecond] : first.slice(1);
+  const third = rawThird ? [...rawThird] : [];
+  return [first[0], second[0], third[0]].filter(Boolean).join("").toUpperCase();
 }
 
-function hueFor(name: string): number {
-  let hash = 0;
-  for (let index = 0; index < name.length; index += 1) hash = (hash * 31 + name.charCodeAt(index)) % 360;
-  return Math.abs(hash);
+/** Freelens' seeded avatar colour: FNV-1a hue, fixed saturation/lightness so white text always clears WCAG AA. */
+function tileColor(name: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < name.length; index += 1) {
+    hash ^= name.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `hsl(${(hash >>> 0) % 360}, 60%, 27%)`;
 }
 
 export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) {
@@ -39,6 +49,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const sessions = useSessionStore((state) => state.sessions);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropSlot, setDropSlot] = useState<number | null>(null);
+  const [pressed, setPressed] = useState<string | null>(null);
   const dragRef = useRef<{ id: string; startX: number; startY: number; active: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -88,6 +99,11 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
     return Number.isFinite(value) ? value : null;
   };
 
+  const flash = (id: string) => {
+    setPressed(id);
+    window.setTimeout(() => setPressed((current) => (current === id ? null : current)), 260);
+  };
+
   const beginPointerDrag = (event: React.PointerEvent, clusterId: string) => {
     if (event.button !== 0) return;
     dragRef.current = { id: clusterId, startX: event.clientX, startY: event.clientY, active: false };
@@ -128,15 +144,16 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
 
   return (
     <nav
-      className="flex w-[54px] shrink-0 flex-col items-center gap-1.5 border-r border-theme-border bg-theme-sidebar py-2"
+      className="flex w-16 shrink-0 flex-col items-center gap-2 border-r border-theme-border bg-theme-sidebar py-2"
       aria-label="Clusters"
+      style={{ width: "var(--shell-hotbar-width)" }}
     >
       <Tooltip content="Cluster catalog" side="top">
         <button
           type="button"
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg border border-theme-border bg-theme-surface text-theme-text-secondary hover:text-theme-text-primary",
-            activeClusterId === null && "ring-2 ring-skyhook-500/60",
+            "flex h-[40px] w-[40px] items-center justify-center rounded-[6px] border border-theme-border bg-theme-surface text-theme-text-secondary transition-shadow hover:shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--border-default)] hover:text-theme-text-primary",
+            activeClusterId === null && "shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--accent)]",
           )}
           onClick={() => setActiveCluster(null)}
         >
@@ -144,9 +161,9 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         </button>
       </Tooltip>
 
-      <div className="my-1 h-px w-7 bg-theme-border" />
+      <div className="my-1 h-px w-8 bg-theme-border" />
 
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-0.5">
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-[12px] overflow-y-auto px-[12px]">
         {slots.map((cluster, slotIndex) => {
           const active = cluster?.id === activeClusterId;
           const session = cluster ? sessions[cluster.id] : undefined;
@@ -155,9 +172,9 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
             : undefined;
           const dot =
             state === "connected"
-              ? "bg-emerald-500"
+              ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.9)]"
               : state === "error"
-                ? "bg-red-500"
+                ? "bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.8)]"
                 : state === "disconnected"
                   ? "bg-slate-500"
                   : "bg-theme-text-disabled";
@@ -180,7 +197,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                 setDropSlot(null);
               }}
               className={cn(
-                "relative rounded-lg",
+                "relative rounded-md",
                 dropSlot === slotIndex && "ring-2 ring-skyhook-400 ring-offset-1 ring-offset-theme-sidebar",
               )}
             >
@@ -218,6 +235,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                     onPointerDown={(event) => beginPointerDrag(event, cluster.id)}
                     onClick={() => {
                       if (suppressClick.current) return;
+                      flash(cluster.id);
                       void openCluster(cluster.id);
                     }}
                     onContextMenu={(event) => {
@@ -225,22 +243,20 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                       setMenu({ id: cluster.id, x: event.clientX, y: event.clientY });
                     }}
                     className={cn(
-                      "relative flex h-9 w-9 items-center justify-center rounded-lg border text-[10px] font-semibold text-white shadow-theme-sm transition-all",
+                      "relative flex h-[40px] w-[40px] items-center justify-center rounded-[6px] text-[12px] font-semibold uppercase tracking-wide text-white transition-shadow duration-100",
                       active
-                        ? "ring-2 ring-skyhook-500 ring-offset-2 ring-offset-theme-sidebar"
-                        : "opacity-90 hover:opacity-100",
+                        ? "shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--accent)]"
+                        : "hover:shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--border-default)]",
                       dragging === cluster.id && "opacity-40",
+                      pressed === cluster.id && "hotbar-press",
                     )}
-                    style={{
-                      background: `hsl(${hueFor(cluster.name)} 38% 36%)`,
-                      borderColor: `hsl(${hueFor(cluster.name)} 44% 52% / 0.7)`,
-                    }}
+                    style={{ background: tileColor(cluster.name) }}
                     aria-label={cluster.name}
                   >
-                    {initials(cluster.name)}
+                    {shortName(cluster.name)}
                     <span
                       className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-theme-sidebar",
+                        "absolute left-[3px] top-[3px] h-2 w-2 rounded-full border border-theme-sidebar",
                         dot,
                       )}
                     />
@@ -250,10 +266,16 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                 <Tooltip content={`Empty hotbar slot ${slotIndex + 1} — drag a favourite here`} side="bottom">
                   <button
                     type="button"
-                    onClick={() => setActiveCluster(null)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-theme-border/70 text-theme-text-disabled transition-colors hover:border-theme-border hover:text-theme-text-secondary"
+                    onClick={() => {
+                      flash(`empty-${slotIndex}`);
+                      setActiveCluster(null);
+                    }}
+                    className={cn(
+                      "flex h-[40px] w-[40px] items-center justify-center rounded-[6px] border border-dashed border-theme-border/70 text-theme-text-disabled transition-colors hover:border-theme-border hover:text-theme-text-secondary",
+                      pressed === `empty-${slotIndex}` && "hotbar-shake",
+                    )}
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-4 w-4" />
                   </button>
                 </Tooltip>
               )}
@@ -262,14 +284,14 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         })}
       </div>
 
-      <div className="mt-1 flex flex-col items-center gap-1 border-t border-theme-border pt-2">
+      <div className="mt-1 flex flex-col items-center gap-1.5 border-t border-theme-border pt-2">
         <Tooltip content="Import kubeconfig" side="bottom">
-          <button type="button" className="shell-icon-button h-8 w-8" onClick={() => void importViaDialog()}>
+          <button type="button" className="shell-icon-button h-9 w-9" onClick={() => void importViaDialog()}>
             <Plus className="h-4 w-4" />
           </button>
         </Tooltip>
         <Tooltip content="Settings" side="bottom">
-          <button type="button" className="shell-icon-button h-8 w-8" onClick={() => openSettings(true)}>
+          <button type="button" className="shell-icon-button h-9 w-9" onClick={() => openSettings(true)}>
             <Settings className="h-4 w-4" />
           </button>
         </Tooltip>
@@ -295,7 +317,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move up
+                Move left
               </MenuItem>
               <MenuItem
                 disabled={from < 0 || from >= SLOT_COUNT - 1}
@@ -304,7 +326,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move down
+                Move right
               </MenuItem>
               <MenuSeparator />
               {Array.from({ length: SLOT_COUNT }, (_, index) => (

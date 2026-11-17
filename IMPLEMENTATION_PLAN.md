@@ -97,6 +97,13 @@ configuration).
 | Shortcut overlay | **Done** | `?` opens the full shortcut sheet |
 | Pin columns | **Done** | Column picker pin, sticky left freeze |
 | Collapse resource tabs | **Done** | Chevron collapses the strip into a bottom shadow tray with all tabs still clickable |
+| Minimize details | **Done** | Drawer hides without closing; open tabs stay; floating pill restores it |
+| YAML find/replace | **Done** | Own find bar on `model.findMatches`: count, match case, next/prev, replace, replace all |
+| Clickable references | **Done** | Owner refs, volumeName/claimRef/storageClassName/scaleTargetRef and PVC Pods/Volume/Storage-class cells open their targets |
+| PVC → pod column | **Done** | "Pods" column lists pods mounting the claim, clickable (one Pod list per scope) |
+| Freelens hotbar | **Done** | 75px rail, 40px cells, 12px spacing, three-letter names, seeded colour, LED, press/shake animations |
+| Secret/ConfigMap line numbers | **Done** | Line-number gutter + `type`/`kind` header with key counts and size |
+| Window drag anywhere | **Done** | Whole shell is a drag region; controls, rows, scroll areas, terminals and editors stay native |
 | Connected clusters first | **Done** | Open sessions (connected/connecting/error) sort first; Status says Connected; sort by status/name/recent/source |
 | CR/CRD details | **Done** | Custom kinds open on Details (Freelens order); CRD Overview has Radar cards, versions, printer columns and conditions |
 | Collapsible resource tabs | **Done** | Collapse to a bottom shadow tray; every tab stays clickable and restorable |
@@ -256,6 +263,13 @@ configuration).
 | Catalog sorting/status | Pass — connected cluster first, Status `Connected`, Version in its own column, Sort: Status/Name/Recent/Source |
 | CR/CRD details | Pass — CiliumEndpoint opens on Details; Overview shows cards + 7 printer columns + status |
 | Bottom tab tray | Pass — 4 open tabs collapse into a bottom shadow tray, tabs clickable, chevron restores the strip |
+| YAML find/replace | Pass — "apiVersion" → 1/4 with highlighted matches, next/prev navigation |
+| PVC drill-down | Pass — pod link opens the Pod, Volume opens the PV, Storage class opens the StorageClass; Details volumeName link opens the PV |
+| Owner drill-down | Pass — Controlled-by cell opens the owning StatefulSet |
+| Minimize/restore details | Pass — drawer hides, pill `PersistentVolume/pvc-…` restores it |
+| Secret layout | Pass — name/keys/namespace header, `type: kubernetes.io/tls · keys: 3 · size: 3.8 KiB`, numbered values |
+| Hotbar | Pass — 40×40px / 6px tiles, three-letter initials (`msk-avg-preprod-nlb` → `MAP`), seeded colour, LED top-left |
+| Window drag | Pass — `#root` computed `-webkit-app-region: drag` |
 | Related: cluster-scoped owner | Pass — owner refs no longer inherit the child's namespace; navigation resolves apiVersion and cluster-scoped targets (reported on PinataHost) |
 | Secret/ConfigMap layout | Pass — resource name + key count above the table, key stacked over value, reveal/copy per key |
 | Attach | Pass — pods/attach WebSocket started against a live pod without errors |

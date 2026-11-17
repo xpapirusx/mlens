@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { stringify } from "yaml";
-import { Check, Copy, Pencil, RefreshCw, Save, X } from "lucide-react";
+import { Check, Copy, Pencil, RefreshCw, Replace, Save, Search, X } from "lucide-react";
 import type { KubeObject } from "@shared/types";
-import { YamlEditor } from "../../design-system/components/YamlEditor";
+import { YamlEditor, type YamlEditorHandle } from "../../design-system/components/YamlEditor";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
@@ -21,6 +21,7 @@ export function YamlTab({
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const editorRef = useRef<YamlEditorHandle>(null);
 
   useEffect(() => {
     if (!editing) setValue(source);
@@ -51,6 +52,33 @@ export function YamlTab({
           {object.apiVersion}/{object.kind}
         </span>
         <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="xs"
+            variant="ghost"
+            title="Find in YAML"
+            onClick={() => editorRef.current?.openFind()}
+          >
+            <Search className="h-3 w-3" />
+            Find
+          </Button>
+          <Button
+            size="xs"
+            variant="ghost"
+            title={editing ? "Find and replace in YAML" : "Switch to Edit to replace text"}
+            onClick={() => {
+              if (!editing) {
+                setEditing(true);
+                // Monaco mounts the editor for the new value first; open the
+                // widget on the next frame so it belongs to the editable buffer.
+                window.setTimeout(() => editorRef.current?.openReplace(), 120);
+                return;
+              }
+              editorRef.current?.openReplace();
+            }}
+          >
+            <Replace className="h-3 w-3" />
+            Replace
+          </Button>
           <Button
             size="xs"
             variant="ghost"
@@ -94,7 +122,7 @@ export function YamlTab({
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <YamlEditor value={value} onChange={setValue} readOnly={!editing} />
+        <YamlEditor ref={editorRef} value={value} onChange={setValue} readOnly={!editing} />
       </div>
     </div>
   );

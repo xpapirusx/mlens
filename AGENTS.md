@@ -177,10 +177,16 @@ Important:
   rows. Do not turn the app into a browser-style single tab bar. The open-resource
   strip can collapse into a shadow tray above the terminal dock; the tabs stay
   mounted and clickable so the strip can be restored at any time.
-- Hotbar: 10 slots, favourite clusters only, drag/context-menu repositioning,
-  neutrally designed cluster tiles (never gradient avatars).
+- Hotbar: 10 slots on a 75px rail with 40px tiles and 12px spacing (Freelens),
+  favourite clusters only, three-letter short names, seeded solid colours,
+  status LED, drag/context-menu repositioning; never gradient avatars.
 - Terminal surface stays dark in every theme; Dracula/Freelens themes select the
   corresponding ANSI palette. Logs are Pod-only.
+- Window dragging: the shell root is `-webkit-app-region: drag`; every
+  interactive control, table row, scroll area, terminal and editor must stay
+  `no-drag` (or be excluded by the global rule) so selection and scrolling work.
+- The details drawer can be minimized without closing it: keep the resource
+  tabs, set `detailsMinimized`, and restore from the floating pill.
 - No huge components. Split table/controls/filters/dialogs/renderers.
 - No dead buttons. If not implemented, label it explicitly.
 
