@@ -239,6 +239,11 @@ src/renderer
   CRDs (including Argo/Flux) appear under a nested Custom Resources tree as
   generic resources.
 - Port forwarding is TCP loopback (127.0.0.1), one port per forward, no UDP.
+- A kubeconfig that authenticates through an `exec` plugin (`kubectl oidc-login`,
+  `aws`, `gke-gcloud-auth-plugin`, …) needs that binary installed — mLens never
+  ships or runs kubectl itself, but it adds `/etc/paths`, Homebrew and your
+  login-shell directories to PATH at startup so such plugins resolve; if the
+  binary is genuinely missing the error says exactly that.
 - Metrics are live metrics-server values only; no historical Prometheus charts.
 - Forward navigation is disabled; back covers the details history and catalog.
 - Write actions are not pre-filtered by RBAC; the Kubernetes error is shown when

@@ -259,6 +259,14 @@ Always run `pnpm typecheck` and `pnpm build` before declaring work done.
 9. **Metrics API** may be absent/forbidden; never substitute values.
 10. **Catalog removal** is non-destructive (`settings.hiddenClusters`); never
     delete or rewrite the user's kubeconfig.
+11. **Exec plugins need their binary on PATH.** A kubeconfig with
+    `exec.command` (`kubectl oidc-login`, `aws`, `gke-gcloud-auth-plugin`, …) is
+    spawned by `@kubernetes/client-node` inheriting main's env, and a GUI launch
+    only gets launchd's minimal PATH — that was the `spawn kubectl ENOENT` bug.
+    `src/main/path.ts` augments `process.env.PATH` before any authentication
+    (inherited PATH + `/etc/paths`/`/etc/paths.d` + Homebrew prefixes + the
+    login shell's PATH). Do not "fix" such errors by bundling kubectl: extend
+    `augmentProcessPath` or surface the hint instead.
 
 ---
 

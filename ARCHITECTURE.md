@@ -527,6 +527,11 @@ until the user presses “Reveal” for a specific key.
 
 - Connection errors are classified (auth, RBAC, DNS/TLS, timeout) into readable
   messages; the cluster workspace shows a retry/cancel screen.
+- `spawn … ENOENT` (a kubeconfig `exec` plugin's binary, usually `kubectl`) is
+  reported with an actionable hint instead of a bare error, and main augments
+  `process.env.PATH` at startup — inherited PATH, `/etc/paths` + `/etc/paths.d`,
+  Homebrew prefixes, then the login shell's own PATH — so GUI launches resolve
+  the same binaries a terminal does.
 - Discovery failures do not block the connection: the sidebar reports partial
   discovery.
 - List errors appear inline with retry, never as an empty table.

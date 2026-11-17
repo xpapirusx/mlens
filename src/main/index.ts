@@ -13,11 +13,17 @@ import { ClusterManager } from "./kubernetes/cluster-manager";
 import { PtyManager } from "./terminal/pty-manager";
 import { PortForwardManager } from "./kubernetes/port-forwards";
 import { registerIpc } from "./ipc/register";
+import { augmentProcessPath } from "./path";
 
 const { app, BrowserWindow, Menu, nativeTheme, shell } = electron;
 
 process.on("uncaughtException", (error) => console.error("[main uncaught]", error));
 process.on("unhandledRejection", (error) => console.error("[main unhandled]", error));
+
+// Before anything authenticates: kubeconfig exec plugins (kubectl oidc-login,
+// aws, …) spawn binaries through this process' env, and a GUI launch only has
+// launchd's minimal PATH.
+augmentProcessPath();
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
