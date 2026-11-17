@@ -1,4 +1,4 @@
-import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
@@ -7,6 +7,7 @@ import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, Pr
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory, titleCase } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
+import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
 
 type AnyObject = any;
 
@@ -17,6 +18,9 @@ export interface OverviewProps {
   onPortForward?: (port: number) => void;
   onQuickPortForward?: (port: number) => void;
   onEditData?: () => void;
+  onScale?: () => void;
+  onTogglePause?: () => void;
+  onToggleSuspend?: () => void;
   clusterId: string;
 }
 
@@ -549,10 +553,12 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
   );
 }
 
-function WorkloadOverview({ object, onNavigate }: OverviewProps) {
+function WorkloadOverview({ object, onNavigate, onScale, onTogglePause }: OverviewProps) {
   const spec = object.spec ?? {};
   const status = object.status ?? {};
   const containers = (spec.template?.spec?.containers ?? []) as Array<Record<string, any>>;
+  const caps = workloadCapabilities(object.kind, object.apiVersion);
+  const paused = isDeploymentPaused(object);
 
   return (
     <div className="space-y-4">
@@ -574,6 +580,30 @@ function WorkloadOverview({ object, onNavigate }: OverviewProps) {
           <Property label="Revision history" value={spec.revisionHistoryLimit ?? "–"} />
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
+        {caps.scalable || caps.pausable ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle pt-2.5">
+            {caps.scalable ? (
+              <button
+                type="button"
+                className="flex h-7 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/15 dark:text-emerald-400"
+                onClick={onScale}
+              >
+                <Scale className="h-3 w-3" />
+                Scale
+              </button>
+            ) : null}
+            {caps.pausable ? (
+              <button
+                type="button"
+                className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+                onClick={onTogglePause}
+              >
+                {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+                {paused ? "Resume rollout" : "Pause rollout"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </DetailSection>
 
       <DetailSection title="Selector" icon={<Network />}>
@@ -613,7 +643,7 @@ function WorkloadOverview({ object, onNavigate }: OverviewProps) {
         <ConditionsList conditions={status.conditions ?? []} />
       </DetailSection>
 
-      <DetailSection title="Related" icon={<Server />} defaultOpen={false}>
+      <DetailSection title="Ownership" icon={<Server />} defaultOpen={false}>
         <PropertyList>
           <Property
             label="Owner"
@@ -630,17 +660,17 @@ function WorkloadOverview({ object, onNavigate }: OverviewProps) {
               )
             }
           />
-          <Property label="Related resources" value="See the Related tab" />
         </PropertyList>
       </DetailSection>
     </div>
   );
 }
 
-function JobOverview({ object }: OverviewProps) {
+function JobOverview({ object, onToggleSuspend }: OverviewProps) {
   const isCron = object.kind === "CronJob";
   const status = object.status ?? {};
   const spec = object.spec ?? {};
+  const suspended = isSuspended(object);
 
   return (
     <div className="space-y-4">
@@ -662,12 +692,25 @@ function JobOverview({ object }: OverviewProps) {
               <Property label="Active" value={status.active ?? 0} />
               <Property label="Completions" value={`${status.succeeded ?? 0} / ${spec.completions ?? 1}`} />
               <Property label="Parallelism" value={spec.parallelism ?? 1} />
+              <Property label="Suspended" value={suspended ? "Yes" : "No"} />
               <Property label="Started" value={status.startTime ? formatTimestamp(status.startTime) : "–"} />
               <Property label="Completed" value={status.completionTime ? formatTimestamp(status.completionTime) : "–"} />
             </>
           )}
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
+        {onToggleSuspend ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle pt-2.5">
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              onClick={onToggleSuspend}
+            >
+              {suspended ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
+              {suspended ? "Resume" : "Suspend"}
+            </button>
+          </div>
+        ) : null}
       </DetailSection>
 
       <DetailSection title="Conditions" icon={<ShieldCheck />}>

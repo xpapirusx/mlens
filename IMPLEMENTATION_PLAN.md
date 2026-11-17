@@ -83,7 +83,9 @@ configuration).
 | Status indicators | **Done** | Kind-aware status mapping, Radar status badges |
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
-| Context menu actions | **Done** | Details, YAML, Pod logs, Pod exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), suspend/resume (Job/CronJob), copy kubectl, delete |
+| Context menu actions | **Done** | Details, YAML, Pod logs, Pod exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), pause/resume rollout (Deployment), suspend/resume (Job/CronJob), copy kubectl, delete |
+| Details workload actions | **Done** | Kind action row in the drawer plus Radar-style Scale/Pause buttons in the Overview Status section; shared capability rules in `lib/workload-actions.ts` |
+| Scale safety | **Done** | HPA ownership is checked on pressing Scale (lazy, one namespaced HPA list) and blocks manual scaling |
 | Namespace cell click | **Done** | Clicking a namespace scopes the table to it |
 | Bulk bar placement | **Done** | Selection + delete bar sits above the terminal dock |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
@@ -106,7 +108,7 @@ configuration).
 | Lens drawer mechanics | **Done** | Right panel, resizable, expand, back stack, action toolbar (logs/exec/YAML/port-forward/delete/close), Escape |
 | Radar content and tabs | **Done** | Overview / Details / YAML / Events / Logs (Pods only) / Metrics |
 | Pod overview | **Done** | Freelens-style sections: status, containers, environment with inline Secret/ConfigMap peek, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
-| Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner |
+| Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner; Scale and Pause/Resume buttons for supported kinds |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
@@ -121,7 +123,7 @@ configuration).
 | Specification & Status | **Done** | Sorted flat fields; complex objects/arrays are collapsed JSON blocks (drawer height stable) |
 | Related resources | **Removed** | Tab removed by product decision; resolver is unused |
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
-| Metrics tab | **Partial** | Real metrics-server values for Pod/Node; no history charts |
+| Metrics tab | **Partial** | Real metrics-server values for Pods only; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
 | Port forwarding | **Done** | Loopback TCP forward over Kubernetes WebSocket; one-click from the Ports table; verified HTTP 200 from a real pod; active forwards panel |
 
@@ -207,6 +209,8 @@ configuration).
 | ConfigMap/Secret editor | Pass — create/patch/get/delete verified against a real ConfigMap |
 | Random port forwarding | Pass — packaged app forwarded on local port 30120 and returned HTTP 200 |
 | Problems status filter | Pass — 115 warning/error rows isolated on a live cluster |
+| Workload actions in drawer | Pass — Deployment Scale/Restart/Pause rollout, StatefulSet Scale/Restart, ReplicaSet Scale, Job Suspend; dialogs open, no console errors |
+| Workload actions in table | Pass — context menu shows Scale/Restart/Pause rollout for Deployments, Scale for ReplicaSets, Suspend for Jobs |
 | Column order | Pass — up/down in the column picker, persisted per kind |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
@@ -223,5 +227,8 @@ configuration).
 3. **Prometheus history** on top of the live metrics columns.
 4. **Helm** (release secrets parsed in TypeScript, no Helm binary).
 5. **Topology/Timeline**, reusing owner/selector and watch data.
-6. **Automated tests**: unit tests for status/format/columns, integration tests
+6. **Remaining Radar workload actions**: revision history + rollback
+   (ReplicaSet revisions), Set image, and CronJob Trigger (create a Job from
+   `jobTemplate`).
+7. **Automated tests**: unit tests for status/format/columns, integration tests
    against `kind`, Playwright Electron smoke tests.

@@ -9,8 +9,12 @@ import {
   Layers,
   Maximize2,
   Minimize2,
+  Pause,
+  Play,
   Plug,
   RefreshCw,
+  RotateCcw,
+  Scale,
   ScrollText,
   SquareTerminal,
   Trash2,
@@ -26,12 +30,22 @@ import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
 import { InlineError } from "../../design-system/components/EmptyState";
 import { Button } from "../../design-system/components/Button";
-import { ConfirmActionDialog } from "../resource-browser/ResourceDialogs";
+import { ConfirmActionDialog, ScaleDialog } from "../resource-browser/ResourceDialogs";
 import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
 import { EditDataDialog } from "./EditDataDialog";
 import { Tabs } from "../../design-system/components/Tabs";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
+import {
+  findReplicaScaler,
+  isDeploymentPaused,
+  isSuspended,
+  restartWorkload,
+  scaleWorkload,
+  setWorkloadPaused,
+  setWorkloadSuspended,
+  workloadCapabilities,
+} from "../../lib/workload-actions";
 import { useEvents, useResourceObject } from "./useDetailsData";
 import { OverviewTab } from "./OverviewTab";
 import { DetailsTab } from "./DetailsTab";
@@ -75,6 +89,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [deleting, setDeleting] = useState(false);
   const [forwardPort, setForwardPort] = useState<number | null>(null);
   const [editDataOpen, setEditDataOpen] = useState(false);
+  const [scaleOpen, setScaleOpen] = useState(false);
+  const [restartConfirm, setRestartConfirm] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
     setExpanded(false);
@@ -183,54 +200,91 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const status = object ? resourceStatus(object, details.ref.kind) : null;
   const Icon = getKindIcon(details.ref.kind, resource?.group);
   const isPod = details.ref.kind === "Pod";
+  const caps = workloadCapabilities(details.ref.kind, details.ref.apiVersion);
   const fullHeightTab = tab === "yaml" || tab === "logs";
 
-  const actionButtons = (
-    <>
-      {isPod ? (
-        <button
-          type="button"
-          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-          onClick={() => setDetailsTab(clusterId, "logs")}
-          title="Logs"
-        >
-          <ScrollText className="h-3.5 w-3.5" />
-          Logs
-        </button>
-      ) : null}
-      {isPod ? (
-        <button
-          type="button"
-          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-          onClick={() => void openShell()}
-          title="Exec into pod"
-        >
-          <SquareTerminal className="h-3.5 w-3.5" />
-          Exec
-        </button>
-      ) : null}
-      {isPod ? (
-        <button
-          type="button"
-          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-          onClick={() => setForwardPort(8080)}
-          title="Port forward"
-        >
-          <Plug className="h-3.5 w-3.5" />
-          Forward
-        </button>
-      ) : null}
-      <button
-        type="button"
-        className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-red-500 hover:bg-red-500/10"
-        onClick={() => setConfirmDelete(true)}
-        title="Delete resource"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-        Delete
-      </button>
-    </>
-  );
+  const actionTarget = () => ({
+    clusterId,
+    apiVersion: details.ref.apiVersion,
+    kind: details.ref.kind,
+    namespace: details.ref.namespace,
+    name: details.ref.name,
+  });
+
+  const openScaleDialog = async () => {
+    const scaler = await findReplicaScaler(
+      clusterId,
+      details.ref.namespace,
+      details.ref.kind,
+      details.ref.name,
+    );
+    if (scaler) {
+      toast.error(
+        "Replicas are controlled by an autoscaler",
+        `${scaler.kind}/${scaler.name} manages this workload; change the scaler instead.`,
+      );
+      return;
+    }
+    setScaleOpen(true);
+  };
+
+  const applyScale = async (replicas: number) => {
+    setActionBusy("scale");
+    try {
+      await scaleWorkload(actionTarget(), replicas);
+      toast.success("Scaled", `${details.ref.name} → ${replicas} replicas`);
+      setScaleOpen(false);
+      await data.refresh();
+    } catch (error) {
+      toast.error("Scale failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const applyRestart = async () => {
+    setActionBusy("restart");
+    try {
+      await restartWorkload(actionTarget());
+      toast.success("Rollout restarted", details.ref.name);
+      setRestartConfirm(false);
+      await data.refresh();
+    } catch (error) {
+      toast.error("Restart failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const togglePause = async () => {
+    if (!object) return;
+    const paused = isDeploymentPaused(object);
+    setActionBusy("pause");
+    try {
+      await setWorkloadPaused(actionTarget(), !paused);
+      toast.success(paused ? "Rollout resumed" : "Rollout paused", details.ref.name);
+      await data.refresh();
+    } catch (error) {
+      toast.error(paused ? "Resume failed" : "Pause failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const toggleSuspend = async () => {
+    if (!object) return;
+    const suspended = isSuspended(object);
+    setActionBusy("suspend");
+    try {
+      await setWorkloadSuspended(actionTarget(), !suspended);
+      toast.success(suspended ? "Resource resumed" : "Resource suspended", details.ref.name);
+      await data.refresh();
+    } catch (error) {
+      toast.error(suspended ? "Resume failed" : "Suspend failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
 
   return (
     <aside
@@ -274,7 +328,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             >
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
-            {actionButtons}
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
@@ -324,6 +377,64 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               {formatAge(object.metadata?.creationTimestamp)} old
             </span>
           ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1 px-3 pb-1.5">
+          {isPod ? (
+            <>
+              <DetailAction
+                icon={<ScrollText />}
+                label="Logs"
+                onClick={() => setDetailsTab(clusterId, "logs")}
+              />
+              <DetailAction icon={<SquareTerminal />} label="Exec" onClick={() => void openShell()} />
+              <DetailAction icon={<Plug />} label="Forward" onClick={() => setForwardPort(8080)} />
+            </>
+          ) : null}
+
+          {caps.scalable ? (
+            <DetailAction
+              icon={<Scale />}
+              label="Scale"
+              busy={actionBusy === "scale"}
+              onClick={() => void openScaleDialog()}
+            />
+          ) : null}
+
+          {caps.restartable ? (
+            <DetailAction
+              icon={<RotateCcw />}
+              label="Restart"
+              busy={actionBusy === "restart"}
+              onClick={() => {
+                if (isDeploymentPaused(object)) {
+                  toast.error("Rollout is paused", "Resume the rollout before restarting it.");
+                  return;
+                }
+                setRestartConfirm(true);
+              }}
+            />
+          ) : null}
+
+          {caps.pausable ? (
+            <DetailAction
+              icon={isDeploymentPaused(object) ? <Play /> : <Pause />}
+              label={isDeploymentPaused(object) ? "Resume rollout" : "Pause rollout"}
+              busy={actionBusy === "pause"}
+              onClick={() => void togglePause()}
+            />
+          ) : null}
+
+          {caps.suspendable ? (
+            <DetailAction
+              icon={isSuspended(object) ? <Play /> : <Pause />}
+              label={isSuspended(object) ? "Resume" : "Suspend"}
+              busy={actionBusy === "suspend"}
+              onClick={() => void toggleSuspend()}
+            />
+          ) : null}
+
+          <DetailAction danger icon={<Trash2 />} label="Delete" onClick={() => setConfirmDelete(true)} />
         </div>
 
         <div className="px-1.5">
@@ -382,6 +493,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 onPortForward={(port) => setForwardPort(port)}
                 onQuickPortForward={(port) => void quickPortForward(port)}
                 onEditData={() => setEditDataOpen(true)}
+                onScale={() => void openScaleDialog()}
+                onTogglePause={() => void togglePause()}
+                onToggleSuspend={() => void toggleSuspend()}
                 clusterId={clusterId}
               />
             ) : null}
@@ -430,6 +544,31 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         />
       ) : null}
 
+      <ScaleDialog
+        open={scaleOpen}
+        onClose={() => setScaleOpen(false)}
+        onConfirm={(replicas) => void applyScale(replicas)}
+        current={Number(object?.spec?.replicas ?? 1)}
+        title={details.ref.name}
+        busy={actionBusy === "scale"}
+      />
+
+      <ConfirmActionDialog
+        open={restartConfirm}
+        onClose={() => setRestartConfirm(false)}
+        onConfirm={() => void applyRestart()}
+        title={`Restart ${details.ref.kind}`}
+        confirmLabel="Restart"
+        busy={actionBusy === "restart"}
+        description={
+          <p>
+            Patch <span className="inline-code">spec.template.metadata.annotations</span> on{" "}
+            <span className="font-medium text-theme-text-primary">{details.ref.name}</span> to trigger a rolling
+            restart.
+          </p>
+        }
+      />
+
       <ConfirmActionDialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -451,6 +590,37 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         }
       />
     </aside>
+  );
+}
+
+function DetailAction({
+  icon,
+  label,
+  onClick,
+  busy,
+  danger,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={onClick}
+      className={cn(
+        "flex h-6 items-center gap-1 rounded px-1.5 text-[11px] transition-colors disabled:opacity-50",
+        danger
+          ? "text-red-500 hover:bg-red-500/10"
+          : "text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary",
+      )}
+    >
+      <span className="flex h-3.5 w-3.5 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
+      {label}
+    </button>
   );
 }
 

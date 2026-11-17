@@ -28,7 +28,9 @@ Copyright (c) Freelens Authors; Copyright (c) OpenLens Authors.
   - colour tokens in `src/renderer/design-system/styles/tokens.css`;
   - typography, radii and status classes in `theme.css` / `components.css`;
   - the resource-table density, filter model, details tab structure, badge
-    semantics, logs and terminal surface styling.
+    semantics, logs and terminal surface styling;
+  - the kind-specific workload action matrix (scale, restart, pause/resume,
+    suspend/resume) and the placement of Scale in a workload's Status section.
 
 Portions derived from Skyhook Radar, Copyright Skyhook, licensed under
 Apache-2.0; modified for mLens.

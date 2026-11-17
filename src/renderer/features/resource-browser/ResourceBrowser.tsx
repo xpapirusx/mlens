@@ -38,6 +38,15 @@ import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
+import {
+  isDeploymentPaused,
+  isSuspended,
+  restartWorkload,
+  scaleWorkload,
+  setWorkloadPaused,
+  setWorkloadSuspended,
+  workloadCapabilities,
+} from "../../lib/workload-actions";
 
 interface DialogState {
   type: "create" | "scale" | "delete" | "restart" | "bulk-delete";
@@ -403,15 +412,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     if (!resource || !dialog?.object) return;
     setBusy(true);
     try {
-      await call(
-        api.resources.restart({
-          clusterId,
-          apiVersion: resource.apiVersion,
-          kind: resource.kind,
-          namespace: dialog.object.metadata?.namespace ?? "",
-          name: dialog.object.metadata?.name,
-        }),
-      );
+      await restartWorkload({
+        clusterId,
+        apiVersion: resource.apiVersion,
+        kind: resource.kind,
+        namespace: dialog.object.metadata?.namespace,
+        name: dialog.object.metadata?.name,
+      });
       toast.success("Rollout restarted", dialog.object.metadata?.name);
       setDialog(null);
       await list.refresh(true);
@@ -426,15 +433,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     if (!resource || !dialog?.object) return;
     setBusy(true);
     try {
-      await call(
-        api.resources.scale({
+      await scaleWorkload(
+        {
           clusterId,
           apiVersion: resource.apiVersion,
           kind: resource.kind,
-          namespace: dialog.object.metadata?.namespace ?? "",
+          namespace: dialog.object.metadata?.namespace,
           name: dialog.object.metadata?.name,
-          replicas,
-        }),
+        },
+        replicas,
       );
       toast.success("Scaled", `${dialog.object.metadata?.name} → ${replicas} replicas`);
       setDialog(null);
@@ -460,29 +467,52 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   const Icon = getKindIcon(resource.kind, resource.group);
   const lowerKind = resource.kind.toLowerCase();
-  const canScale = ["deployment", "statefulset", "replicaset"].includes(lowerKind);
-  const canRestart = ["deployment", "statefulset", "daemonset"].includes(lowerKind);
-  const canSuspend = ["job", "cronjob"].includes(lowerKind);
+  const caps = workloadCapabilities(resource.kind, resource.apiVersion);
+  const canScale = caps.scalable;
+  const canRestart = caps.restartable;
+  const canPause = caps.pausable;
+  const canSuspend = caps.suspendable;
   const isPod = lowerKind === "pod";
 
   const toggleSuspend = async (object: KubeObject) => {
     if (!resource) return;
-    const suspended = Boolean(object.spec?.suspend);
+    const suspended = isSuspended(object);
     try {
-      await call(
-        api.resources.patch({
+      await setWorkloadSuspended(
+        {
           clusterId,
           apiVersion: resource.apiVersion,
           kind: resource.kind,
           namespace: object.metadata?.namespace,
           name: object.metadata?.name,
-          patch: { spec: { suspend: !suspended } },
-        }),
+        },
+        !suspended,
       );
       toast.success(suspended ? "Resource resumed" : "Resource suspended", object.metadata?.name);
       await list.refresh(true);
     } catch (error) {
       toast.error(suspended ? "Resume failed" : "Suspend failed", errorText(error));
+    }
+  };
+
+  const togglePause = async (object: KubeObject) => {
+    if (!resource) return;
+    const paused = isDeploymentPaused(object);
+    try {
+      await setWorkloadPaused(
+        {
+          clusterId,
+          apiVersion: resource.apiVersion,
+          kind: resource.kind,
+          namespace: object.metadata?.namespace,
+          name: object.metadata?.name,
+        },
+        !paused,
+      );
+      toast.success(paused ? "Rollout resumed" : "Rollout paused", object.metadata?.name);
+      await list.refresh(true);
+    } catch (error) {
+      toast.error(paused ? "Resume failed" : "Pause failed", errorText(error));
     }
   };
   const contextObject = menu?.object;
@@ -846,6 +876,11 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           <MenuItem
             icon={<Play className="h-3.5 w-3.5" />}
             onClick={() => {
+              if (isDeploymentPaused(contextObject)) {
+                toast.error("Rollout is paused", "Resume the rollout before restarting it.");
+                setMenu(null);
+                return;
+              }
               setDialog({ type: "restart", object: contextObject });
               setMenu(null);
             }}
@@ -853,15 +888,26 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             Restart rollout…
           </MenuItem>
         ) : null}
+        {canPause ? (
+          <MenuItem
+            icon={isDeploymentPaused(contextObject) ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (contextObject) void togglePause(contextObject);
+              setMenu(null);
+            }}
+          >
+            {isDeploymentPaused(contextObject) ? "Resume rollout" : "Pause rollout"}
+          </MenuItem>
+        ) : null}
         {canSuspend ? (
           <MenuItem
-            icon={<Pause className="h-3.5 w-3.5" />}
+            icon={isSuspended(contextObject) ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
             onClick={() => {
               if (contextObject) void toggleSuspend(contextObject);
               setMenu(null);
             }}
           >
-            {contextObject?.spec?.suspend ? "Resume" : "Suspend"}
+            {isSuspended(contextObject) ? "Resume" : "Suspend"}
           </MenuItem>
         ) : null}
         <MenuSeparator />

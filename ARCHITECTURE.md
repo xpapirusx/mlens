@@ -230,6 +230,10 @@ Namespace column is shown whenever the scope is not exactly one namespace.
 - **Scale**: merge patch `spec.replicas`.
 - **Restart**: merge patch of `spec.template.metadata.annotations` with
   `kubectl.kubernetes.io/restartedAt` (and an `mlens.io` marker).
+- **Pause / resume rollout**: merge patch `spec.paused` (Deployments).
+- **Suspend / resume**: merge patch `spec.suspend` (Jobs and CronJobs).
+- The renderer refuses manual scaling when a HorizontalPodAutoscaler targets the
+  workload; the HPA list is read lazily on pressing Scale, never in the background.
 - **Apply YAML**: multi-document parsing; `List` documents are flattened; each
   object is resolved through discovery (so CRDs work), then created with `POST`
   or replaced with `PUT` using the existing `resourceVersion`. `status` and

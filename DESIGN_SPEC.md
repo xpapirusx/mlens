@@ -213,9 +213,12 @@ contains a single kind.
 - Default width 560px; draggable 460px → 74% of the window; expand button morphs
   to nearly full width.
 - Header: kind outline pill, status badge, API version, back-to-previous-resource,
-  refresh, logs, attach/exec (Pods), YAML edit, port forward (Pods), delete,
-  expand, close. Below: name, copy, namespace, age. Delete always asks for
-  confirmation. This follows Freelens' action-in-drawer-header pattern.
+  refresh, expand, close. Below the name: a kind-specific action row —
+  Logs / Exec / Forward (Pods), Scale / Restart (Deployments, StatefulSets),
+  Scale (ReplicaSets), Restart (DaemonSets), Pause/Resume rollout (Deployments),
+  Suspend/Resume (Jobs, CronJobs), Delete (every kind). Delete always asks for
+  confirmation. This follows Freelens' action-in-drawer-header pattern with
+  Radar's kind-specific action set.
 - Tabs: **Overview, Details, YAML, Events, Logs (Pods only), Metrics**. Related is intentionally not shown; relationship exploration is not part of this build.
 - `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
 - Opening another row replaces the content and pushes the previous resource onto
@@ -359,8 +362,12 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   filters, and a **Problems** toggle that keeps only warning/error resources
   across any kind.
 - Namespace cells are clickable: clicking one scopes the table to that namespace.
-- Workload actions: Scale for Deployment/StatefulSet/ReplicaSet, Restart for
-  Deployment/StatefulSet/DaemonSet, Suspend/Resume for Job/CronJob.
+- Workload actions (row context menu and drawer action row): Scale for
+  Deployment/StatefulSet/ReplicaSet (merge patch `spec.replicas`, refused when an
+  HPA owns the replica count), Restart for Deployment/StatefulSet/DaemonSet,
+  Pause/Resume rollout for Deployment, Suspend/Resume for Job/CronJob. Radar does
+  not offer Restart on ReplicaSets: their pod template is owned by the Deployment,
+  which reconciles the patch away, so a "restart" there is not a real rollout.
 - CPU and Memory columns use Radar's bullet-bar pattern: usage / limit, request
   marker, percentage, and a per-container tooltip. Without metrics the cell shows
   “–”; there are no synthetic values. Row height is configurable (24–52px).
@@ -380,7 +387,8 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Column visibility is per kind, persisted in the session; default-hidden
   columns (Pod IP, QoS, images…) are declared per kind.
 - Rows open details on click and a context menu on right click (details, YAML,
-  logs, exec, scale, restart, copy kubectl command, delete).
+  logs, exec, scale, restart, pause/resume rollout, suspend/resume, copy kubectl
+  command, delete).
 - Auto-update: live watch stream plus polling at the configured interval
   (10/30/60/120s or manual). The freshness indicator is explicit: `Live`,
   `Polling`, `Paused`, `Loading`, plus “Ns ago”.
@@ -392,10 +400,11 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   a **Ports** table where clicking the port number starts an automatic local
   forward (random local port 30000–65355) and the Forward button opens the custom-port dialog, conditions, volumes, scheduling
   (node selector, tolerations and affinity rendered as aligned rows, not raw
-  overflowing JSON). Workloads: replicas, rollout state,
-  conditions, container template. Node: capacity/allocatable bars, conditions,
+  overflowing JSON). Workloads: replicas, rollout state, conditions, container
+  template, and a Scale + Pause/Resume action row (Radar places Scale in the
+  Status section). Node: capacity/allocatable bars, conditions,
   system info, taints. Plus Services, Ingresses, ConfigMap/Secret (with explicit
-  reveal), storage, CRDs, HPA, Jobs, events, generic CRDs.
+  reveal), storage, CRDs, HPA, Jobs (with Suspend/Resume), events, generic CRDs.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
 - **YAML** — Monaco, read-only by default, edit + dry-run + apply.
 - **Events** — live event list, warning filter, search, counts, timestamps.
@@ -408,9 +417,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   for editing and encoded back on save; add/remove keys with a merge patch.
 - Specification/Status fields are sorted; complex objects/arrays are collapsed
   JSON blocks so the drawer never grows to a multi-thousand-pixel page.
-- **Metrics** — real metrics.k8s.io usage for Pods/Nodes; when the API is absent
-  the panel says exactly that. No synthetic numbers; historical charts are not
-  implemented.
+- **Metrics** — real metrics.k8s.io usage for **Pods only**; when the API is
+  absent the panel says exactly that. No synthetic numbers; historical charts are
+  not implemented.
 
 ### 3.6a Port forwarding
 

@@ -127,8 +127,10 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs row (open clusters) and resource tabs row (open resources) follow
   the Lens mental model while using Radar sizing/typography.
 - Resource list lives in the main pane; clicking a row opens the right drawer.
-- Details actions (Logs, Exec, Forward, Delete) sit in the drawer header; YAML is
-  a tab, close stays at the top-right. Related tab was removed at the user request.
+- Details keeps Freelens' drawer placement but uses Radar's action set: a
+  kind-specific action row under the title (Pods: Logs/Exec/Forward; workloads:
+  Scale/Restart/Pause/Resume; Jobs/CronJobs: Suspend/Resume; Delete everywhere),
+  YAML as a tab, close at the top-right. Related was removed at the user request.
   Env references are peekable inline; ConfigMaps/Secrets have a key/value editor.
 - Logs are available for Pods only. Pods show environment variables; ConfigMaps
   and Secrets have a key/value editor (Secrets decoded/encoded transparently).
@@ -213,8 +215,14 @@ Freelens gets isolation from iframes. mLens instead:
 
 - Right drawer, resizable/expandable, tabbed: Overview, Details, YAML, Events,
   Logs (Pods only), Metrics.
-- Header actions: Logs, Attach, YAML, Forward, Delete; close top-right; delete
-  confirmation.
+- A kind-specific action row under the drawer title: Logs/Exec/Forward (Pods),
+  Scale/Restart (Deployments, StatefulSets), Scale (ReplicaSets), Restart
+  (DaemonSets), Pause/Resume rollout (Deployments), Suspend/Resume
+  (Jobs/CronJobs), Delete (all kinds); refresh and close stay in the header.
+  Workload Scale also sits in the Overview Status section, matching Radar.
+- Manual scaling is refused when an HPA owns the replica count; the check runs
+  only when Scale is pressed (one namespaced HPA list), so idle drawers cost
+  nothing.
 - Pod overview includes status, containers, Ports (click port = instant forward;
   Forward button = custom port dialog), conditions, volumes, scheduling with
   structured tolerations/affinity.
@@ -230,8 +238,10 @@ Freelens gets isolation from iframes. mLens instead:
   filtering, download.
 - Port forwarding over WebSocket, active forwards panel, quick forward with a
   random local port in 30000–65355.
-- Workload actions (scale/restart/suspend/resume), clickable namespace cells,
-  bulk selection bar above the terminal, terminal full-line hover highlight.
+- Workload actions (scale/restart/pause/resume/suspend) in the row menu and the
+  details action row, with an HPA guard on manual scaling; clickable namespace
+  cells, bulk selection bar above the terminal, terminal full-line hover
+  highlight.
 
 **Themes/settings**
 
@@ -303,6 +313,9 @@ pnpm dist:mac | dist:win | dist:linux
 - Catalog group order/hotbar order use HTML5 drag; no drag library.
 - Status filters appear only when a column has 2+ distinct values (Radar-style).
 - Related tab was removed; the resolver is unused and can be deleted in a cleanup pass.
+- Radar workflow actions not yet ported: revision history + rollback, Set image,
+  CronJob Trigger, and Argo/Flux/GitOps action bars. ReplicaSet intentionally has
+  no Restart (its template is owned by the Deployment and reconciled away).
 
 ---
 

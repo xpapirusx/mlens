@@ -129,9 +129,12 @@ Important:
 - Metrics (`metrics.k8s.io`) are optional. Missing metrics must render `–`, never
   zero or invented values. Table metrics are fetched only when CPU/Memory columns
   are visible, at ≥60s.
-- Mutations: delete asks for confirmation; scale = merge patch; restart patches
-  `spec.template.metadata.annotations`; YAML apply supports multi-doc/List and
-  does dry-run before apply.
+- Mutations: delete asks for confirmation; scale = merge patch of `spec.replicas`;
+  restart patches `spec.template.metadata.annotations`; pause/resume patches
+  `spec.paused` (Deployments); suspend/resume patches `spec.suspend` (Jobs and
+  CronJobs); YAML apply supports multi-doc/List and does dry-run before apply.
+  Manual scaling is refused when an HPA owns the replica count (checked lazily on
+  pressing Scale, not in the background).
 - Port forwarding is implemented over the Kubernetes WebSocket protocol. The
   server sends the 2-byte little-endian port handshake on channels 0 and 1; the
   client strips it and does not send a port prefix. Do not replace this with a
@@ -157,8 +160,12 @@ Important:
   Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Custom Resources contains Definitions + one child per API group.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
-  Logs (Pods only) / Metrics. Actions (Logs, Exec, Forward, Delete) are in the
-  drawer header; YAML is a tab; close stays top-right.
+  Logs (Pods only) / Metrics. Kind actions live in a row under the drawer title:
+  Logs/Exec/Forward for Pods; Scale/Restart for Deployments and StatefulSets;
+  Scale for ReplicaSets; Restart for DaemonSets; Pause/Resume rollout for
+  Deployments; Suspend/Resume for Jobs and CronJobs; Delete for every kind. YAML
+  is a tab; close stays top-right. Workload Scale also appears in the Overview
+  Status section, as in Radar.
 - Resource tabs (open resources) and cluster tabs (open clusters) are separate
   rows. Do not turn the app into a browser-style single tab bar.
 - Hotbar: 10 slots, favourite clusters only, drag/context-menu repositioning,

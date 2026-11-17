@@ -62,16 +62,18 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Multi-select mode with bulk delete and confirmation.
 - Row context menu: details, YAML, logs (Pods), exec (Pods), scale
   (Deployments/StatefulSets/ReplicaSets), restart
-  (Deployments/StatefulSets/DaemonSets), suspend/resume (Jobs/CronJobs),
-  copy kubectl command, delete.
+  (Deployments/StatefulSets/DaemonSets), pause/resume rollout (Deployments),
+  suspend/resume (Jobs/CronJobs), copy kubectl command, delete.
 - Create any discovered kind from YAML with server-side dry-run.
 
 ### Resource details
 
 Overview / Details / YAML / Events / Logs (Pods) / Metrics inside a resizable
-Freelens-style drawer. Header actions for logs, attach/exec, YAML, port forward,
-delete, refresh and close. Pods show environment variables and ports; ConfigMaps
-and Secrets are editable from the UI (Secret values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
+Freelens-style drawer. A kind-specific action row under the drawer title carries
+logs/exec/port-forward (Pods), scale/restart/pause/suspend for workloads, and
+delete; refresh and close stay in the header. Pods show environment variables and
+ports; ConfigMaps and Secrets are editable from the UI (Secret values
+decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
 data, storage, HPA, CRD and generic CRD renderers. Pod Overview includes a Ports
 table with one-click forwarding. Real events, real streaming logs, real
 related-resource resolution. Secrets reveal only on request.
