@@ -1,6 +1,6 @@
 # Lens → mLens: что есть, чего нет
 
-Сравнение фич **Lens K8S IDE** и **mLens 0.1.0** (этот репозиторий).
+Сравнение фич **Lens K8S IDE** и **mLens** (текущий код, тег `v0.2.0`).
 
 Источник Lens: официальная документация `https://docs.lenshq.io` и release
 notes, версия **2026.11.91422-latest** (ноябрь 2026), продукт Mirantis. Lens —
@@ -9,35 +9,35 @@ notes, версия **2026.11.91422-latest** (ноябрь 2026), продукт
 
 Модель Lens: обязательная активация через **Lens ID**, есть **Lens Personal**
 (бесплатный план; доступность зависит от условий), **Plus / Pro / Enterprise**
-(подписка) и **14-дневный trial**.
-Часть функций помечена в документации как premium.
+(подписка) и **14-дневный trial**. Часть функций помечена в документации как
+premium.
 
 Историю появления фич и момент перехода в premium см. в **§19**.
 
 Обозначения: ✅ есть · 🟡 частично · ❌ нет · 💰 только на платном плане ·
-— не применимо. Пометка **(в работе)** — есть только в незакоммиченных
-изменениях mLens (`git status`), хотя `AGENTS.md` уже описывает это как
-целевое поведение.
+— не применимо.
 
 ---
 
 ## TL;DR
 
-**Lens сильнее в платформе:** продаваемые premium-функции (AI, MCP, GitOps,
-cost, security, cloud discovery, Teamwork, Lens Studio), встроенный Prometheus-
-стек, зрелые логи, поиск с сохранением, Helm, расширения и корпоративные
-аккаунты.
+**mLens уже закрывает базовый бесплатный tier Lens** (виды, таблицы, детали,
+логи, терминал, поиск, CRD, namespace, Overview, Related) и в ряде мест даёт
+бесплатно то, что у Lens платно (hotbar) или отсутствует/не документировано
+(pin колонок, нижний tray вкладок, HPA-guard, Pause/Resume, Set image, Drain,
+`?`-оверлей).
 
-**mLens сильнее в свободе и фокусе:** MIT, без аккаунта, активации, облака и
-телеметрии; всё, что есть, работает локально. Часть того, что у Lens платно
-(hotbar, split-подобные вкладки, расширения), у mLens либо бесплатно, либо
-сознательно отсутствует.
+**Lens по-прежнему сильнее в платформе:** Helm, Prometheus-метрики и Overview-
+графики, продвинутые логи, saved searches, CSV, Applications view, node shell,
+resource templates, Gateway/DRA views, split screen и вкладки в окнах,
+advanced editor diff, а также весь premium-блок (AI, MCP, GitOps, cost,
+security, cloud discovery, Teamwork, extensions).
 
-**Главный вывод:** mLens уже закрывает базовый **бесплатный** tier Lens
-(ресурсы, детали, логи, терминал, поиск, CRD, namespaces) и заметно превосходит
-его по плотности и shell-механике, но уступает в Helm, Overview, Applications,
-saved searches, CSV и продвинутых логах. Основной разрыв — **платный** tier
-Lens.
+**Главный вывод:** разрыв сместился. Раньше не было базовых вещей (Set image,
+Trigger, Drain, Overview, Related, глобальный поиск). Теперь они есть, и
+основные пробелы — **Helm, метрики/Prometheus, продвинутые логи, saved
+searches/CSV, Applications, node shell, resource templates, cluster settings**
+и платный tier Lens.
 
 ---
 
@@ -48,45 +48,43 @@ Lens.
 | Лицензия | проприетарная | MIT | |
 | Аккаунт | обязателен Lens ID | не нужен | |
 | Активация | онлайн/офлайн | не нужна | |
-| Бесплатный план | Lens Personal (условно-бесплатный) | — (всё бесплатно) | |
+| Бесплатный план | Lens Personal (условно) | — (всё бесплатно) | |
 | Платные планы | Plus / Pro / Enterprise | — | |
 | Trial | 14 дней | — | |
-| SSO/SCIM | 💰 Business ID: Entra, Okta, JumpCloud | ❌ | |
-| Seats / billing | 💰 Lens ID Portal, AWS Marketplace | ❌ | |
-| Air-gapped / offline activation | 💰 Enterprise | — | |
-| Feature management (админ отключает фичи) | 💰 Enterprise | ❌ | |
-| Телеметрия | есть (аккаунт/облако) | ❌ | |
-| Cloud-зависимость | для cloud-фич и активации | отсутствует | |
+| SSO/SCIM | 💰 Business ID | ❌ | |
+| Seats / billing / AWS Marketplace | 💰 | ❌ | |
+| Air-gapped / offline activation | 💰 Enterprise | — | mLens работает офлайн |
+| Feature management | 💰 Enterprise | ❌ | |
+| Телеметрия | есть | ❌ | |
+| Работа без интернета | 🟡 нужна активация | ✅ | |
 
 ---
 
 ## 2. Оболочка, layout, вкладки, окна
 
-Layout Lens: Title Bar, Hotbar, Command Panel (Navigator), **Tab Bar**,
-Workspace, Dock, Status Bar.
-
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
 | Одно главное окно | ✅ | ✅ | |
-| Tab Bar: вкладки разных кластеров | ✅ | ✅ | у Lens с preview-режимом |
+| Tab Bar: вкладки кластеров | ✅ | ✅ | |
 | Вкладки открытых ресурсов | ✅ | ✅ | |
-| Preview-режим вкладки (одиночный клик) | ✅ | ❌ | |
+| Preview-режим вкладки | ✅ | ❌ | |
 | История вкладок back/forward | ✅ | 🟡 back stack, forward disabled | |
-| Закрытие вкладки, Ctrl+W | ✅ | ✅ | |
 | Переключение вкладок Ctrl+number | ✅ | 🟡 | |
-| **Split screen (2+ групп вкладок)** | 💰 Lens Studio | ❌ | |
+| **Сворачивание strip вкладок в нижний shadow tray** | ❌ | ✅ | вкладки остаются кликабельными |
+| **Split screen** | 💰 Lens Studio | ❌ | |
 | **Tab в отдельном окне** | 💰 Lens Studio | ❌ | |
 | Cascade windows | 💰 Lens Studio | ❌ | |
-| Hotbar | 💰 12 ячеек, несколько банков, F1–F12 | ✅ 10 слотов | mLens даёт бесплатно |
+| Hotbar | 💰 12 ячеек, банки | ✅ 10 слотов | mLens бесплатно |
 | Dock | ✅ logs/terminal/templates | 🟡 только терминалы | |
 | Status bar | ✅ + support chat | ✅ | |
-| Title bar: меню, уведомления, история, user menu | ✅ | 🟡 | |
-| Onboarding wizard (5 шагов) | ✅ | ❌ | |
-| Command Palette | ✅ `⌘⇧P` | ✅ `⌘K` + поиск ресурсов (в работе) | |
-| Настройки темы: sync/dark/light | ✅ | ✅ + Dracula/Freelens | |
+| Title bar: меню/уведомления/история/user menu | ✅ | 🟡 | |
+| Onboarding wizard | ✅ | ❌ | |
+| Command Palette | ✅ `⌘⇧P` | ✅ `⌘K` + поиск ресурсов | |
+| Глобальный поиск ресурсов | ✅ | ✅ | mLens — из палитры, debounce/cap |
+| Темы: sync/dark/light | ✅ | ✅ + 3 темы | |
 | Кастомные темы | ❌ | ✅ 3 встроенные | |
-| Плотность таблиц / высота строк | ❌ | ✅ 24–52px | |
-| Multi-window без Lens Studio | ❌ | ❌ | |
+| Плотность/высота строк | ❌ | ✅ 24–52px | |
+| Multi-window без Studio | ❌ | ❌ | |
 
 ---
 
@@ -94,22 +92,21 @@ Workspace, Dock, Status Bar.
 
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
-| Локальные kubeconfigs | ✅ Local Kubeconfigs | ✅ | |
-| Добавить кластер из kubeconfig (paste/file) | ✅ | ✅ | |
-| Ручное управление kubeconfig | ✅ | ✅ | |
-| **Авто-обнаружение EKS** | 💰 AWS integration | ❌ | |
-| **Авто-обнаружение AKS** | 💰 Azure integration | ❌ | |
-| **Авто-обнаружение GKE** | 💰 Google integration | ❌ | |
+| Локальные kubeconfigs | ✅ | ✅ | |
+| Импорт/вставка kubeconfig | ✅ | ✅ | |
+| Kubeconfig sync из каталогов | ❌ | 🟡 sources | |
+| **Авто-обнаружение EKS / AKS / GKE** | 💰 | ❌ | |
 | OpenShift cluster | ✅ | 🟡 обычный Kubernetes | |
-| Lens Teamwork Spaces | 💰 | ❌ | |
-| Cluster Connect (BoreD, без VPN) | 💰 | ❌ | |
-| Приглашения/RBAC spaces | 💰 | ❌ | |
-| Kubeconfig sync из каталогов | ❌ (выбор файлов) | 🟡 sources | |
+| Teamwork Spaces / Cluster Connect | 💰 | ❌ | |
 | Каталог кластеров с remove/restore | ❌ | ✅ неразрушающий | |
-| Hotbar (закрепление кластеров) | 💰 | ✅ | |
+| **Сортировка каталога (Status/Name/Recent/Source)** | 🟡 не документировано | ✅ | |
+| **Connected первыми, Status = Connected** | 🟡 | ✅ | версия — отдельная колонка |
+| Hotbar | 💰 | ✅ | |
 | Cluster tabs / переключение | ✅ | ✅ | |
 | Параллельные подключения | ✅ | ✅ | |
 | Cluster settings per-cluster | ✅ | 🟡 глобальные | |
+| Cluster icon/color | ✅ | 🟡 инициалы | |
+| Lens CLI (clusters, tokens, teamwork) | 💰 | ❌ | |
 
 ---
 
@@ -118,19 +115,20 @@ Workspace, Dock, Status Bar.
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
 | Разделы: Kubernetes Clusters, Teamwork, Extensions | ✅ | 🟡 кластеры | |
-| Группировка: Local / EKS / AKS / GKE | ✅ (по плану) | ❌ | |
+| Группировка Local / EKS / AKS / GKE | ✅ | ❌ | |
 | Дерево ресурсов кластера | ✅ | ✅ | |
-| Поиск кластера по имени | ✅ `Ctrl+P` | 🟡 палитра | |
+| Cluster Overview | ✅ | ✅ | mLens — дефолтный экран после connect |
+| Поиск кластера | ✅ `Ctrl+P` | 🟡 палитра | |
 | Счётчики ресурсов | ✅ | ✅ | |
 | Namespace filter | ✅ | ✅ | |
+| Namespace details/add/delete/HNC | ✅ | 🟡 list only | |
 | Favorites / pinned | ✅ | ✅ | |
-| Перестановка разделов | ✅ | 🟡 drag групп | |
-| Скрытие items | ✅? | ❌ | |
-| RBAC-скрытие недоступного | 🟡 (RBAC-виды; скрытие не документировано) | ❌ | |
-| Extensions section (create/marketplace/installed) | ✅ | ❌ | |
-| Device Resources (DRA) section | ✅ | ❌ | |
-| Flux/Argo entries | 💰 | ❌ (generic CRD) | |
-| Helm entry | ✅ | ❌ | |
+| Перестановка/скрытие разделов | ✅ | 🟡 reorder групп, без hide | |
+| RBAC-скрытие недоступного | 🟡 | ❌ | |
+| Extensions section | ✅ | ❌ | |
+| Device Resources (DRA) | ✅ | 🟡 generic CRD | |
+| Flux / Argo / Helm entries | ✅ / 💰 | ❌ (generic CRD) | |
+| Sidebar resize | ✅ | ✅ | |
 
 ---
 
@@ -139,31 +137,33 @@ Workspace, Dock, Status Bar.
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
 | Все встроенные виды | ✅ | ✅ | |
-| CRD и custom resources | ✅ | ✅ | |
+| CRD + custom resources | ✅ | ✅ | |
 | Printer columns CRD | ✅ | ✅ | |
 | Smart-колонки по kind | ✅ | ✅ | |
 | Сортировка | ✅ | ✅ | |
 | Resize колонок | ✅ | ✅ | |
-| **Перестановка колонок drag** | ✅ | ✅ | |
+| Перестановка колонок drag | ✅ | ✅ | |
+| **Pin колонок (sticky left)** | ❌ | ✅ | преимущество mLens |
 | Скрытие колонок | ✅ | ✅ | |
-| Pin колонок | ❌ | ❌ | |
 | Кастомные колонки из label/annotation | ❌ | ❌ | |
 | Поиск по списку | ✅ | ✅ | |
-| **Case-sensitive поиск** | ✅ | 🟡 regex-режим | |
-| **Regex-поиск** | ✅ | ✅ | |
-| **Recent searches** | ✅ | ❌ | |
-| **Favorite searches, общие для всех кластеров** | ✅ | ❌ | |
-| Фильтры по колонкам | ✅ | ✅ include | |
+| Case-sensitive поиск | ✅ | ❌ | |
+| Regex-поиск | ✅ | ✅ | |
+| Recent / favorite searches | ✅ | ❌ | |
+| Фильтры по значениям колонок | ✅ | ✅ include | |
 | Problems-фильтр | ❌ | ✅ | |
-| Bulk-выделение/удаление | 🟡 (не документировано) | ✅ | |
-| CSV export таблиц | ✅ (Nodes, PF, Security) | ❌ | |
-| Virtualized-списки | ✅ (50k pods) | ✅ | |
-| Metrics-колонки | ✅ CPU/Mem/Disk | ✅ CPU/Mem | |
+| Bulk-выделение/удаление | 🟡 | ✅ | |
+| CSV export таблиц | ✅ | ❌ | |
+| Virtualized-списки | ✅ | ✅ | |
+| Metrics-колонки (CPU/Mem) | ✅ | ✅ | |
+| Init containers в таблице | ✅ | ✅ | `+N init` |
 | Обновление через watch | ✅ | ✅ | |
 | Namespace multi-select | ✅ | ✅ | |
-| Create resource: шаблоны | ✅ | ❌ | |
-| Create resource: диалоги (NS/Secret/Quota/RBAC) | ✅ | ❌ | |
-| Resource templates | ✅ | ❌ | |
+| Row actions «…» | ✅ | ✅ sticky-колонка | |
+| Create resource из YAML | ✅ | ✅ dry-run/apply | |
+| **Resource templates (22 шаблона)** | ✅ | ❌ | |
+| **Диалоги создания (NS/Secret/Quota/RBAC)** | ✅ | ❌ | |
+| **CRD naming (kind/apiVersion)** | ✅ | ✅ | |
 
 ---
 
@@ -172,24 +172,25 @@ Workspace, Dock, Status Bar.
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
 | Details panel | ✅ | ✅ | |
-| Вкладки внутри панели | ❌ (секции + Copy/Edit/Delete) | ✅ 7 вкладок | mLens структурнее |
-| Copy name | ✅ | ✅ | |
-| Edit → YAML | ✅ | ✅ | |
-| Delete | ✅ | ✅ | |
-| **Advanced editor: diff unsaved vs loaded** | 💰 | ❌ | |
-| **Revert в один клик** | 💰 | ❌ | |
-| Server-side dry-run | ❌ | ✅ | mLens безопаснее |
+| Вкладки внутри панели | ❌ (секции) | ✅ 7 вкладок | |
+| Copy / Edit / Delete | ✅ | ✅ | |
+| **CRD/CR открываются на Details (Freelens order)** | 🟡 | ✅ | |
+| **CRD Overview с Radar-карточками, versions, printer columns** | 🟡 | ✅ | |
+| **Advanced editor: diff unsaved vs loaded + revert** | 💰 | ❌ | |
+| Server-side dry-run | ❌ | ✅ | |
 | YAML apply | ✅ | ✅ | |
 | Secret values view/edit | ✅ | ✅ | |
-| ConfigMap value edit | ✅? | ✅ | |
-| Certificate details (TLS Secret) | ❌ | ❌ | |
-| Events по объекту | ✅? | ✅ | |
-| Related resources | 🟡 | 🟡 (в работе) | |
+| ConfigMap value edit | ✅ | ✅ | |
+| TLS certificate details | ✅ | ❌ | |
+| Events по объекту | 🟡 | ✅ | |
+| Related resources | 🟡 ссылки | ✅ вкладка | |
 | Conditions/probes/affinity | ✅ | ✅ | |
-| Metrics в деталях | ✅ (Prometheus) | 🟡 live metrics-server | |
-| Deep links | ✅? | — | desktop |
-| Copy kubectl command | ✅? | ✅ | |
-| Force delete | 🟡 (не документировано) | 🟡 (в работе) | |
+| Metrics в деталях | ✅ Prometheus | 🟡 live metrics-server | |
+| Force delete | 🟡 | ✅ | |
+| Copy kubectl command | ✅ | ✅ | |
+| Deep links | ✅ | ❌ | |
+| Background click закрывает drawer | ❌? | ✅ | |
+| Namespace/Node cell click | ✅? | ✅ | |
 
 ---
 
@@ -197,24 +198,25 @@ Workspace, Dock, Status Bar.
 
 | Действие | Lens | mLens | Комментарий |
 |---|---|---|---|
-| Scale | ✅ Deployment/StatefulSet/RS | ✅ + HPA-guard | mLens блокирует при HPA |
-| Restart | ✅ Deployment и др. | ✅ | |
+| Scale | ✅ | ✅ + HPA-guard | |
+| Restart | ✅ | ✅ | |
 | Pause/Resume rollout | ❌ | ✅ | преимущество mLens |
 | Suspend/Resume Job/CronJob | ✅ | ✅ | |
-| CronJob Trigger | 🟡 (не документировано) | ✅ (в работе) | |
-| Set image | 🟡 (не документировано) | ✅ (в работе: обычные контейнеры) | |
-| Revision history/rollback | 🟡 (не документировано) | ❌ | |
+| **CronJob Trigger** | 🟡 | ✅ | |
+| **Set image (вкл. init)** | 🟡 | ✅ | |
+| **Attach к поду** | 🟡 (shell) | ✅ | |
+| Revision history/rollback | 🟡 | ❌ | |
 | Node Shell | ✅ | ❌ | |
-| Node Cordon/Drain | ✅ | ✅ (в работе) | |
-| Node Edit/Delete | ✅ | ✅ delete; edit YAML | |
+| Node Cordon/Drain | ✅ | ✅ + live drain plan | |
+| Node Edit/Delete | ✅ | ✅ YAML/delete | |
 | Pod Shell | ✅ | ✅ | |
-| Pod Attach | 🟡 (документирован только shell) | 🟡 backend (в работе) | |
 | Pod logs | ✅ | ✅ | |
 | Port-forward из Pod | ✅ | ✅ | |
-| Port-forward из Service/Deployment | 🟡 (документирован только Pod) | ❌ | |
-| Argo Rollouts actions (promote/pause/abort/retry) | 💰 | ❌ | |
-| Workloads overview | ✅ | 🟡 drawer | |
+| Port-forward из Service/Deployment | 🟡 | ❌ | |
+| Argo Rollouts actions | 💰 | ❌ | |
+| Workloads overview | ✅ | 🟡 drawer/Cluster Overview | |
 | Applications view | ✅ | ❌ | |
+| Init containers в Overview | ✅ | ✅ | |
 
 ---
 
@@ -227,20 +229,20 @@ Workspace, Dock, Status Bar.
 | Timestamps | ✅ | ✅ | |
 | Previous container | ✅ | ✅ | |
 | Word wrap | ✅ | ❌ | |
-| Filter logs (toggle) | ✅ | ✅ search | |
+| Filter logs (toggle) | ✅ | 🟡 только поиск | |
 | Show resource names | ✅ | ❌ | |
 | Move to controlling resource logs | ✅ | ❌ | |
 | Latest event in log | ✅ | ❌ | |
 | Download logs | ✅ | 🟡 текущий буфер | |
-| Combined/workload logs | 🟡 (не документировано) | ❌ | |
+| Combined/workload logs | ✅ | ❌ | |
 | Терминал в dock | ✅ | ✅ | |
 | Несколько вкладок терминала | ✅ | ✅ | |
 | Dock tabs для logs/edit/templates | ✅ | 🟡 | |
 | Terminal font/size/theme | ✅ | 🟡 | |
 | Terminal shell path | ✅ | 🟡 `$SHELL` | |
 | Copy/paste настройки | ✅ | 🟡 | |
-| Tabs в отдельном окне (логи/терминал) | 💰 Lens Studio | ❌ | |
 | Log search/next | ✅ | ✅ | |
+| Tabs логов/терминала в отдельных окнах | 💰 | ❌ | |
 
 ---
 
@@ -250,17 +252,17 @@ Workspace, Dock, Status Bar.
 |---|---|---|---|
 | Helm Charts | ✅ | ❌ | |
 | Helm Releases | ✅ | ❌ | |
-| Install/Upgrade | ✅ | ❌ | |
-| Rollback/history | ✅ | ❌ | |
-| Repositories + OCI + storage backends | ✅ | ❌ | |
+| Install / Upgrade | ✅ | ❌ | |
+| Rollback / history | ✅ | ❌ | |
+| Repositories + OCI + storage | ✅ | ❌ | |
 | Values editor | ✅ | ❌ | |
-| Helm в Preferences | ✅ | ❌ | |
+| Helm prefs | ✅ | ❌ | |
 | Port Forwarding view | ✅ | 🟡 панель | |
 | Start/stop/edit forward | ✅ | 🟡 stop | |
+| Сохранение форвардов после рестарта | ✅ | ❌ | |
 | CSV export | ✅ | ❌ | |
 | Port-forward из Pod | ✅ | ✅ | |
-| Port-forward из Service/Deployment | 🟡 (документирован только Pod) | ❌ | |
-| Сохранение форвардов после рестарта | 🟡 (не документировано) | ❌ | |
+| Port-forward из Service/Deployment | 🟡 | ❌ | |
 
 ---
 
@@ -268,20 +270,21 @@ Workspace, Dock, Status Bar.
 
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
-| Встроенный Lens Metrics (установка Prometheus) | ✅ | ❌ | |
-| Prometheus providers (Lens/Helm/Helm 14/Operator/OpenShift/Stacklight) | ✅ | ❌ | |
+| **Lens Metrics (встроенный Prometheus)** | ✅ | ❌ | |
+| **Prometheus providers** | ✅ | ❌ | |
 | Prometheus config/query format | ✅ | ❌ | |
-| Cluster Overview: CPU/Mem/Pods | ✅ | 🟡 (в работе) | |
-| Usage / Requests / Limits / Allocatable / Capacity | ✅ | 🟡 allocatable only | |
-| Time range 1h–2 месяца | ✅ | ❌ | |
+| Cluster Overview | ✅ | ✅ | |
+| **CPU/Mem/Pods usage, requests, limits, capacity** | ✅ | 🟡 counts + allocatable | |
+| **Time range 1h–2 месяца** | ✅ | ❌ | |
 | Master/worker разделение | ✅ | ❌ | |
-| Issues section на Overview | ✅ | ❌ | |
+| Issues на Overview | ✅ | 🟡 warning events | |
 | Node/Pod/Namespace metrics | ✅ | 🟡 live | |
 | Metrics в таблицах | ✅ | ✅ | |
 | Metrics в деталях (графики) | ✅ | 🟡 значения | |
-| HPA/Ingress/PVC графики | 🟡 (частично) | ❌ | |
-| Metrics server (metrics.k8s.io) | 🟡 | ✅ | |
-| Скрытие метрик по типу | 🟡 (не документировано) | ❌ | |
+| HPA/Ingress/PVC графики | 🟡 | ❌ | |
+| metrics.k8s.io | 🟡 | ✅ | |
+| Скрытие метрик по типу | 🟡 | ❌ | |
+| VictoriaMetrics auto-detect | ✅ | ❌ | |
 
 ---
 
@@ -292,16 +295,14 @@ Workspace, Dock, Status Bar.
 | Flux CD dashboard + виды + статус на workloads | 💰 | ❌ | |
 | Argo CD dashboard + виды + sync/refresh | 💰 | ❌ | |
 | Argo Rollouts promote/pause/abort/retry | 💰 | ❌ | |
-| Cost Monitoring (24h/7d/30d, namespace, idle, efficiency) | 💰 | ❌ | |
+| Cost Monitoring (24h/7d/30d, idle, efficiency) | 💰 | ❌ | |
 | Cost из OpenCost/Kubecost или оценка | 💰 | ❌ | |
 | Optimize cost with AI | 💰 | ❌ | |
 | Security Center (Trivy): images/resources/roles | 💰 | ❌ | |
-| CSV export vuln report | 💰 | ❌ | |
-| Air-gapped scanning | 💰 | ❌ | |
+| CSV vuln report / air-gapped scan | 💰 | ❌ | |
 | Gateway API views | ✅ | 🟡 generic CRD | |
-| Device Resources (DRA) 4 вида | ✅ (1.34+) | 🟡 generic CRD | |
-| Applications view (labels, managed by, violations) | ✅ | ❌ | |
-| Cluster Performance doc | ✅ | — | |
+| Device Resources (DRA) 4 вида | ✅ | 🟡 generic CRD | |
+| Applications view | ✅ | ❌ | |
 
 ---
 
@@ -309,17 +310,15 @@ Workspace, Dock, Status Bar.
 
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
-| Ask AI: запуск AI CLI в терминале с контекстом | 💰 | ❌ | |
-| Ask AI actions по ресурсу (summarize/events/metrics/logs) | 💰 | ❌ | |
-| AI control of Lens (видно, кто управляет) | 💰 | ❌ | |
+| Ask AI: AI CLI в терминале с контекстом | 💰 | ❌ | |
+| Ask AI actions по ресурсу | 💰 | ❌ | |
+| AI control of Lens | 💰 | ❌ | |
 | Lens MCP Server | 💰 | ❌ | |
-| MCP Kubernetes tools (list/connect, read-only kubectl) | 💰 | ❌ | |
-| MCP Prometheus tools (7: metrics/alerts/targets/queries) | 💰 | ❌ | |
-| MCP Lens tools (open resources/logs/terminal, Helm, PF, cost) | 💰 | ❌ | |
-| MCP extension tools | 💰 | ❌ | |
-| Lens CLI (`lens clusters`, tokens, teamwork) | 💰 | ❌ | |
-| REST API | ❌ (MCP/CLI only) | ❌ (IPC) | |
-| Плагины/расширения AI | ✅ | ❌ | |
+| MCP Kubernetes tools | 💰 | ❌ | |
+| MCP Prometheus tools | 💰 | ❌ | |
+| MCP Lens tools | 💰 | ❌ | |
+| Lens CLI | 💰 | ❌ | |
+| REST API | ❌ (MCP/CLI) | ❌ (IPC) | |
 
 ---
 
@@ -328,13 +327,13 @@ Workspace, Dock, Status Bar.
 | Фича | Lens | mLens |
 |---|---|---|
 | Extension API | ✅ | ❌ |
-| Marketplace (npm, `lens-extension`) | ✅ (browse free) | ❌ |
+| Marketplace (npm, `lens-extension`) | ✅ browse free | ❌ |
 | Install из marketplace | 💰 | ❌ |
-| Install локально для разработки | 💰 | ❌ |
+| Local dev extension | 💰 | ❌ |
 | Update extensions (auto/hourly) | 💰 | ❌ |
-| Compatibility с версией Lens | ✅ | ❌ |
+| Compatibility check | ✅ | ❌ |
 | Safe mode | ✅ | ❌ |
-| Extension governance | ✅ | ❌ |
+| Governance | ✅ | ❌ |
 | Publish extension | ✅ | ❌ |
 | Extension settings/pages/slots | ✅ | ❌ |
 | Extension tools в MCP | 💰 | ❌ |
@@ -345,7 +344,7 @@ Workspace, Dock, Status Bar.
 
 | Фича | Lens | mLens | Комментарий |
 |---|---|---|---|
-| Тема: sync/dark/light | ✅ | ✅ | |
+| Тема sync/dark/light | ✅ | ✅ | |
 | Кастомные темы | ❌ | ✅ 3 встроенные | |
 | Accent color | ❌ | ❌ | |
 | Start-up at login | ✅ | ❌ | |
@@ -355,12 +354,14 @@ Workspace, Dock, Status Bar.
 | HTTP Proxy / untrusted CA | ✅ | ❌ | |
 | Kubernetes prefs: kubectl, kubeconfig | ✅ | 🟡 sources | |
 | Helm prefs: repos/OCI/storage | ✅ | ❌ | |
-| Editor prefs | 🟡 (не документировано) | 🟡 Monaco fixed | |
+| Editor prefs | 🟡 | 🟡 Monaco fixed | |
 | Terminal prefs | ✅ | 🟡 | |
 | Saved/favorite searches | ✅ | ❌ | |
-| Shortcuts (палитра, вкладки, split, hotbar) | ✅ | 🟡 базовые | |
+| Shortcuts registry | ✅ | ✅ | |
+| `G`-навигация по ресурсам | 🟡 | ✅ | |
+| **Оверлей шорткатов `?`** | ❌ | ✅ | преимущество mLens |
 | Ремаппинг клавиш | ❌ | ❌ | |
-| Справка по шорткатам | ❌ | ✅ (в работе: `?`) | |
+| Command palette | ✅ | ✅ | |
 
 ---
 
@@ -370,40 +371,40 @@ Workspace, Dock, Status Bar.
 |---|---|---|
 | macOS / Windows / Linux | ✅ | ✅ |
 | Auto-update + каналы | ✅ | ❌ |
-| Homebrew / WinGet / Snap / Flatpak | 🟡 (не документировано) | ❌ |
+| Homebrew / WinGet / Snap / Flatpak | 🟡 | ❌ |
 | Lens CLI в PATH | 💰 | ❌ |
 | Air-gapped установка | 💰 | — |
-| SBOM / integrity checks | 🟡 (integrity check есть; SBOM не документирован) | ❌ |
+| SBOM / integrity checks | 🟡 | ❌ |
 | Sandboxed renderer | ✅ | ✅ |
-| Локальные креденшелы не уходят в облако | 🟡 (аккаунт/облако) | ✅ |
-| Работа без интернета | 🟡 (активация) | ✅ |
+| Локальные креденшелы не уходят в облако | 🟡 | ✅ |
+| Работа без интернета | 🟡 | ✅ |
 | Телеметрия | ✅ | ❌ |
 
 ---
 
 ## 16. Чего у Lens нет, а у mLens есть
 
-1. **Бесплатно и без аккаунта**: Lens требует Lens ID и активацию; часть
-   привычных фич (hotbar, extensions, split) — платно.
-2. **Hotbar бесплатно** (у Lens это premium).
+1. **Бесплатно и без аккаунта**: Lens требует Lens ID и активацию.
+2. **Hotbar бесплатно** (у Lens — premium).
 3. **Полностью локальная работа** без облака, телеметрии и активации.
-4. **Dracula-тема** и выбор из 3 тем (у Lens только sync/dark/light).
-5. **Плотность Radar**: 44px строки, uppercase-заголовки, настраиваемая высота
-   24–52px.
+4. **Dracula-тема** и выбор из 3 тем.
+5. **Плотность Radar** и высота строк 24–52px.
 6. **HPA-guard** при ручном scale.
 7. **Pause/Resume rollout** для Deployment.
-8. **Вкладки внутри drawer** (Overview/Details/YAML/Events/Related/Logs/
-   Metrics).
-9. **Неразрушающий каталог** кластеров с remove + restore.
-10. **Regex-поиск уже сейчас** (у Lens тоже есть, но mLens даёт его в связке с
-    Problems-фильтром).
-11. **Server-side dry-run** перед apply.
-12. **Прозрачный MIT-код** и отсутствие vendor lock-in.
-13. **Меньше зависимостей**: без kubectl/helm-бинарей, без Lens Cloud.
-14. **Per-kind глобальные ширины колонок**, общие для кластеров.
-15. **Set image, CronJob Trigger, Drain** — уже в работе; у Lens часть из
-    этого не документирована.
-16. **Глобальный поиск ресурсов в палитре** и оверлей шорткатов `?`.
+8. **Вкладки внутри drawer**.
+9. **Неразрушающий каталог** кластеров + сортировка Status/Name/Recent/Source.
+10. **Regex-поиск + Problems-фильтр**.
+11. **Pin колонок** (sticky left) — у Lens нет.
+12. **Сворачивание strip вкладок в нижний shadow tray** — у Lens такого нет.
+13. **Server-side dry-run** перед apply.
+14. **Set image, CronJob Trigger, Drain с live-планом, Attach, Force delete** —
+    у Lens часть отсутствует или не документирована.
+15. **CRD/CR открываются на Details**, а Overview — Radar-карточки с versions
+    и printer columns.
+16. **Глобальный поиск ресурсов в палитре + оверлей `?` + `G`-навигация**.
+17. **MIT и отсутствие vendor lock-in**; без kubectl/helm-бинарей.
+18. **Per-kind глобальные ширины колонок** и порядок, общие для кластеров.
+19. **Cluster Overview как дефолтный экран** после подключения.
 
 ---
 
@@ -415,42 +416,40 @@ Workspace, Dock, Status Bar.
 
 1. **Helm** (charts/releases/install/upgrade/rollback/repos) — главный
    бесплатный пробел.
-2. **Cluster Overview** — довести начатый экран до CPU/Mem/Pods,
-   requests/limits/allocatable, time range, Issues.
-3. **Saved/recent/favorite searches** — общие для списков и кластеров.
-4. **CSV export** таблиц (минимум Nodes/PortForwarding).
-5. **Продвинутые логи**: move to controlling resource, show resource names,
-   filter toggle, latest event, дата/время.
-6. **Port-forward из Service/Deployment** + сохранение после рестарта.
-7. **Applications view** (labels, managed by, status, violations).
-8. **Cluster settings**: имя, иконка, kubeconfig, proxy, accessible namespaces,
-   terminal working dir/default namespace.
-9. **Resource templates** и **диалоги создания** (NS/Secret/Quota/RBAC).
-10. **Node Shell** (cordon/drain/set image/trigger уже в работе).
-11. **DRA views** (ResourceClaims/Templates/DeviceClasses/ResourceSlices) —
-    discovery уже даёт эти виды.
-12. **Gateway API dedicated views** (HTTPRoute/GRPCRoute/Gateway).
-13. **Terminal shell path** и расширенные настройки шрифтов.
+2. **Saved / recent / favorite searches**, общие для списков и кластеров.
+3. **CSV export** таблиц (минимум Nodes/PortForwarding/Security).
+4. **Продвинутые логи**: move to controlling resource, show resource names,
+   filter toggle, latest event, дата/время, word wrap, download all.
+5. **Port-forward из Service/Deployment** + сохранение после рестарта.
+6. **Applications view** (labels, managed by, status, violations).
+7. **Cluster settings per-cluster**: имя, иконка, kubeconfig, proxy,
+   accessible namespaces, terminal working dir/default namespace.
+8. **Resource templates** и **диалоги создания** (NS/Secret/Quota/RBAC).
+9. **Node Shell**.
+10. **Case-sensitive поиск** и подсветка совпадений.
+11. **TLS-сертификаты** из Secret (subject/SAN/expiry).
+12. **DRA и Gateway API dedicated views** — discovery уже даёт эти виды.
+13. **Preview-режим вкладок** и forward-история.
 
 ### P1 — крупные бесплатные/условно-бесплатные
 
-14. **Lens-подобный Metrics**: встроенный Prometheus-провайдер, providers,
-    графики и time range. Сейчас только live metrics-server.
+14. **Lens-подобный Metrics**: Prometheus-провайдер, графики, time range,
+    requests/limits/capacity на Cluster Overview.
 15. **Split view** (2 группы вкладок) — у Lens это Lens Studio (premium), но
     mLens может дать бесплатно как преимущество.
 16. **Tabs в отдельном окне** — сильный differentiator, если решимся.
 17. **Advanced editor**: diff unsaved/loaded + revert (у Lens premium).
-18. **Preview-режим вкладок** и история вкладок forward.
-19. **Workloads overview** и **Cluster Performance**-показатели.
-20. **Terminal shell path** и доп. шрифты.
+18. **Workloads overview** как отдельный экран.
+19. **Terminal shell path** и доп. шрифты.
+20. **RBAC-скрытие недоступного** через SelfSubjectRulesReview.
 
 ### P2 — платный tier Lens (осознанно, не для паритета)
 
-21. **Ask AI** (локальный AI CLI) — идеологически ближе к Radar.
-22. **MCP Server** (read-only kubectl/Prometheus + Lens tools).
-23. **Flux/Argo CD/Argo Rollouts** дашборды и действия.
-24. **Cost Monitoring** (OpenCost/Kubecost/оценка).
-25. **Security Center** (Trivy CRD + views).
+21. **Ask AI** (локальный AI CLI).
+22. **MCP Server**.
+23. **Flux / Argo CD / Argo Rollouts**.
+24. **Cost Monitoring**.
+25. **Security Center**.
 26. **Cloud discovery** EKS/AKS/GKE.
 27. **Teamwork/SSO/SCIM** — противоречит локальной модели mLens.
 28. **Extensions marketplace** — сознательно вне scope.
@@ -459,26 +458,42 @@ Workspace, Dock, Status Bar.
 
 ## 18. Замечания
 
-1. **Lens сейчас — платный продукт с free-tier Personal.** Многие「фичи
-   Freelens」в современном Lens стали premium: hotbar, extensions, split view,
-   advanced editor, cloud discovery, GitOps, AI/MCP, cost, security, Lens CLI.
-   Сравнивать mLens с Lens «как с бесплатным» уже нельзя.
+1. **Lens сейчас — платный продукт с free-tier Personal.** Hotbar, extensions,
+   split view, advanced editor, cloud discovery, GitOps, AI/MCP, cost, security
+   и Lens CLI — premium.
 2. **Freelens — форк открытого ядра Lens, а не текущего Lens.** Поэтому
-   `FREELENS_VS_MLENS.md` и этот файл расходятся: то, что Freelens 2 отдаёт
-   бесплатно, в Lens может быть платным, и наоборот (Lens Studio, saved
-   searches, CSV, встроенный Prometheus).
-3. **Lens Tab Bar ≠ вкладки Freelens.** У Lens есть preview-вкладки и история
-   вкладок; у Freelens — siblings + drawer. mLens ближе к Freelens, но с
-   отдельными cluster tabs.
-4. **Lens требует активацию Lens ID даже для бесплатного использования**, а
-   offline/air-gapped — только Enterprise. Для mLens это принципиально другая
-   модель.
+   `FREELENS_VS_MLENS.md` и этот файл расходятся: часть фич Freelens в Lens
+   платная (Lens Studio, saved searches, CSV, Prometheus).
+3. **Lens Tab Bar ≠ вкладки Freelens.** У Lens preview-вкладки и история; у
+   Freelens — siblings + drawer. mLens ближе к Freelens, но с отдельными
+   cluster tabs и нижним tray.
+4. **Lens требует активацию Lens ID даже для бесплатного использования**;
+   offline/air-gapped — Enterprise.
 5. **Lens использует внутренние прокси и kubectl/helm**, mLens — Kubernetes
-   API/WebSocket напрямую. Часть фич Lens (drain, node shell) в mLens требует
-   отдельной реализации.
+   API/WebSocket напрямую. Drain/node shell/Set image в mLens реализованы
+   собственными запросами.
 6. **Не копировать premium-функции ради галочки.** Ask AI, MCP, Teamwork,
-   cloud discovery и Security Center — это отдельные подсистемы; их место — в
-   Radar-style roadmap, а не в первом релизе mLens.
+   cloud discovery и Security Center — отдельные подсистемы.
+7. **Сравнение обновлено по факту кода v0.2.0**, а не по прошлым планам.
+
+### Что изменилось после v0.2.0
+
+| Было в прошлом сравнении | Стало сейчас |
+|---|---|
+| Set image ❌ | ✅ Deployment/STS/DS/RS/Job/CronJob, вкл. init |
+| CronJob Trigger ❌ | ✅ one-off Job из `jobTemplate` |
+| Node drain ❌ | ✅ live-план + Eviction API |
+| Pod attach 🟡 | ✅ pods/attach WebSocket |
+| Force delete 🟡 | ✅ row menu + диалог |
+| Related 🟡 | ✅ вкладка для всех видов |
+| Cluster Overview 🟡 | ✅ дефолтный экран после connect |
+| Глобальный поиск 🟡 | ✅ из палитры |
+| `?` / `G`-навигация ❌ | ✅ |
+| Pin колонок ❌ | ✅ sticky left |
+| Нижний tray вкладок ❌ | ✅ вкладки остаются кликабельными |
+| Сортировка каталога 🟡 | ✅ Status/Name/Recent/Source, Status = Connected |
+| CRD Details по умолчанию 🟡 | ✅ + Overview с Radar-карточками |
+| Row menu / Node click / init containers 🟡 | ✅ |
 
 ---
 

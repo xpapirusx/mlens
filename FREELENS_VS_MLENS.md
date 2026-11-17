@@ -11,8 +11,7 @@
 
 Проверялось по коду Freelens и по докам/коду mLens. Обозначения:
 ✅ есть · 🟡 частично · ❌ нет · — не применимо.
-Пометка **(в работе)** — есть только в незакоммиченных изменениях mLens
-(`git status`), в `HEAD` этого нет.
+Пометка **(в работе)** — поведение реализовано не полностью.
 
 ---
 
@@ -96,7 +95,7 @@ User Management, Custom Resources**.
 | Фича | Freelens | mLens | Комментарий |
 |---|---|---|---|
 | Группы в порядке Lens | ✅ | ✅ | mLens убрал Helm/Overview (их нет) |
-| Cluster Overview (отдельный экран) | ✅ | 🟡 (в работе) | `features/overview/ClusterOverview.tsx` |
+| Cluster Overview (отдельный экран) | ✅ | ✅ дефолтный экран после connect |
 | Favorites (pinned items, short names, reorder) | ✅ | ✅ pinned kinds | |
 | Кастомизация порядка меню | ✅ drag + Preferences | 🟡 drag групп | |
 | Сброс порядка меню | ✅ | ❌ | |
@@ -126,7 +125,7 @@ User Management, Custom Resources**.
 | Resize колонок | ✅ | ✅ | |
 | Скрытие колонок | ✅ | ✅ | |
 | **Порядок колонок** | ❌ | ✅ | |
-| **Pin колонок** | ❌ | ❌ | |
+| **Pin колонок** | ❌ | ✅ sticky left | |
 | Кастомные колонки из label/annotation | ❌ | ❌ | нет ни там, ни там |
 | Поиск | ✅ plain, separator-insensitive | ✅ + regex | |
 | Фильтры (chips, reset) | ✅ | ✅ per-column include | |
@@ -155,7 +154,7 @@ User Management, Custom Resources**.
 | Вкладки деталей | ❌ один скролл секций | ✅ 7 вкладок | |
 | Kind-специфичные renderer'ы | ✅ много | ✅ много | |
 | Metadata: finalizers, last-applied, managed fields | ✅ | 🟡 raw spec | |
-| Related resources | ❌ (только ссылки в meta) | 🟡 (в работе) | |
+| Related resources | ❌ (только ссылки в meta) | ✅ вкладка | |
 | Events по объекту | ❌ (только общий Events) | ✅ | |
 | Conditions | ✅ | ✅ | |
 | YAML просмотр/редактирование | ✅ в dock, JSON-patch diff | ✅ Monaco + dry-run/apply | |
@@ -170,7 +169,7 @@ User Management, Custom Resources**.
 | HPA charts (current/target) | ✅ | ❌ | |
 | Copy name | ✅ | ✅ | |
 | Delete с подтверждением | ✅ | ✅ | |
-| Force delete / Force finalize | ✅ Pod + finalizers | 🟡 force delete (в работе) | |
+| Force delete / Force finalize | ✅ Pod + finalizers | ✅ force delete; finalize через YAML |
 | Drawer: copy name, per-history scroll | ✅ | 🟡 | |
 
 ---
@@ -184,14 +183,14 @@ User Management, Custom Resources**.
 | Pause/Resume rollout | ❌ | ✅ | преимущество mLens |
 | Suspend/Resume Job | ✅ | ✅ | |
 | Suspend/Resume CronJob | ✅ | ✅ | |
-| **CronJob Trigger** | ✅ создаёт Job из jobTemplate | ✅ (в работе) | |
-| Set image | ❌ | ✅ (в работе) | |
+| **CronJob Trigger** | ✅ создаёт Job из jobTemplate | ✅ | |
+| Set image | ❌ | ✅ | |
 | Revision history + rollback (workload) | ❌ | ❌ | |
-| Cordon/uncordon | ✅ node menu | 🟡 (в работе) | |
-| Drain | ✅ через kubectl в терминале | ✅ (в работе) | |
+| Cordon/uncordon | ✅ node menu | ✅ | |
+| Drain | ✅ через kubectl в терминале | ✅ live plan | |
 | Node shell | ✅ privileged pod + nsenter | ❌ | |
 | Pod shell | ✅ kubectl exec | ✅ exec WebSocket | |
-| Pod attach | ✅ kubectl attach | 🟡 backend attach (в работе) | |
+| Pod attach | ✅ kubectl attach | ✅ | |
 | Debug/ephemeral container | ❌ | ❌ | |
 | Delete pod / evict | ✅ delete | ✅ delete | |
 | HPA-guard при scale | ❌ | ✅ | преимущество mLens |
@@ -287,11 +286,11 @@ User Management, Custom Resources**.
 | Node detail (capacity, conditions, taints, pods) | ✅ | ✅ |
 | Node metrics (CPU/Mem/Disk/Pods charts) | ✅ | 🟡 live |
 | Node shell | ✅ | ❌ |
-| Node cordon/drain | ✅ | 🟡 cordon (в работе) |
+| Node cordon/drain | ✅ | ✅ cordon + live drain plan |
 | Список подов на ноде + CPU/Mem | ✅ | 🟡 фильтр по Node |
 | Pod detail (containers, env, volumes, conditions) | ✅ | ✅ |
 | Pod metrics (CPU/Mem/Network/FS charts) | ✅ | 🟡 live values |
-| Pod shell / attach | ✅ / ✅ | ✅ / 🟡 (в работе) |
+| Pod shell / attach | ✅ / ✅ | ✅ / ✅ |
 | Pod logs | ✅ (dock) | ✅ (drawer) |
 | Pod files / image FS | ❌ | ❌ |
 | Workload overview (statuses, events, metrics) | ✅ | 🟡 details only |
@@ -375,9 +374,9 @@ extension-системы (`DESIGN_SPEC.md` §5).
 | Kubernetes prefs: kubeconfig sync, kubectl binary/download/mirror, helm path/server-side, combined logs | ✅ | 🟡 sources | |
 | Proxy prefs: HTTP proxy, allow untrusted CAs | ✅ | ❌ | |
 | Extension preferences tab | ✅ | ❌ | |
-| Keyboard shortcuts | ✅ реестр | ✅ локальные + `G`-переходы (в работе) | |
+| Keyboard shortcuts | ✅ реестр | ✅ локальные + `G`-переходы | |
 | Ремаппинг клавиш | ❌ | ❌ | |
-| Справка по шорткатам | ❌ | ✅ (в работе: `?`) | |
+| Справка по шорткатам | ❌ | ✅ `?` | |
 | Command palette | ✅ | ✅ | |
 
 Клавиши Freelens: `⌘⇧P` палитра, `⌘⇧C` каталог, `⌘⇧A` add cluster, `⌘,`
@@ -459,7 +458,7 @@ Freelens — родитель оболочки, поэтому догонять 
 3. **Download всех логов** пода/workload (сейчас только текущий буфер).
 4. **Port-forward из Service и Deployment** + сохранение форвардов после
    рестарта.
-5. **Node shell** и **pod attach** (attach-режим уже начат в main).
+5. **Node shell** (pod attach уже есть).
 6. **Certificate details** для TLS Secret (x509 в Node).
 7. **Формы создания** Namespace/Secret/ResourceQuota/Role/Binding.
 8. **ServiceAccount kubeconfig** (copy/download).
