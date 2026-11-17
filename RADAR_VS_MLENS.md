@@ -383,7 +383,8 @@ Reachability, Cost, YAML**.
 - **Оверлей шорткатов `?`** и переходы `G`+буква (P/D/S/J/C/N/X/I/O).
 - **Глобальный поиск ресурсов** в палитре (debounced, capped fan-out).
 - **Sticky row menu «…»**, клик по namespace/Node, закрытие drawer по фону.
-- **Init-контейнеры**: `+N init` в таблице и секция в Pod Overview.
+- **Init-контейнеры**: разделитель + `init ·` в тултипе квадрата в таблице и
+  секция в Pod Overview.
 - **Pin колонок** (sticky left) в column picker.
 - **Сворачивание strip вкладок** в нижний shadow tray; вкладки остаются
   кликабельными и восстанавливаются шевроном.

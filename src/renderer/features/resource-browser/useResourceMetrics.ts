@@ -48,7 +48,7 @@ export function useResourceMetrics(options: {
   const nodeMetrics = resources.find((entry) => entry.kind === "NodeMetrics");
   const kind = resource?.kind;
   const needsPods = kind === "Pod";
-  const needsNodes = false;
+  const needsNodes = kind === "Node";
   const enabled = active && (needsPods ? Boolean(podMetrics) : needsNodes ? Boolean(nodeMetrics) : false);
   const scopeKey = [...namespaces].sort().join(",");
 

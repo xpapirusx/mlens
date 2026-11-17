@@ -85,6 +85,10 @@ const FREELENS_TERMINAL_THEME = {
 
 export function TerminalView({ target, active }: { target: TerminalTarget; active: boolean }) {
   const settings = useCatalogStore((state) => state.settings);
+  const allClusters = useCatalogStore((state) => state.allClusters);
+  const clusterLabel = target.clusterId
+    ? (allClusters.find((cluster) => cluster.id === target.clusterId)?.name ?? "cluster")
+    : "local";
   const containerRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -299,8 +303,8 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
         />
         <span className="truncate">
           {target.type === "pod"
-            ? `${target.namespace}/${target.pod} · ${target.container}`
-            : "Local shell"}
+            ? `${clusterLabel} · ${target.namespace}/${target.pod} · ${target.container}`
+            : `${clusterLabel}${target.namespace ? ` · ${target.namespace}` : ""}`}
         </span>
         <span className="ml-auto">{status}</span>
         <button

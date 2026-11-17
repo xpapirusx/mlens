@@ -25,6 +25,8 @@ import type {
   PodContainerInfo,
   PortForwardInfo,
   PortForwardRequest,
+  RbacSubjectRequest,
+  RbacSubjectResponse,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -70,6 +72,7 @@ export const IPC = {
   resourcesEvict: "kube:resources-evict",
   resourcesWatchEvent: "kube:resources-watch-event",
   podContainers: "kube:pod-containers",
+  rbacSubject: "kube:rbac-subject",
 
   portForwardStart: "kube:portforward-start",
   portForwardStop: "kube:portforward-stop",
@@ -139,6 +142,10 @@ export interface MlensApi {
   };
   pods: {
     containers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]>;
+  };
+  rbac: {
+    /** Effective permissions of a ServiceAccount (direct + group-inherited). */
+    subject(request: RbacSubjectRequest): Promise<RbacSubjectResponse>;
   };
   portForward: {
     start(request: PortForwardRequest): Promise<PortForwardInfo>;

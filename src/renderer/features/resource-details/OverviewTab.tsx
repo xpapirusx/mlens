@@ -1,4 +1,4 @@
-import { Ban, Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
@@ -9,6 +9,8 @@ import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
+import { NodeOverview } from "./NodeOverview";
+import { PermissionsSection } from "./PermissionsSection";
 
 type AnyObject = any;
 
@@ -562,11 +564,19 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
       <DetailSection title="Affinity" icon={<Settings2 />} defaultOpen={false} count={object.spec?.affinity ? 1 : 0}>
         <AffinityView affinity={object.spec?.affinity} />
       </DetailSection>
+
+      <PermissionsSection
+        clusterId={clusterId}
+        namespace={object.metadata?.namespace}
+        saName={object.spec?.serviceAccountName ?? "default"}
+        variant="pod"
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
 
-function WorkloadOverview({ object, onNavigate, onScale, onTogglePause }: OverviewProps) {
+function WorkloadOverview({ object, onNavigate, onScale, onTogglePause, clusterId }: OverviewProps) {
   const spec = object.spec ?? {};
   const status = object.status ?? {};
   const containers = (spec.template?.spec?.containers ?? []) as Array<Record<string, any>>;
@@ -675,6 +685,14 @@ function WorkloadOverview({ object, onNavigate, onScale, onTogglePause }: Overvi
           />
         </PropertyList>
       </DetailSection>
+
+      <PermissionsSection
+        clusterId={clusterId}
+        namespace={object.metadata?.namespace}
+        saName={object.spec?.template?.spec?.serviceAccountName ?? "default"}
+        variant="workload"
+        onNavigate={onNavigate}
+      />
     </div>
   );
 }
@@ -897,119 +915,6 @@ function DataOverview({ object, onEditData }: OverviewProps) {
         </div>
         <KeyValueList data={data as Record<string, string>} secret={isSecret} meta={typeMeta} />
       </DetailSection>
-    </div>
-  );
-}
-
-function NodeOverview({ object, onToggleCordon }: OverviewProps) {
-  const status = object.status ?? {};
-  const capacity = status.capacity ?? {};
-  const allocatable = status.allocatable ?? {};
-  const info = status.nodeInfo ?? {};
-  const cordoned = object.spec?.unschedulable === true;
-  const roles = Object.keys(object.metadata?.labels ?? {})
-    .filter((key) => key.startsWith("node-role.kubernetes.io/"))
-    .map((key) => key.replace("node-role.kubernetes.io/", ""));
-
-  return (
-    <div className="space-y-4">
-      <DetailSection title="Status" icon={<Server />}>
-        <PropertyList>
-          <Property label="Status" value={<StatusPill object={object} kind="Node" />} />
-          <Property label="Schedulable" value={cordoned ? "No (cordoned)" : "Yes"} />
-          <Property label="Roles" value={roles.join(", ") || "<none>"} />
-          <Property label="Kubelet" value={info.kubeletVersion} mono />
-          <Property label="OS image" value={info.osImage} />
-          <Property label="Kernel" value={info.kernelVersion} mono />
-          <Property label="Container runtime" value={info.containerRuntimeVersion} mono />
-          <Property label="Architecture" value={info.architecture} />
-          <Property label="Internal IP" value={status.addresses?.find((address: any) => address.type === "InternalIP")?.address} mono copyable />
-          <Property label="Hostname" value={status.addresses?.find((address: any) => address.type === "Hostname")?.address} mono />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
-        </PropertyList>
-        {onToggleCordon ? (
-          <div className="mt-3 flex items-center gap-2 border-t border-theme-border-subtle pt-2.5">
-            <button
-              type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-              onClick={onToggleCordon}
-            >
-              <Ban className="h-3 w-3" />
-              {cordoned ? "Uncordon node" : "Cordon node"}
-            </button>
-          </div>
-        ) : null}
-      </DetailSection>
-
-      <DetailSection title="Capacity" icon={<Cpu />}>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { key: "cpu", label: "CPU", icon: <Cpu className="h-3.5 w-3.5" /> },
-            { key: "memory", label: "Memory", icon: <Database className="h-3.5 w-3.5" /> },
-            { key: "pods", label: "Pods", icon: <Box className="h-3.5 w-3.5" /> },
-            { key: "ephemeral-storage", label: "Storage", icon: <Server className="h-3.5 w-3.5" /> },
-          ].map((entry) => {
-            const cap = capacity[entry.key];
-            const alloc = allocatable[entry.key];
-            const show = (value: string | number | undefined) => {
-              if (value === undefined || value === null || value === "") return "–";
-              if (entry.key === "cpu") return formatCpu(parseCpu(value));
-              if (entry.key === "memory" || entry.key === "ephemeral-storage") {
-                return formatBytes(parseMemory(value));
-              }
-              return String(value);
-            };
-            const ratio =
-              entry.key === "cpu"
-                ? (parseCpu(alloc) ?? 0) / Math.max(1, parseCpu(cap) ?? 1)
-                : entry.key === "memory"
-                  ? (parseMemory(alloc) ?? 0) / Math.max(1, parseMemory(cap) ?? 1)
-                  : entry.key === "pods"
-                    ? (Number(alloc) || 0) / Math.max(1, Number(cap) || 1)
-                    : null;
-            return (
-              <div key={entry.key} className="card-inner">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
-                  {entry.icon}
-                  {entry.label}
-                </div>
-                <div className="mt-1 font-mono text-[15px] font-semibold text-theme-text-primary">
-                  {show(cap)}
-                </div>
-                <div className="mt-0.5 font-mono text-[10px] text-theme-text-tertiary">
-                  allocatable {show(alloc)}
-                </div>
-                {ratio !== null ? (
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-theme-elevated">
-                    <div
-                      className="h-full rounded-full bg-skyhook-500"
-                      style={{ width: `${Math.min(100, ratio * 100)}%` }}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </DetailSection>
-
-      <DetailSection title="Conditions" icon={<ShieldCheck />} count={status.conditions?.length ?? 0}>
-        <ConditionsList conditions={status.conditions ?? []} />
-      </DetailSection>
-
-      {object.spec?.taints?.length ? (
-        <DetailSection title="Taints" icon={<ShieldCheck />} defaultOpen={false} count={object.spec.taints.length}>
-          <div className="space-y-1">
-            {object.spec.taints.map((taint: any, index: number) => (
-              <div key={index} className="flex gap-2 font-mono text-[11px]">
-                <span className="text-theme-text-primary">{taint.key}</span>
-                <span className="text-theme-text-tertiary">={taint.value ?? ""}</span>
-                <span className="badge-sm status-degraded">{taint.effect}</span>
-              </div>
-            ))}
-          </div>
-        </DetailSection>
-      ) : null}
     </div>
   );
 }

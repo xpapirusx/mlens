@@ -45,6 +45,7 @@ configuration).
 | Electron app, single window | **Done** | Sandboxed renderer, typed preload, CSP |
 | Custom top bar, drag region, window controls | **Done** | Native traffic lights on macOS; custom controls on Win/Linux |
 | Hotbar cluster rail | **Done** | Favourites → recent → active; catalog button |
+| Hotbar pages + selector | **Done** | Freelens-style pages of 10 slots (`hotbarPages`/`hotbarPageIndex`), ‹ N › selector with page list / New page / Remove page, favourites auto-flow into free slots, hover-only scrollbar with a reserved gutter |
 | Welcome + cluster catalog | **Done** | Hero, stats, category rail, search, favourites, recents, kubeconfig sources |
 | Catalog multi-select / removal | **Done** | Checkboxes, bulk favourites, remove-from-catalog (non-destructive), Removed view + restore |
 | Kubeconfig import (file dialog) | **Done** | Multi-select; validated; source list |
@@ -87,7 +88,9 @@ configuration).
 | Row actions menu | **Done** | Sticky right-hand "…" column opens the same actions; checked against Pods, Deployments, Nodes |
 | Force delete | **Done** | DeleteOptions with gracePeriodSeconds 0 after explicit confirmation |
 | CRD naming in catalog | **Done** | CRs/CRDs show the kind name; apiVersion in the tooltip; built-ins win name collisions |
-| Init containers | **Done** | Table: outlined squares, separator, `+N init`; Pod Overview: numbered Init containers section |
+| Init containers | **Done** | Table: separator before main containers, `init ·` in the square tooltip; Pod Overview: numbered Init containers section |
+| Container squares (Radar) | **Done** | Containers column: centred 10px tiles coloured by state, orange restart ring, init separator, rich tooltip (state, reason, message, exit code, uptime, last termination) |
+| Node table (Radar) | **Done** | CPU/Memory usage÷allocatable bars, Conditions and Taints columns; Node kind now fetches metrics.k8s.io |
 | Details workload actions | **Done** | Right-aligned labelled actions under the name (Scale/Restart/Pause/Suspend/Cordon/Drain/Set image/Trigger) plus Radar-style Scale/Pause buttons in Overview; Delete/Reload/Close in the header |
 | Set image | **Done** | Container + init-container image editor patches the pod template for Deployment/STS/DS/RS/Job/CronJob |
 | CronJob trigger | **Done** | Creates a one-off Job from `jobTemplate` via apply |
@@ -123,7 +126,7 @@ configuration).
 | Hotbar favourites + drag reorder | **Done** | 10 fixed slots, pointer/HTML5 drag, context-menu move fallback; open clusters in top tabs |
 | Sidebar group reorder | **Done** | Drag top-level catalog groups; persisted in settings |
 | Request-volume reduction | **Done** | Counts only expanded/favourite groups (≥120s), metrics only when visible (≥60s), 60s default polling |
-| CPU/Memory table columns | **Done** | Container-only Radar bars for Pods; Node remains capacity-based; Metrics tab Pod-only |
+| CPU/Memory table columns | **Done** | Radar bars for Pods (container usage vs limit/request) and Nodes (usage ÷ allocatable); Metrics tab Pod-only |
 | Configurable row height | **Done** | Settings: 24–52px |
 | Sidebar kind favorites | **Done** | Pinned kinds section + settings list, stored globally |
 | Groups collapsed by default | **Done** | Settings toggle, on by default; expanded state kept per cluster |
@@ -137,6 +140,9 @@ configuration).
 | Pod overview | **Done** | Freelens-style sections: status, containers, environment with inline Secret/ConfigMap peek, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
 | Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner; Scale and Pause/Resume buttons for supported kinds |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
+| Node overview (Radar) | **Done** | Issues/Cordoned banners, Node info, Capacity with In use, Resource usage bars, Addresses, Platform labels, Taints, Conditions |
+| Pods on node | **Done** | Live `spec.nodeName` list with status badges, first 30 + “Show all”, click opens the Pod, count in the header |
+| Permissions via ServiceAccount | **Done** | Pod + workload Overview: `N direct bindings · N inherited via groups · N distinct rules`, top-5 rules as chips, blast radius banner, link to the ServiceAccount; `kube:rbac-subject` IPC with a 10s per-cluster snapshot |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
 | Env references | **Done** | Eye reveals referenced ConfigMap/Secret values inline without leaving the Pod |
@@ -164,7 +170,8 @@ configuration).
 | Multiple terminal tabs | **Done** | Mounted simultaneously; state preserved |
 | Terminal search | **Done** | Finder UI, next/previous |
 | Select container | **Done** | Detail header exec uses first container; logs allow selection |
-| Separate namespace/cluster picker in terminal UI | **Partial** | Terminal inherits the cluster and pod namespace from the action that opened it; no standalone picker yet |
+| Standalone cluster/namespace picker | **Done** | New-terminal launcher (plus chevron / `⌘⇧T` / empty dock): any connected cluster, context-default or explicit namespace |
+| Pod exec from the launcher | **Done** | Live pod list for the chosen namespace, container picker, configurable shell command |
 
 ### Kubernetes integration
 
@@ -213,7 +220,6 @@ configuration).
 - [ ] Resource templates.
 - [ ] Capability-aware (SelfSubjectAccessReview) action gating.
 - [ ] Route-level back/forward across resource kinds.
-- [ ] Table CPU/memory columns from metrics-server.
 - [ ] Unit/integration test suite (currently verified by typecheck, build and
       manual real-cluster smoke tests).
 
@@ -279,6 +285,7 @@ configuration).
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
 | Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg`; packaged app launches, sees 98 contexts, connects, runs a PTY with the right kubectl context, and port-forwards a real pod (HTTP 200) |
 | Windows / Linux packaging | Configured (NSIS, AppImage, deb); not yet built on those OSes |
+| Radar container squares / Node table + details / RBAC permissions / hotbar pages | Pass — `pnpm typecheck` and `pnpm build`; real-cluster smoke test still pending |
 
 ---
 

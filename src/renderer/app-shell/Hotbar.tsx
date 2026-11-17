@@ -1,15 +1,17 @@
 import { useMemo, useRef, useState } from "react";
-import { Blocks, Plus, Settings } from "lucide-react";
+import { Blocks, Check, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { cn } from "../lib/cn";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { ContextMenu } from "../design-system/components/ContextMenu";
-import { MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { openCluster } from "../lib/cluster-actions";
 import type { ClusterSummary } from "@shared/types";
 
 const SLOT_COUNT = 10;
+/** Freelens caps a hotbar at twelve cells; mLens keeps ten per page. */
+const MAX_PAGES = 12;
 
 /**
  * Freelens' `computeDefaultShortName`: first letter of the first three name
@@ -38,6 +40,12 @@ function tileColor(name: string): string {
   return `hsl(${(hash >>> 0) % 360}, 60%, 27%)`;
 }
 
+function padPage(page: Array<ClusterSummary | null>): Array<ClusterSummary | null> {
+  const padded = [...page.slice(0, SLOT_COUNT)];
+  while (padded.length < SLOT_COUNT) padded.push(null);
+  return padded;
+}
+
 export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) {
   const clusters = useCatalogStore((state) => state.clusters);
   const settings = useCatalogStore((state) => state.settings);
@@ -54,32 +62,83 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const suppressClick = useRef(false);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
 
-  const slots = useMemo(() => {
+  // ── Pages ──────────────────────────────────────────────────────
+  const storedPages = useMemo(() => {
+    const raw = settings?.hotbarPages;
+    const source = Array.isArray(raw) && raw.length > 0 ? raw : [settings?.hotbarSlots ?? []];
+    return source.slice(0, MAX_PAGES).map((page) => (Array.isArray(page) ? page.slice(0, SLOT_COUNT) : []));
+  }, [settings?.hotbarPages, settings?.hotbarSlots]);
+
+  const pageCount = storedPages.length;
+  const pageIndex = Math.min(Math.max(0, settings?.hotbarPageIndex ?? 0), pageCount - 1);
+
+  const resolvedPages = useMemo(() => {
     const byId = new Map(clusters.map((cluster) => [cluster.id, cluster]));
     const favorites = settings?.favorites ?? [];
-    const stored = settings?.hotbarSlots ?? [];
-    const result: Array<ClusterSummary | null> = Array(SLOT_COUNT).fill(null);
     const placed = new Set<string>();
 
-    stored.slice(0, SLOT_COUNT).forEach((id, index) => {
-      if (!id || !favorites.includes(id) || placed.has(id)) return;
-      const cluster = byId.get(id);
-      if (!cluster) return;
-      result[index] = cluster;
-      placed.add(id);
-    });
+    const result = storedPages.map((page) =>
+      padPage(
+        page.map((id) => {
+          if (!id || !favorites.includes(id) || placed.has(id)) return null;
+          const cluster = byId.get(id);
+          if (!cluster) return null;
+          placed.add(id);
+          return cluster;
+        }),
+      ),
+    );
 
+    // No favourite is ever lost: anything not explicitly placed fills the
+    // first free slot, page by page, in favourite order.
     for (const id of favorites) {
       if (placed.has(id)) continue;
       const cluster = byId.get(id);
       if (!cluster) continue;
-      const empty = result.findIndex((entry) => entry === null);
-      if (empty === -1) break;
-      result[empty] = cluster;
+      let target: { page: number; slot: number } | null = null;
+      for (let page = 0; page < result.length && !target; page += 1) {
+        const slot = result[page].findIndex((entry) => entry === null);
+        if (slot >= 0) target = { page, slot };
+      }
+      if (!target) break;
+      result[target.page][target.slot] = cluster;
       placed.add(id);
     }
+
     return result;
-  }, [clusters, settings?.favorites, settings?.hotbarSlots]);
+  }, [storedPages, clusters, settings?.favorites]);
+
+  const slots = resolvedPages[pageIndex] ?? padPage([]);
+
+  const writePages = (next: Array<Array<string | null>>, activeIndex = pageIndex) => {
+    const index = Math.min(Math.max(0, activeIndex), next.length - 1);
+    const page = (next[index] ?? []).slice(0, SLOT_COUNT);
+    const ids = page.map((entry) => entry ?? null);
+    void updateSettings({
+      hotbarPages: next.map((entry) => entry.slice(0, SLOT_COUNT).map((id) => id ?? null)),
+      hotbarPageIndex: index,
+      hotbarSlots: ids,
+      hotbarOrder: ids.filter((id): id is string => Boolean(id)),
+    });
+  };
+
+  const switchPage = (index: number) => {
+    const next = Math.min(Math.max(0, index), resolvedPages.length - 1);
+    if (next === pageIndex) return;
+    void updateSettings({ hotbarPageIndex: next });
+  };
+
+  const addPage = () => {
+    if (resolvedPages.length >= MAX_PAGES) return;
+    const next = [...resolvedPages.map((page) => page.map((entry) => entry?.id ?? null)), Array(SLOT_COUNT).fill(null)];
+    writePages(next, next.length - 1);
+  };
+
+  const removePage = (index: number) => {
+    if (resolvedPages.length <= 1) return;
+    const next = resolvedPages.filter((_, position) => position !== index).map((page) => page.map((entry) => entry?.id ?? null));
+    writePages(next, Math.min(index, next.length - 1));
+  };
 
   const moveToSlot = (sourceId: string, targetIndex: number) => {
     const ids = slots.map((cluster) => cluster?.id ?? null);
@@ -88,7 +147,10 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
     const displaced = ids[targetIndex];
     ids[targetIndex] = sourceId;
     ids[from] = displaced;
-    void updateSettings({ hotbarSlots: ids, hotbarOrder: ids.filter((id): id is string => Boolean(id)) });
+    const next = resolvedPages.map((page, position) =>
+      position === pageIndex ? ids : page.map((entry) => entry?.id ?? null),
+    );
+    writePages(next);
   };
 
   const slotUnderPointer = (x: number, y: number): number | null => {
@@ -161,9 +223,9 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         </button>
       </Tooltip>
 
-      <div className="my-1 h-px w-8 bg-theme-border" />
+      <div className="my-1 h-px w-90 bg-theme-border" />
 
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-[12px] overflow-y-auto px-[12px]">
+    <div className="hotbar-scroll flex min-h-0 flex-1 flex-col items-center gap-[12px] overflow-y-auto overflow-x-hidden px-[12px] pt-2">
         {slots.map((cluster, slotIndex) => {
           const active = cluster?.id === activeClusterId;
           const session = cluster ? sessions[cluster.id] : undefined;
@@ -181,7 +243,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
 
           return (
             <div
-              key={cluster?.id ?? `slot-${slotIndex}`}
+              key={cluster?.id ?? `slot-${pageIndex}-${slotIndex}`}
               data-hotbar-slot={slotIndex}
               onDragOver={(event) => {
                 event.preventDefault();
@@ -263,16 +325,19 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   </button>
                 </Tooltip>
               ) : (
-                <Tooltip content={`Empty hotbar slot ${slotIndex + 1} — drag a favourite here`} side="bottom">
+                <Tooltip
+                  content={`Empty hotbar slot ${pageIndex + 1}:${slotIndex + 1} — drag a favourite here`}
+                  side="bottom"
+                >
                   <button
                     type="button"
                     onClick={() => {
-                      flash(`empty-${slotIndex}`);
+                      flash(`empty-${pageIndex}-${slotIndex}`);
                       setActiveCluster(null);
                     }}
                     className={cn(
                       "flex h-[40px] w-[40px] items-center justify-center rounded-[6px] border border-dashed border-theme-border/70 text-theme-text-disabled transition-colors hover:border-theme-border hover:text-theme-text-secondary",
-                      pressed === `empty-${slotIndex}` && "hotbar-shake",
+                      pressed === `empty-${pageIndex}-${slotIndex}` && "hotbar-shake",
                     )}
                   >
                     <Plus className="h-4 w-4" />
@@ -284,7 +349,89 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         })}
       </div>
 
-      <div className="mt-1 flex flex-col items-center gap-1.5 border-t border-theme-border pt-2">
+      {/* Freelens-style page selector: ‹ index › — the index opens the page list. */}
+      <div className="mt-1 flex items-center justify-center gap-0.5 border-t border-theme-border pt-2">
+        <Tooltip content="Previous hotbar page" side="top">
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            disabled={pageIndex <= 0}
+            onClick={() => switchPage(pageIndex - 1)}
+            aria-label="Previous hotbar page"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+
+        <Menu
+          align="start"
+          side="top"
+          width={200}
+          trigger={({ toggle }) => (
+            <button
+              type="button"
+              onClick={toggle}
+              title={`Hotbar page ${pageIndex + 1} of ${pageCount} — click to switch or add a page`}
+              className="min-w-[3ch] rounded border border-theme-border bg-theme-surface px-1.5 py-0.5 font-mono text-[11px] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+            >
+              {pageIndex + 1}
+            </button>
+          )}
+        >
+          {({ close }) => (
+            <>
+              <MenuLabel>Hotbar pages</MenuLabel>
+              {resolvedPages.map((_, index) => (
+                <MenuItem
+                  key={index}
+                  icon={index === pageIndex ? <Check className="h-3 w-3 text-accent-text" /> : undefined}
+                  onClick={() => {
+                    switchPage(index);
+                    close();
+                  }}
+                >
+                  Page {index + 1}
+                </MenuItem>
+              ))}
+              <MenuSeparator />
+              <MenuItem
+                icon={<Plus className="h-3 w-3" />}
+                disabled={resolvedPages.length >= MAX_PAGES}
+                onClick={() => {
+                  addPage();
+                  close();
+                }}
+              >
+                New page
+              </MenuItem>
+              <MenuItem
+                danger
+                disabled={resolvedPages.length <= 1}
+                onClick={() => {
+                  removePage(pageIndex);
+                  close();
+                }}
+              >
+                Remove this page
+              </MenuItem>
+            </>
+          )}
+        </Menu>
+
+        <Tooltip content="Next hotbar page" side="top">
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            disabled={pageIndex >= pageCount - 1}
+            onClick={() => switchPage(pageIndex + 1)}
+            aria-label="Next hotbar page"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="mt-1 flex flex-col items-center gap-1.5 pt-1">
         <Tooltip content="Import kubeconfig" side="bottom">
           <button type="button" className="shell-icon-button h-9 w-9" onClick={() => void importViaDialog()}>
             <Plus className="h-4 w-4" />

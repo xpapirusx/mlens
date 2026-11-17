@@ -195,10 +195,13 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
 - Catalog: open clusters rise to the top, Status reads Connected (version is a
   separate column), with status/name/recent/source sorting.
-- Hotbar is a 10-slot reorderable favourites rail on a 75px Freelens-style rail
-  (40px tiles, 12px spacing, three-letter short names, seeded colours, status LED,
-  press/shake animation; drag or context-menu move); open clusters live in top
-  tabs with the Home/Back/Forward controls.
+- Hotbar is a reorderable favourites rail on a 75px Freelens-style rail
+  (40px tiles, 12px spacing, three-letter short names, seeded colours, status
+  LED, press/shake animation; drag or context-menu move) split into **pages of
+  ten slots**: `‹ N ›` arrows and a badge switch/choose pages, new pages can be
+  added and removed, overflow favourites flow into the next page, and the tile
+  area scrolls on short windows; open clusters live in top tabs with the
+  Home/Back/Forward controls.
 
 **Resource browser**
 
@@ -210,6 +213,10 @@ Freelens gets isolation from iframes. mLens instead:
 - Radar table: 44px default rows (24–52 setting), 40px uppercase header,
   status badges, CPU/Memory bullet bars with request markers and per-container
   tooltips, Ports column, optional owner/node/qos/IP columns.
+- Containers cells are Radar's state squares with a restart ring and a full
+  diagnostic tooltip; the Nodes table carries usage÷allocatable CPU/Memory bars
+  plus Conditions and Taints columns (node metrics are fetched for the Node
+  kind).
 - Search (`/`, regex), sort, per-column filters, multi-namespace scope, counts
   for visible groups, auto-refresh/watch, column resize + horizontal scroll,
   column visibility and order, always-visible selection + bulk delete,
@@ -233,6 +240,13 @@ Freelens gets isolation from iframes. mLens instead:
   Forward button = custom port dialog), conditions, volumes, scheduling with
   structured tolerations/affinity.
 - Workload/Service/Ingress/ConfigMap/Secret/Node/PV/PVC/HPA/CRD/generic renderers.
+- Node Overview mirrors Radar: Issues and Cordoned banners, Node info,
+  Capacity with an In use row, live Resource usage, Addresses, Platform labels,
+  Taints, Conditions, and a live **Pods on this node** list that opens each Pod.
+- Pod and workload Overviews end with **Permissions via ServiceAccount**
+  (`kube:rbac-subject` IPC over the four RBAC kinds): direct vs group-inherited
+  bindings, distinct rules, top-five permissive rules and a blast-radius
+  banner; a forbidden read is shown as a calm note.
 - Related tab restored for every kind; the resolver lists owners, selectors,
   services, mounted config, node pods and bound volumes using Freelens-style rows.
 - Metrics tab shows real metrics-server values or an explicit “not installed”.
@@ -240,7 +254,10 @@ Freelens gets isolation from iframes. mLens instead:
 **Terminal/logs/ports**
 
 - Local PTY with per-cluster kubeconfig; pod exec over WebSocket with resize;
-  multiple tabs; search; copy/paste.
+  multiple tabs; search; copy/paste. A context launcher (`⌘⇧T`, the dock chevron
+  or the empty dock state) chooses any connected cluster, namespace, and for pod
+  exec the pod, container and shell command; each tab header shows its cluster
+  context.
 - Streaming logs with container/pod picker, follow/previous/tail/timestamps,
   filtering, download.
 - Port forwarding over WebSocket, active forwards panel, quick forward with a

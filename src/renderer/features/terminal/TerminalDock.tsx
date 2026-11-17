@@ -1,8 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Maximize2, Minimize2, Plus, SquareTerminal, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Maximize2,
+  Minimize2,
+  Monitor,
+  Plus,
+  SquareTerminal,
+  X,
+} from "lucide-react";
 import { useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
+import { Menu, MenuItem } from "../../design-system/components/Menu";
 import { TerminalView } from "./TerminalView";
+import { TerminalLauncher, type TerminalMode } from "./TerminalLauncher";
 
 export function TerminalDock({ clusterId, active }: { clusterId: string; active: boolean }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
@@ -14,7 +25,13 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
 
   const dock = session?.dock;
   const [resizing, setResizing] = useState(false);
+  const [launcher, setLauncher] = useState<{ open: boolean; mode: TerminalMode }>({
+    open: false,
+    mode: "local",
+  });
   const previousHeight = useRef<number | null>(null);
+
+  const openLauncher = (mode: TerminalMode) => setLauncher({ open: true, mode });
 
   useEffect(() => {
     if (!resizing) return;
@@ -37,6 +54,19 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
       window.removeEventListener("pointerup", onUp);
     };
   }, [resizing, clusterId, setDock, updateSettings]);
+
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (event: KeyboardEvent) => {
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.shiftKey && event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        openLauncher("local");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
 
   if (!dock) return null;
 
@@ -118,11 +148,50 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
         <button
           type="button"
           className="shell-icon-button h-6 w-6"
-          title="New terminal"
+          title="New local terminal"
           onClick={() => openTerminal(clusterId, { type: "local" })}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
+        <Menu
+          align="end"
+          side="top"
+          width={214}
+          trigger={({ toggle }) => (
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-4"
+              title="New terminal in a chosen context"
+              aria-label="New terminal in a chosen context"
+              onClick={toggle}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          )}
+        >
+          {({ close }) => (
+            <>
+              <MenuItem
+                icon={<Monitor className="h-3.5 w-3.5" />}
+                onClick={() => {
+                  close();
+                  openLauncher("local");
+                }}
+              >
+                Local terminal…
+              </MenuItem>
+              <MenuItem
+                icon={<SquareTerminal className="h-3.5 w-3.5" />}
+                onClick={() => {
+                  close();
+                  openLauncher("pod");
+                }}
+              >
+                Pod exec…
+              </MenuItem>
+            </>
+          )}
+        </Menu>
         {dock.tabs.length > 0 ? (
           <>
             <button type="button" className="shell-icon-button h-6 w-6" title="Maximize dock" onClick={maximize}>
@@ -157,6 +226,13 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
               >
                 New local terminal
               </button>
+              <button
+                type="button"
+                className="rounded-md px-2.5 py-1 text-[11px] text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                onClick={() => openLauncher("pod")}
+              >
+                Pod exec in another context…
+              </button>
             </div>
           ) : (
             dock.tabs.map((tab) => (
@@ -165,6 +241,14 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
           )}
         </div>
       ) : null}
+
+      <TerminalLauncher
+        open={launcher.open}
+        initialMode={launcher.mode}
+        clusterId={clusterId}
+        onClose={() => setLauncher((current) => ({ ...current, open: false }))}
+        onLaunch={(target) => openTerminal(clusterId, target)}
+      />
     </section>
   );
 }

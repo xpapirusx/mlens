@@ -66,6 +66,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Live watch + polling, freshness indicator, counts, search, sorting, per-column
   filters, namespace filters, sortable columns, drag-to-resize columns (double-click
   to reset), horizontal scrolling, column picker and keyboard navigation.
+- Radar container squares in the Pods table (state colours, orange restart ring,
+  init separator, tooltip with reason/exit code/uptime/last termination) and
+  Radar Node columns (CPU/Memory usage bars, Conditions, Taints).
 - Multi-select mode with bulk delete and confirmation.
 - Sticky row-actions menu on the right of every row (same as right-click):
   details, edit YAML, logs, attach, exec shell (Pods), scale
@@ -81,8 +84,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Reference fields are clickable everywhere: owner references, `volumeName`,
   `claimRef`, `storageClassName`, `serviceAccountName`, HPA `scaleTargetRef`, …,
   plus the Controlled-by column and the PVC Pods/Volume/Storage-class columns.
-- Init containers are marked in the Containers column (outlined square,
-  separator, `+N init`) and listed in their own Pod Overview section.
+- Init containers are marked in the Containers column (a hairline separator
+  before the main containers and `init ·` in the tooltip) and listed in their
+  own Pod Overview section.
 - Custom resources and CRDs show their kind name in the sidebar (apiVersion in
   the tooltip); built-in kinds win over same-named CRDs. Opening a CR defaults the
   drawer to Details (Freelens field order); its Overview uses Radar-style cards
@@ -101,7 +105,11 @@ unmanaged pods flagged) and evicts through `policy/v1`. Pods show init container
 Secret/ConfigMap peeks; ConfigMaps and Secrets are editable from the UI (Secret
 values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
 data, storage, HPA, CRD and generic CRD renderers; Node Overview uses Radar-style
-capacity cards. Related resources are resolved from the live API for every kind.
+capacity cards with an **In use** row, live usage, addresses, platform labels and
+a live **Pods on this node** list. Pod and workload Overviews end with
+**Permissions via ServiceAccount** — direct and group-inherited bindings, the
+distinct-rule count and a blast-radius warning, straight from the API. Related
+resources are resolved from the live API for every kind.
 Secrets reveal only on request.
 
 ### Terminal
@@ -119,11 +127,13 @@ Secrets reveal only on request.
 
 - Radar (light/dark/system), **Dracula**, and **Freelens** colour themes; each
   theme also selects its terminal ANSI palette.
-- Ten-slot favourite-cluster hotbar (75px rail, 40px cells, 12px spacing like
-  Freelens) with three-letter short names, seeded tile colours, a status LED,
+- Hotbar with **pages** (75px rail, 10 slots per page, 40px cells, 12px spacing
+  like Freelens): three-letter short names, seeded tile colours, a status LED,
   press/shake animations, drag-and-drop and a context-menu "Move to slot"
-  fallback; open clusters stay in the top tab strip. Home/Back navigation lives
-  in the tab strip.
+  fallback; `‹ N ›` switches pages and the badge opens the page list (new /
+  remove page), favourites flow into the next page instead of being dropped,
+  and the rail scrolls when the window is short. Open clusters stay in the top
+  tab strip. Home/Back navigation lives in the tab strip.
 - Reorderable sidebar groups, column order, column widths (remembered per kind
   across clusters), and configurable row height from 24 to 52px.
 - Problems filter for warning/error statuses, plus the regular status badges and

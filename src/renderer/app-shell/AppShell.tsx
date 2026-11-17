@@ -87,7 +87,7 @@ export function AppShell() {
         openSettings(true);
         return;
       }
-      if (mod && event.key.toLowerCase() === "t" && activeClusterId) {
+      if (mod && !event.shiftKey && event.key.toLowerCase() === "t" && activeClusterId) {
         event.preventDefault();
         openTerminal(activeClusterId, { type: "local" });
         return;

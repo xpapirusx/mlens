@@ -156,7 +156,7 @@ searches/CSV, Applications, node shell, resource templates, cluster settings**
 | CSV export таблиц | ✅ | ❌ | |
 | Virtualized-списки | ✅ | ✅ | |
 | Metrics-колонки (CPU/Mem) | ✅ | ✅ | |
-| Init containers в таблице | ✅ | ✅ | `+N init` |
+| Init containers в таблице | ✅ | ✅ | разделитель + `init ·` в тултипе квадрата |
 | Обновление через watch | ✅ | ✅ | |
 | Namespace multi-select | ✅ | ✅ | |
 | Row actions «…» | ✅ | ✅ sticky-колонка | |

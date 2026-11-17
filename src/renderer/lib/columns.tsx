@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Copy } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
 import { formatAge, formatCpu, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
 import { resourceStatus, toneClass } from "./status";
 import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
+import { Tooltip } from "../design-system/components/Tooltip";
 import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
 
 export type AnyObject = any;
@@ -117,48 +118,199 @@ function podContainers(object: AnyObject): Array<Record<string, any>> {
   ];
 }
 
-function ContainersCell({ object }: { object: AnyObject }) {
-  const statuses = podContainers(object);
-  if (statuses.length === 0) return <span className="text-sm text-theme-text-tertiary">–</span>;
+type ContainerState = "ready" | "running" | "waiting" | "completed" | "terminated" | "unknown";
+
+interface ContainerSquare {
+  name: string;
+  status: ContainerState;
+  restarts: number;
+  reason?: string;
+  message?: string;
+  exitCode?: number;
+  startedAt?: string;
+  finishedAt?: string;
+  isInit?: boolean;
+  /** Last termination — the signal that explains a CrashLoopBackOff. */
+  lastTermination?: { reason?: string; exitCode?: number; startedAt?: string; finishedAt?: string };
+}
+
+function squareState(status: Record<string, any>, ready: boolean): ContainerState {
+  const stateKey = status && typeof status === "object" ? Object.keys(status)[0] : undefined;
+  if (!stateKey) return "unknown";
+  if (stateKey === "running") return ready ? "ready" : "running";
+  if (stateKey === "waiting") return "waiting";
+  if (stateKey === "terminated") return status.terminated?.exitCode === 0 ? "completed" : "terminated";
+  return "unknown";
+}
+
+/** Radar's `getContainerSquareStates`: one square per container, init first. */
+function containerSquares(object: AnyObject): ContainerSquare[] {
   const initNames = new Set(
     ((object.spec?.initContainers ?? []) as Array<{ name: string }>).map((container) => container.name),
   );
-  const initStatuses = statuses.filter((container) => initNames.has(container.name));
-  const mainStatuses = statuses.filter((container) => !initNames.has(container.name));
+  const toSquare = (status: Record<string, any>, isInit: boolean): ContainerSquare => {
+    const stateKey = status?.state && typeof status.state === "object" ? Object.keys(status.state)[0] : undefined;
+    const detail = stateKey ? status.state?.[stateKey] : undefined;
+    const last = status.lastState?.terminated;
+    return {
+      name: String(status.name ?? ""),
+      status: stateKey === "running" && status.ready ? "ready" : squareState(status.state ?? {}, Boolean(status.ready)),
+      restarts: Number(status.restartCount ?? 0),
+      reason: detail?.reason,
+      message: detail?.message,
+      exitCode: detail?.exitCode,
+      startedAt: detail?.startedAt,
+      finishedAt: detail?.finishedAt,
+      isInit,
+      lastTermination: last
+        ? { reason: last.reason, exitCode: last.exitCode, startedAt: last.startedAt, finishedAt: last.finishedAt }
+        : undefined,
+    };
+  };
+  const init = ((object.status?.initContainerStatuses ?? []) as Array<Record<string, any>>).map((status) =>
+    toSquare(status, initNames.has(String(status.name))),
+  );
+  const main = ((object.status?.containerStatuses ?? []) as Array<Record<string, any>>).map((status) =>
+    toSquare(status, false),
+  );
+  return [...init, ...main];
+}
+
+function ago(timestamp?: string): string | null {
+  if (!timestamp) return null;
+  const ms = Date.now() - new Date(timestamp).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  if (ms < 60_000) return "just now";
+  return `${formatAge(timestamp)} ago`;
+}
+
+function ranFor(start?: string, end?: string): string | null {
+  if (!start || !end) return null;
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  return ms > 0 ? formatDurationSeconds(Math.round(ms / 1000)) : null;
+}
+
+function ContainerTooltip({ square }: { square: ContainerSquare }) {
+  const stateLabel =
+    square.status === "ready"
+      ? "Running"
+      : square.status === "completed"
+        ? "Completed"
+        : square.status === "running"
+          ? "Running (not ready)"
+          : square.status === "waiting"
+            ? "Waiting"
+            : square.status === "terminated"
+              ? "Terminated"
+              : "Unknown";
+  const uptime =
+    square.status === "ready" || square.status === "running" ? ago(square.startedAt) : null;
+  const duration =
+    square.status === "completed" || square.status === "terminated"
+      ? ranFor(square.startedAt, square.finishedAt)
+      : null;
+  const last = square.lastTermination;
+  const restartAge = last?.finishedAt ? Date.now() - new Date(last.finishedAt).getTime() : null;
+  const restartColor =
+    restartAge !== null && restartAge < 600_000
+      ? "text-red-600 dark:text-red-400"
+      : restartAge !== null && restartAge < 3_600_000
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-orange-600 dark:text-orange-400";
+
   return (
-    <div className="flex items-center gap-1">
-      {statuses.map((container, index) => {
-        const isInit = initNames.has(container.name);
-        const previousInit = index > 0 && initNames.has(statuses[index - 1].name);
-        const waiting = container.state?.waiting?.reason;
-        const terminated = container.state?.terminated?.reason;
-        const tone = container.ready
-          ? "bg-emerald-500"
-          : waiting === "CrashLoopBackOff" || terminated === "OOMKilled"
-            ? "bg-red-500"
-            : "bg-amber-500";
+    <div className="max-w-[280px] space-y-1">
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium text-theme-text-primary">
+          {square.isInit ? <span className="font-normal text-theme-text-tertiary">init · </span> : null}
+          {square.name}
+        </span>
+        <span className="text-theme-text-tertiary">·</span>
+        <span className="text-theme-text-secondary">{stateLabel}</span>
+      </div>
+      {square.reason && square.reason !== stateLabel ? (
+        <div
+          className={
+            square.status === "waiting" || square.status === "terminated"
+              ? "font-medium text-red-600 dark:text-red-400"
+              : "text-theme-text-secondary"
+          }
+        >
+          {square.reason}
+        </div>
+      ) : null}
+      {square.message ? (
+        <div className="text-theme-text-secondary">
+          {square.message.length > 120 ? `${square.message.slice(0, 120)}…` : square.message}
+        </div>
+      ) : null}
+      {(square.exitCode !== undefined && square.status !== "ready" && square.status !== "running") ||
+      uptime ||
+      duration ? (
+        <div className="flex items-center gap-1.5 text-theme-text-tertiary">
+          {square.exitCode !== undefined && square.status !== "ready" && square.status !== "running" ? (
+            <span className={square.exitCode !== 0 ? "text-red-600 dark:text-red-400" : undefined}>
+              exit {square.exitCode}
+            </span>
+          ) : null}
+          {uptime ? <span>up {uptime.replace(" ago", "")}</span> : null}
+          {duration ? <span>ran {duration}</span> : null}
+        </div>
+      ) : null}
+      {square.restarts > 0 ? (
+        <div className={`space-y-0.5 border-t border-theme-border/50 pt-1 ${restartColor}`}>
+          <div className="flex items-center gap-1.5">
+            <span>
+              {square.restarts} restart{square.restarts === 1 ? "" : "s"}
+            </span>
+            {last?.finishedAt ? <span className="text-theme-text-tertiary">· last {ago(last.finishedAt)}</span> : null}
+          </div>
+          {last?.reason ? (
+            <div className="text-theme-text-tertiary">
+              {last.reason}
+              {last.exitCode !== undefined && last.exitCode !== 0 ? ` (exit ${last.exitCode})` : ""}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Radar's container squares: one 10px tile per container, colour by state, an
+ * orange ring while the container is restarting, and a separator between the
+ * init block and the main containers.
+ */
+function ContainersCell({ object }: { object: AnyObject }) {
+  const squares = containerSquares(object);
+  if (squares.length === 0) return <span className="text-sm text-theme-text-tertiary">–</span>;
+  const hasInit = squares.some((square) => square.isInit);
+  return (
+    <div className="flex w-full items-center justify-center gap-1">
+      {squares.map((square, index) => {
+        const showSeparator = hasInit && index > 0 && Boolean(square.isInit) !== Boolean(squares[index - 1].isInit);
+        const background =
+          square.status === "ready"
+            ? "bg-emerald-500"
+            : square.status === "completed"
+              ? "border border-theme-text-tertiary/60 bg-theme-text-tertiary/30"
+              : square.status === "running"
+                ? "bg-amber-500"
+                : square.status === "waiting" || square.status === "terminated"
+                  ? "bg-red-500"
+                  : "border border-dashed border-theme-text-tertiary";
         return (
-          <span key={container.name} className="flex items-center">
-            {index > 0 && isInit !== previousInit ? (
-              <span className="mx-0.5 h-3 w-px bg-theme-border" aria-hidden />
+          <Fragment key={`${square.name}-${index}`}>
+            {showSeparator ? (
+              <span className="mx-0.5 h-3 w-px bg-theme-text-tertiary/40" aria-hidden />
             ) : null}
-            <span
-              title={`${isInit ? "init · " : ""}${container.name}: ${container.ready ? "Ready" : (waiting ?? terminated ?? "Not ready")}${container.restartCount ? ` · restarts ${container.restartCount}` : ""}`}
-              className={cn(
-                "h-3 w-1.5 rounded-[1px]",
-                tone,
-                isInit && "outline outline-1 outline-offset-2 outline-theme-text-disabled/60",
-              )}
-            />
-          </span>
+            <Tooltip content={<ContainerTooltip square={square} />} wrapperClassName="shrink-0">
+              <span className={cn("h-2.5 w-2.5 rounded-sm", background, square.restarts > 0 && "ring-2 ring-orange-400")} />
+            </Tooltip>
+          </Fragment>
         );
       })}
-      <span className="ml-1 font-mono text-[11px] text-theme-text-tertiary">
-        {mainStatuses.filter((container) => container.ready).length}/{mainStatuses.length}
-        {initStatuses.length > 0 ? (
-          <span className="ml-1 text-theme-text-disabled">+{initStatuses.length} init</span>
-        ) : null}
-      </span>
     </div>
   );
 }
@@ -310,7 +462,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "containers",
           label: "Containers",
-          width: 132,
+          width: 102,
           cell: (object) => <ContainersCell object={object} />,
           value: (object) => podContainers(object).filter((container) => container.ready).length,
         },
@@ -319,6 +471,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "ports",
           label: "Ports",
           width: 132,
+          defaultHidden: true,
           value: (object) =>
             ((object.spec?.containers ?? []) as Array<Record<string, any>>)
               .flatMap((container) => container.ports ?? [])
@@ -690,7 +843,8 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "ports",
           label: "Ports",
-          width: 190,
+          width: 140,
+          
           value: (object) =>
             ((object.spec?.ports ?? []) as Array<{ port: number; protocol?: string; nodePort?: number }>)
               .map((port) => `${port.port}${port.nodePort ? `:${port.nodePort}` : ""}/${port.protocol ?? "TCP"}`)
@@ -708,7 +862,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "selector",
           label: "Selector",
           width: 230,
-          defaultHidden: true,
+          // defaultHidden: true,
           value: (object) =>
             Object.entries((object.spec?.selector ?? {}) as Record<string, string>)
               .map(([key, value]) => `${key}=${value}`)
@@ -846,31 +1000,56 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           filterValue: (object) => nodeRoles(object)[0],
         },
         {
-          key: "version",
-          label: "Version",
-          width: 120,
-          sortable: true,
-          value: (object) => object.status?.nodeInfo?.kubeletVersion ?? "",
-          cell: (object) => <Mono>{object.status?.nodeInfo?.kubeletVersion ?? "–"}</Mono>,
-          filterValue: (object) => object.status?.nodeInfo?.kubeletVersion,
-        },
-        {
           key: "cpu",
           label: "CPU",
-          width: 88,
-          align: "right",
+          width: 196,
+          tooltip: "Current CPU usage / allocatable",
           sortable: true,
-          value: (object) => parseCpu(object.status?.capacity?.cpu) ?? 0,
-          cell: (object) => <Mono>{object.status?.capacity?.cpu ?? "–"}</Mono>,
+          value: (object, context) => {
+            const sample = context?.nodeMetrics?.get(object.metadata?.name ?? "");
+            if (sample && sample.cpu > 0) return sample.cpu;
+            return parseCpu(object.status?.allocatable?.cpu) ?? 0;
+          },
+          cell: (object, context) => {
+            const sample = context.nodeMetrics?.get(object.metadata?.name ?? "");
+            const allocatable = parseCpu(object.status?.allocatable?.cpu) ?? 0;
+            if (!sample || sample.cpu <= 0 || allocatable <= 0) {
+              return <span className="text-sm text-theme-text-tertiary">–</span>;
+            }
+            return (
+              <ResourceBar
+                used={formatCpu(sample.cpu)}
+                total={formatCpu(allocatable)}
+                percent={(sample.cpu / allocatable) * 100}
+              />
+            );
+          },
         },
         {
           key: "memory",
           label: "Memory",
-          width: 104,
-          align: "right",
+          width: 196,
+          tooltip: "Current memory usage / allocatable",
           sortable: true,
-          value: (object) => parseMemory(object.status?.capacity?.memory) ?? 0,
-          cell: (object) => <Mono>{object.status?.capacity?.memory ?? "–"}</Mono>,
+          value: (object, context) => {
+            const sample = context?.nodeMetrics?.get(object.metadata?.name ?? "");
+            if (sample && sample.memory > 0) return sample.memory;
+            return parseMemory(object.status?.allocatable?.memory) ?? 0;
+          },
+          cell: (object, context) => {
+            const sample = context.nodeMetrics?.get(object.metadata?.name ?? "");
+            const allocatable = parseMemory(object.status?.allocatable?.memory) ?? 0;
+            if (!sample || sample.memory <= 0 || allocatable <= 0) {
+              return <span className="text-sm text-theme-text-tertiary">–</span>;
+            }
+            return (
+              <ResourceBar
+                used={formatBytes(sample.memory)}
+                total={formatBytes(allocatable)}
+                percent={(sample.memory / allocatable) * 100}
+              />
+            );
+          },
         },
         {
           key: "pods",
@@ -880,6 +1059,31 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           sortable: true,
           value: (object) => parseCpu(object.status?.capacity?.pods) ?? 0,
           cell: (object) => <Mono>{object.status?.capacity?.pods ?? "–"}</Mono>,
+        },
+        {
+          key: "conditions",
+          label: "Conditions",
+          width: 190,
+          value: (object) => nodeConditionSummary(object).text,
+          cell: (object) => <NodeConditionsCell object={object} />,
+          filterValue: (object) => nodeConditionSummary(object).text,
+        },
+        {
+          key: "taints",
+          label: "Taints",
+          width: 170,
+          value: (object) => nodeTaints(object).map((taint) => taint.text).join(", "),
+          cell: (object) => <NodeTaintsCell object={object} />,
+          filterValue: (object) => nodeTaints(object).map((taint) => taint.effect).join(",") || "none",
+        },
+        {
+          key: "version",
+          label: "Version",
+          width: 120,
+          sortable: true,
+          value: (object) => object.status?.nodeInfo?.kubeletVersion ?? "",
+          cell: (object) => <Mono>{object.status?.nodeInfo?.kubeletVersion ?? "–"}</Mono>,
+          filterValue: (object) => object.status?.nodeInfo?.kubeletVersion,
         },
         {
           key: "os",
@@ -1396,6 +1600,83 @@ export function nodeRoles(node: AnyObject): string[] {
     .filter((key) => key.startsWith("node-role.kubernetes.io/"))
     .map((key) => key.replace("node-role.kubernetes.io/", ""))
     .filter(Boolean);
+}
+
+/** Pressure/network conditions that are only a problem while they are True. */
+const NODE_PRESSURE_CONDITIONS = ["DiskPressure", "MemoryPressure", "PIDPressure", "NetworkUnavailable"];
+
+/**
+ * Radar's node conditions: genuine problems only — a cordoned node is an
+ * intentional operator action and is surfaced by the Status badge instead.
+ */
+export function nodeConditionSummary(node: AnyObject): { healthy: boolean; problems: string[]; text: string } {
+  const conditions = (node.status?.conditions ?? []) as Array<Record<string, any>>;
+  const problems: string[] = [];
+  let readiness = "Unknown";
+  for (const condition of conditions) {
+    if (condition.type === "Ready") {
+      readiness = condition.status === "True" ? "Ready" : condition.status === "False" ? "NotReady" : "Unknown";
+      if (condition.status !== "True") {
+        problems.push(`Node is ${readiness}${condition.message ? `: ${condition.message}` : ""}`);
+      }
+    }
+    if (condition.status === "True" && NODE_PRESSURE_CONDITIONS.includes(condition.type)) {
+      const label =
+        condition.type === "DiskPressure"
+          ? "Disk pressure"
+          : condition.type === "MemoryPressure"
+            ? "Memory pressure"
+            : condition.type === "PIDPressure"
+              ? "PID pressure"
+              : "Network unavailable";
+      problems.push(`${label}${condition.message ? `: ${condition.message}` : ""}`);
+    }
+  }
+  const healthy = problems.length === 0 && readiness === "Ready";
+  return { healthy, problems, text: healthy ? "Healthy" : problems.length ? problems.join(", ") : readiness };
+}
+
+export interface NodeTaint {
+  text: string;
+  effect: string;
+}
+
+export function nodeTaints(node: AnyObject): NodeTaint[] {
+  const taints = (node.spec?.taints ?? []) as Array<Record<string, any>>;
+  return taints.map((taint) => ({
+    text: `${taint.key ?? ""}${taint.value ? `=${taint.value}` : ""}:${taint.effect ?? "All"}`,
+    effect: taint.effect ?? "All",
+  }));
+}
+
+function NodeConditionsCell({ object }: { object: AnyObject }) {
+  const summary = nodeConditionSummary(object);
+  if (summary.healthy) {
+    return <span className="text-sm text-emerald-600 dark:text-emerald-400">Healthy</span>;
+  }
+  if (summary.problems.length > 0) {
+    return (
+      <span
+        className="block truncate text-sm text-amber-600 dark:text-amber-400"
+        title={summary.problems.join("\n")}
+      >
+        {summary.problems.join(", ")}
+      </span>
+    );
+  }
+  return <span className="text-sm text-theme-text-secondary">{summary.text}</span>;
+}
+
+function NodeTaintsCell({ object }: { object: AnyObject }) {
+  const taints = nodeTaints(object);
+  if (taints.length === 0) return <span className="text-sm text-theme-text-secondary">&lt;none&gt;</span>;
+  const [first, ...rest] = taints;
+  return (
+    <span className="block truncate text-sm text-amber-600 dark:text-amber-400" title={taints.map((taint) => taint.text).join("\n")}>
+      {first.text}
+      {rest.length > 0 ? <span className="text-theme-text-tertiary"> +{rest.length}</span> : null}
+    </span>
+  );
 }
 
 function printerValue(object: AnyObject, jsonPath: string | undefined, type: string): string | number | undefined {

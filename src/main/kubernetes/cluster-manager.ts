@@ -12,6 +12,8 @@ import type {
   ListResourcesResult,
   NamespaceInfo,
   PodContainerInfo,
+  RbacSubjectRequest,
+  RbacSubjectResponse,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -25,6 +27,7 @@ import { ClusterConnection } from "./session";
 import { ResourceWatcher } from "./resource-watcher";
 import { LogStreams } from "./log-streams";
 import { ExecSessions } from "./exec-sessions";
+import { rbacSubject } from "./rbac";
 import type { SettingsStore } from "../settings/store";
 
 interface ConnectedSession {
@@ -412,6 +415,17 @@ export class ClusterManager {
         startedAt: state.running?.startedAt ?? state.terminated?.startedAt,
       };
     });
+  }
+
+  /** Effective RBAC permissions for a ServiceAccount (Radar's reverse lookup). */
+  async rbacSubject(request: RbacSubjectRequest): Promise<RbacSubjectResponse> {
+    if (typeof request.namespace !== "string" || !request.namespace) {
+      throw new Error("A ServiceAccount namespace is required.");
+    }
+    if (typeof request.name !== "string" || !request.name) {
+      throw new Error("A ServiceAccount name is required.");
+    }
+    return rbacSubject(this.connection(request.clusterId), request);
   }
 
   /** Serialize an object for the YAML tab (server JSON -> YAML). */

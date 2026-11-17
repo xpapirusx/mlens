@@ -137,9 +137,19 @@ editors are `no-drag`, so selection, scrolling and editing keep working.
 
 - 75px rail, deepest surface token (`--bg-sidebar`); cells are 40×40px with
   12px margins, like Freelens.
-- The rail has **10 slots** and shows favourite clusters only, like Freelens. Open
-  clusters live in the top cluster-tab strip. Favourite tiles can be dragged to
-  reorder them (persisted in `hotbarOrder`); empty slots open the catalog.
+- The rail has **10 slots per page** and shows favourite clusters only, like
+  Freelens. Open clusters live in the top cluster-tab strip. Favourite tiles can
+  be dragged to reorder them (persisted in `hotbarOrder`); empty slots open the
+  catalog.
+- **Pages** follow Freelens' multiple hotbars: favourites that do not fit flow
+  into the following pages automatically, so no favourite is ever lost. A
+  selector under the tiles shows `‹ N ›` — arrows switch page, and the number
+  badge opens the page list with *New page* / *Remove this page* (up to twelve
+  pages, each persisted in `settings.hotbarPages`). The visible page index lives
+  in `settings.hotbarPageIndex`.
+- The tile area scrolls vertically when the window is short: the scrollbar
+  gutter is reserved on both edges and the thumb only appears on hover, so
+  tiles never shift sideways (Freelens' `.HotbarItems` behaviour).
 - Each cell: a solid seeded-colour tile (`hsl(FNV1a(name) , 60%, 27%)`) with the
   Freelens three-letter short name (`msk-avg-dev…` → `MAD`), a status LED at the
   top-left with a glow when connected, a press animation on click (empty slots
@@ -213,10 +223,16 @@ contains a single kind.
 - Collapsed height 34px, default open height 340px, minimum 140px, drag handle on
   the top edge.
 - Tab strip: terminal icon + title + close; “new terminal”, maximise, collapse.
+- The plus button opens a local shell immediately in the current context, keeping
+  Lens' one-click behaviour. The adjacent chevron and `⌘⇧T` open the **terminal
+  context launcher**: local shell or pod exec, with an explicit cluster context,
+  namespace (or the context default), and — for pod exec — pod, container and
+  shell command. The launcher is also offered from the empty dock state.
 - All terminal tabs stay mounted; only the active one is visible, so scrollback
   and PTY state survive switching.
 - Local shells and pod exec share the same dock, visually identical to Radar's
-  console.
+  console. The per-tab header shows the cluster context and namespace so a
+  cross-cluster session is never ambiguous.
 - Double-clicking the dock header collapses/expands it.
 
 ### 2.7 Details drawer
@@ -244,7 +260,8 @@ contains a single kind.
 |---|---|
 | `⌘K` / `Ctrl+K` | Command palette |
 | `⌘,` / `Ctrl+,` | Settings |
-| `⌘T` / `Ctrl+T` | New local terminal |
+| `⌘T` / `Ctrl+T` | New local terminal in the current context |
+| `⌘⇧T` / `Ctrl+Shift+T` | New terminal in a chosen cluster/namespace context |
 | `⌘W` / `Ctrl+W` | Close details drawer (when open) |
 | `Escape` | Close details |
 | `/` | Focus table search (when not typing) |
@@ -380,9 +397,22 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Discovered custom kinds show the kind name as-is in the sidebar; the tooltip
   carries `<apiVersion> <Kind> (CRD)`. Built-in kinds win over same-named CRDs
   (e.g. `v1 Node` is the Nodes row, a CRD called Node lives in its API group).
-- Pod Containers cells mark init containers with an outlined square, a separator
-  and a `+N init` count; the Pod Overview has a dedicated **Init containers**
-  section with numbered, amber-edged cards.
+- Pod Containers cells are Radar's container squares: one 10px tile per
+  container centred in the cell, coloured by state (green ready, yellow running
+  but not ready, red waiting/terminated, grey-with-border completed, dashed
+  unknown), an orange ring while `restartCount > 0`, and a hairline separator
+  between the init block and the main containers. The tooltip carries the full
+  story — `init · name`, state, reason, message, exit code, uptime/duration and
+  the last termination (reason + exit code) that explains a CrashLoopBackOff.
+  The Pod Overview keeps its dedicated **Init containers** section with
+  numbered, amber-edged cards.
+- Node columns follow Radar: CPU and Memory are usage ÷ allocatable bullet bars
+  from `metrics.k8s.io` (falling back to allocatable for sorting when metrics
+  are absent), plus **Conditions** (green `Healthy`, otherwise the actual
+  problems — Disk/Memory/PID pressure, NetworkUnavailable, NotReady) and
+  **Taints** (`key=value:effect`, amber, with the count in the tooltip). Pods
+  stays a plain capacity number because a per-node running count would need a
+  cluster-wide pod list per table render.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
 - Status is surfaced three ways: the status badge column, per-column status
@@ -398,9 +428,10 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   Pause/Resume rollout for Deployment, Suspend/Resume for Job/CronJob. Radar does
   not offer Restart on ReplicaSets: their pod template is owned by the Deployment,
   which reconciles the patch away, so a "restart" there is not a real rollout.
-- CPU and Memory columns use Radar's bullet-bar pattern: usage / limit, request
-  marker, percentage, and a per-container tooltip. Without metrics the cell shows
-  “–”; there are no synthetic values. Row height is configurable (24–52px).
+- Pod CPU and Memory columns use Radar's bullet-bar pattern: usage / limit,
+  request marker, percentage, and a per-container tooltip; Node CPU/Memory use
+  usage ÷ allocatable. Without metrics the cell shows “–”; there are no
+  synthetic values. Row height is configurable (24–52px).
 - Resource kind favorites are pinned in a Favorites section; the pin appears on
   row hover and is stored in settings.
 - Column order is editable up/down in the column picker and stored per kind, so
@@ -437,11 +468,32 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   (node selector, tolerations and affinity rendered as aligned rows, not raw
   overflowing JSON). Workloads: replicas, rollout state, conditions, container
   template, and a Scale + Pause/Resume action row (Radar places Scale in the
-  Status section). Node: Radar-style Capacity cards (CPU, Memory, Pods, Storage
-  with allocatable values and bars), conditions, system info, taints and a
-  Cordon/Uncordon action. Plus Services, Ingresses, ConfigMap/Secret (with
-  explicit reveal), storage, CRDs, HPA, Jobs (with Suspend/Resume), events,
-  generic CRDs.
+  Status section). Node: see the Node bullet below. Plus Services, Ingresses,
+  ConfigMap/Secret (with explicit reveal), storage, CRDs, HPA, Jobs (with
+  Suspend/Resume), events, generic CRDs.
+- **Node** — Radar's node composition: an **Issues** banner when a condition is
+  genuinely failing (NotReady, Disk/Memory/PID pressure, NetworkUnavailable — a
+  cordoned node is not an error and gets its own calm **Cordoned** banner
+  instead), then Status (pill, schedulable, roles, age), Node info (OS,
+  architecture, kernel, container runtime, kubelet), Capacity cards with
+  Capacity / Allocatable / **In use** rows, Resource usage (live metrics.k8s.io
+  CPU and memory against allocatable, or the exact reason the API is absent),
+  **Pods on this node** (live `spec.nodeName` list with status badges, first 30
+  then “Show all”, click opens the Pod, count in the header), Addresses,
+  Platform (instance type, zone, region, node pool, machine family — only when
+  those labels exist), Taints and Conditions. Cordon/Uncordon and Drain stay in
+  the drawer's kind-action row.
+- **Permissions via ServiceAccount** — Radar's reverse-lookup section at the
+  bottom of Pod and workload Overviews: `Permissions via ServiceAccount: <name>`
+  with the one-line summary (`N direct bindings · N inherited via groups · N
+  distinct rules`, `(truncated)` past 500), the five most permissive rules as
+  verb/resource/api-group chips, and a **Blast radius** banner (cluster-admin,
+  cluster-wide verb wildcard, escalation verbs, cluster-wide `create pods`)
+  that auto-expands the section only when something is actually risky. Data
+  comes from the `kube:rbac-subject` IPC (Role/ClusterRole/RoleBinding/
+  ClusterRoleBinding lists behind a 10s per-cluster snapshot, implicit
+  `system:authenticated` / `system:serviceaccounts[:ns]` groups folded in); a
+  denied read is a calm note, not an error.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
 - **YAML** — Monaco, read-only by default, edit + dry-run + apply. The editor
   has its own find/replace bar (built on `model.findMatches`, because the
@@ -486,6 +538,10 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   (context + selected namespace) generated with 0600 permissions, so kubectl and
   Helm clients inside the shell target the open cluster. Pod shells are real
   Kubernetes exec over WebSocket with resize frames.
+- The terminal context launcher can target any connected cluster session, not
+  just the active workspace. For pod exec it lists pods in the chosen namespace
+  (limit 1000, alphabetical) and their containers through the same live API, so
+  no terminal feature depends on kubectl.
 - Logs are DOM text (not xterm), DM Mono 11px, numbered, with a forced dark
   palette, matching Radar's “console is not chrome” rule.
 

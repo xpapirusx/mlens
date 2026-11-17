@@ -10,6 +10,7 @@ import type {
   ListResourcesRequest,
   LocalTerminalRequest,
   LogRequest,
+  RbacSubjectRequest,
   ResourceCountRequest,
   ResourceKey,
   RestartRequest,
@@ -195,6 +196,10 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
       assertString(namespace, "namespace"),
       assertString(name, "name"),
     ),
+  );
+
+  ipcMain.handle(IPC.rbacSubject, (_event, raw: unknown) =>
+    clusters.rbacSubject(assertObject<RbacSubjectRequest>(raw, "request")),
   );
 
   // ── Logs ──────────────────────────────────────────────────────

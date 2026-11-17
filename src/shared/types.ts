@@ -315,8 +315,12 @@ export interface AppSettings {
   favoriteKinds: string[];
   hiddenClusters: ClusterId[];
   hotbarOrder: ClusterId[];
-  /** Ten hotbar positions; null is an empty slot. */
+  /** Ten hotbar positions; null is an empty slot. Mirrors the active page. */
   hotbarSlots: Array<ClusterId | null>;
+  /** Freelens-style hotbar pages: each page holds up to ten slots. */
+  hotbarPages: Array<Array<ClusterId | null>>;
+  /** Index of the hotbar page currently shown on the rail. */
+  hotbarPageIndex: number;
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;
@@ -366,4 +370,60 @@ export interface ExecSessionConfig {
   pod: string;
   container: string;
   command?: string;
+}
+
+// ── RBAC reverse lookup (effective permissions for a subject) ────────────────
+// Mirrors the wire shape of Radar's /api/rbac/subject endpoint.
+
+export interface RbacSubjectRequest {
+  clusterId: ClusterId;
+  /** Only ServiceAccount subjects are supported today. */
+  kind: "ServiceAccount";
+  namespace: string;
+  name: string;
+}
+
+export interface RbacPolicyRule {
+  verbs?: string[];
+  apiGroups?: string[];
+  resources?: string[];
+  resourceNames?: string[];
+  nonResourceURLs?: string[];
+}
+
+export interface RbacRoleRef {
+  kind: string;
+  namespace?: string;
+  name: string;
+}
+
+export interface RbacBindingRef {
+  kind: string;
+  namespace?: string;
+  name: string;
+  roleRef: RbacRoleRef;
+}
+
+export interface RbacBindingRules {
+  binding: RbacBindingRef;
+  role: RbacRoleRef;
+  rules: RbacPolicyRule[];
+  /** Set when a RoleBinding points at a ClusterRole: rules apply only here. */
+  scopeNamespace?: string;
+  /** Implicit group that brought the binding in; absent for direct grants. */
+  inheritedFromGroup?: string;
+}
+
+export interface RbacInheritedGroup {
+  groupName: string;
+  bindings: RbacBindingRules[];
+}
+
+export interface RbacSubjectResponse {
+  subject: { kind: string; namespace?: string; name: string };
+  direct: RbacBindingRules[];
+  inheritedFromGroups: RbacInheritedGroup[];
+  /** Deduplicated rules across every binding, capped at 500. */
+  flat: RbacPolicyRule[];
+  truncated: boolean;
 }

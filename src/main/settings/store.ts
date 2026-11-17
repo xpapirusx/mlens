@@ -46,6 +46,8 @@ export function defaultSettings(): AppSettings {
     hiddenClusters: [],
     hotbarOrder: [],
     hotbarSlots: [],
+    hotbarPages: [[]],
+    hotbarPageIndex: 0,
     sidebarGroupOrder: [],
     tableColumnWidths: {},
     tableColumnOrder: {},
@@ -100,6 +102,18 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
       .slice(0, 10)
       .map((entry) => (typeof entry === "string" ? entry : null));
   }
+  if (out.hotbarPages) {
+    out.hotbarPages = (Array.isArray(out.hotbarPages) ? out.hotbarPages : [])
+      .slice(0, 12)
+      .filter((page) => Array.isArray(page))
+      .map((page) => page.slice(0, 10).map((entry) => (typeof entry === "string" ? entry : null)));
+    if (out.hotbarPages.length === 0) out.hotbarPages = [[]];
+  }
+  if (typeof out.hotbarPageIndex === "number" && Number.isFinite(out.hotbarPageIndex)) {
+    out.hotbarPageIndex = Math.max(0, Math.round(out.hotbarPageIndex));
+  } else if (out.hotbarPageIndex !== undefined) {
+    delete out.hotbarPageIndex;
+  }
   if (out.sidebarGroupOrder) {
     out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");
   }
@@ -132,7 +146,18 @@ export class SettingsStore {
     const defaults = defaultSettings();
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, "utf8")) as Partial<AppSettings>;
-      return { ...defaults, ...sanitize(raw) };
+      const state = { ...defaults, ...sanitize(raw) };
+      // Migration: settings written before hotbar pages existed carry a single
+      // `hotbarSlots` array — it becomes page one.
+      if (!state.hotbarPages.some((page) => page.some(Boolean)) && state.hotbarSlots.length > 0) {
+        state.hotbarPages = [state.hotbarSlots.slice(0, 10)];
+      }
+      if (state.hotbarPages.length === 0) state.hotbarPages = [[]];
+      state.hotbarPageIndex = Math.min(
+        Math.max(0, state.hotbarPageIndex),
+        state.hotbarPages.length - 1,
+      );
+      return state;
     } catch {
       return defaults;
     }
@@ -153,11 +178,18 @@ export class SettingsStore {
   }
 
   update(patch: Partial<AppSettings>): AppSettings {
-    this.state = { ...this.state, ...sanitize(patch) };
+    const next = { ...this.state, ...sanitize(patch) };
+    // Hotbar pages are authoritative; `hotbarSlots` mirrors the visible page
+    // so older readers (and the docs) keep working.
+    if (next.hotbarPages.length > 0) {
+      next.hotbarPageIndex = Math.min(Math.max(0, next.hotbarPageIndex), next.hotbarPages.length - 1);
+      next.hotbarSlots = [...next.hotbarPages[next.hotbarPageIndex]];
+    }
+    this.state = next;
     this.persist();
-    const next = this.get();
-    for (const listener of this.listeners) listener(next);
-    return next;
+    const value = this.get();
+    for (const listener of this.listeners) listener(value);
+    return value;
   }
 
   onChange(listener: (settings: AppSettings) => void): () => void {

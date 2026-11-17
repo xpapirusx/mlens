@@ -119,6 +119,7 @@ string literals scattered across the code.
 | `clusters` | list kubeconfigs + contexts, import file dialog, import path, import pasted YAML, remove source, connect, disconnect, health, namespaces |
 | `resources` | discover, list (filters/paging), get, watch/unwatch, counts, delete, apply YAML, scale, restart, watch events |
 | `pods` | container list |
+| `rbac` | effective ServiceAccount permissions: direct + group-inherited bindings and the flattened rule set |
 | `logs` | start/stop stream, chunk/end events |
 | `exec` | start, input, resize, close, data/exit events |
 | `terminal` | create, input, resize, close, data/exit events |
@@ -284,10 +285,11 @@ Freelens' per-cluster terminal, without a proxy binary.
 ### 4.11 Metrics for tables
 
 `useResourceMetrics` reads `metrics.k8s.io/v1beta1` `PodMetrics`/`NodeMetrics`
-for the current namespace scope, maps samples by `namespace/name`, and refreshes
-at the table poll interval. CPU/memory cells aggregate container usage and
-compare it with summed requests/limits from the Pod spec (request marker), or
-node allocatable for Nodes. Missing metrics render `–`; there is no fallback to
+for the current namespace scope (Pod tables) or cluster-wide (Node tables), maps
+samples by `namespace/name` and by node name, and refreshes at the table poll
+interval. CPU/memory cells aggregate container usage and compare it with summed
+requests/limits from the Pod spec (request marker), or show node usage against
+allocatable for Nodes. Missing metrics render `–`; there is no fallback to
 synthetic numbers. The whole metrics query is skipped when the metrics API is not
 discovered or the workspace is hidden.
 
@@ -316,6 +318,28 @@ REST path; RBAC failures are reported as warnings instead of inventing links.
 
 No kubectl process and no SPDY implementation are involved. Limits: TCP only,
 one port per forward, loopback bind.
+
+### 4.14 RBAC reverse lookup
+
+`rbacSubject(connection, { namespace, name })` answers "what can this
+ServiceAccount actually do": it lists Roles, ClusterRoles, RoleBindings and
+ClusterRoleBindings (paged, `limit=500`, up to 20 pages), resolves each binding
+to its rules, and reports
+
+- `direct` — bindings whose subject is the ServiceAccount;
+- `inheritedFromGroups` — bindings that reach it through the implicit groups
+  every ServiceAccount belongs to (`system:authenticated`,
+  `system:serviceaccounts`, `system:serviceaccounts:<ns>`), each tagged with
+  the group that brought it in;
+- `flat` — deduplicated rules across both, capped at 500 with `truncated`;
+- `scopeNamespace` when a RoleBinding points at a ClusterRole, so the UI never
+  presents a namespace-scoped grant as cluster-wide.
+
+The four cluster lists are cached per cluster for 10 seconds (a failed fetch is
+not cached), so opening several Pods costs one burst. The renderer shows the
+result as the "Permissions via ServiceAccount" section on Pod and workload
+Overviews; a 403 is rendered as a calm note rather than an error, because
+reading RBAC is a bonus feature.
 
 node-pty's prebuilt `spawn-helper` must be executable; `scripts/postinstall.cjs`
 enforces that because `pnpm --ignore-scripts` (used in some CI setups) skips

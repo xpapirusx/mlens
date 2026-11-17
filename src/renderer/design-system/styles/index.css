@@ -174,6 +174,30 @@
   animation: hotbar-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
+/* ── Hotbar rail scrolling (Freelens) ────────────────────────────────────────
+   A page holds ten tiles; when the window is short the rail scrolls instead of
+   clipping. The gutter is reserved on both edges and the thumb stays invisible
+   until the rail is hovered, so nothing shifts sideways on hover. */
+.hotbar-scroll {
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.hotbar-scroll:hover {
+  scrollbar-color: var(--border-default) transparent;
+}
+.hotbar-scroll::-webkit-scrollbar {
+  width: 0.4em;
+  background: transparent;
+}
+.hotbar-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 0.2em;
+}
+.hotbar-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+}
+
 /* ── Window dragging ─────────────────────────────────────────────────────────
    The whole shell is a drag region so the window can be moved from any
    chrome/background area. Interactive controls, table rows, scroll areas,

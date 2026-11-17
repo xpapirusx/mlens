@@ -35,6 +35,7 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
     title: "Terminal",
     rows: [
       { keys: ["⌘", "T"], label: "New local terminal" },
+      { keys: ["⌘", "⇧", "T"], label: "New terminal in a chosen context" },
       { keys: ["⌘", "F"], label: "Terminal search" },
       { keys: ["⌘", "C"], label: "Copy terminal selection" },
       { keys: ["⌘", "V"], label: "Paste into terminal" },
