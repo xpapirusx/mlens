@@ -127,10 +127,11 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs row (open clusters) and resource tabs row (open resources) follow
   the Lens mental model while using Radar sizing/typography.
 - Resource list lives in the main pane; clicking a row opens the right drawer.
-- Details keeps Freelens' drawer placement but uses Radar's action set:
-  right-aligned header icons (Pods: Logs/Exec/Forward; workloads:
-  Scale/Restart/Pause/Resume; Jobs/CronJobs: Suspend/Resume; Nodes:
-  Cordon/Uncordon; Delete next to Close), YAML and Related as tabs.
+- Details keeps Freelens' drawer placement but uses Radar's action set: a
+  right-aligned labelled action row under the name (Pods: Logs/Exec/Forward;
+  workloads: Scale/Restart/Set image/Pause/Resume; Jobs/CronJobs:
+  Suspend/Resume/Trigger/Set image; Nodes: Cordon/Uncordon/Drain), Delete next
+  to Close in the header, YAML and Related as tabs.
   Env references are peekable inline; ConfigMaps/Secrets have a key/value editor.
 - Logs are available for Pods only. Pods show environment variables; ConfigMaps
   and Secrets have a key/value editor (Secrets decoded/encoded transparently).

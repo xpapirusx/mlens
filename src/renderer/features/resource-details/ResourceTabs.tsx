@@ -1,4 +1,5 @@
-import { X } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useSessionStore, sameRef } from "../../stores/session-store";
 import { getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
@@ -8,11 +9,28 @@ export function ResourceTabs({ clusterId }: { clusterId: string }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const activateResource = useSessionStore((state) => state.activateResource);
   const closeResourceTab = useSessionStore((state) => state.closeResourceTab);
+  const [collapsed, setCollapsed] = useState(false);
   const resources = session?.resources ?? [];
   const tabs = session?.resourceTabs ?? [];
   const active = session?.details?.ref ?? null;
 
   if (tabs.length === 0) return null;
+
+  if (collapsed) {
+    return (
+      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-base px-2">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-[10px] text-theme-text-tertiary hover:text-theme-text-primary"
+          title="Expand open resource tabs"
+          onClick={() => setCollapsed(false)}
+        >
+          <ChevronDown className="h-3 w-3" />
+          {tabs.length} open resource{tabs.length === 1 ? "" : "s"}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-8 shrink-0 items-center gap-1 overflow-x-auto border-b border-theme-border bg-theme-base px-2">
@@ -53,6 +71,14 @@ export function ResourceTabs({ clusterId }: { clusterId: string }) {
           </div>
         );
       })}
+      <button
+        type="button"
+        className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+        title="Collapse open resource tabs"
+        onClick={() => setCollapsed(true)}
+      >
+        <ChevronUp className="h-3 w-3" />
+      </button>
     </div>
   );
 }

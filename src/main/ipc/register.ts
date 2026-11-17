@@ -172,6 +172,9 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
   ipcMain.handle(IPC.resourcesRestart, (_event, raw: unknown) =>
     clusters.restart(assertObject<RestartRequest>(raw, "request")),
   );
+  ipcMain.handle(IPC.resourcesEvict, (_event, raw: unknown) =>
+    clusters.evict(assertObject<import("@shared/types").EvictPodRequest>(raw, "request")),
+  );
 
   ipcMain.handle(IPC.portForwardStart, (_event, raw: unknown) => {
     const request = assertObject<import("@shared/types").PortForwardRequest>(raw, "request");

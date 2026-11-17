@@ -4,6 +4,7 @@ import {
   Blocks,
   Command,
   Download,
+  Loader2,
   Moon,
   Search,
   Server,
@@ -17,6 +18,7 @@ import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { getKindIcon, kindLabel } from "../lib/icons";
 import { openCluster, disconnectCluster } from "../lib/cluster-actions";
+import { api, call } from "../lib/api";
 import { cn } from "../lib/cn";
 
 interface PaletteCommand {
@@ -48,9 +50,12 @@ export function CommandPalette({
   const selectKind = useSessionStore((state) => state.selectKind);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const closeDetails = useSessionStore((state) => state.closeDetails);
+  const openDetails = useSessionStore((state) => state.openDetails);
 
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
+  const [resourceHits, setResourceHits] = useState<PaletteCommand[]>([]);
+  const [searchingResources, setSearchingResources] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,10 +177,94 @@ export function CommandPalette({
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return commands.slice(0, 200);
-    return commands
+    const matches = commands
       .filter((command) => `${command.label} ${command.group} ${command.hint ?? ""}`.toLowerCase().includes(term))
       .slice(0, 200);
-  }, [commands, query]);
+    return [...resourceHits, ...matches].slice(0, 200);
+  }, [commands, query, resourceHits]);
+
+  // Global resource search: fan out to a curated set of kinds while the query
+  // is being typed. Results are capped and debounced so this never becomes a
+  // background poll.
+  useEffect(() => {
+    if (!open || !activeClusterId || !session?.resources?.length) {
+      setResourceHits([]);
+      setSearchingResources(false);
+      return;
+    }
+    const term = query.trim().toLowerCase();
+    if (term.length < 2) {
+      setResourceHits([]);
+      setSearchingResources(false);
+      return;
+    }
+    let disposed = false;
+    const resources = session.resources;
+    const wanted = [
+      "Pod",
+      "Deployment",
+      "StatefulSet",
+      "DaemonSet",
+      "Job",
+      "CronJob",
+      "Service",
+      "Ingress",
+      "ConfigMap",
+      "PersistentVolumeClaim",
+      "Node",
+    ];
+    const kinds = wanted
+      .map((kind) => resources.find((entry) => entry.kind === kind && entry.verbs.includes("list")))
+      .filter((entry): entry is (typeof resources)[number] => Boolean(entry));
+    setSearchingResources(true);
+    const timer = window.setTimeout(async () => {
+      const settled = await Promise.allSettled(
+        kinds.map((entry) =>
+          call(
+            api.resources.list({
+              clusterId: activeClusterId,
+              apiVersion: entry.apiVersion,
+              kind: entry.kind,
+              limit: 200,
+            }),
+          ),
+        ),
+      );
+      if (disposed) return;
+      const hits: PaletteCommand[] = [];
+      settled.forEach((result, kindIndex) => {
+        if (result.status !== "fulfilled") return;
+        const entry = kinds[kindIndex];
+        const Icon = getKindIcon(entry.kind, entry.group);
+        for (const object of result.value.items) {
+          const name = object.metadata?.name ?? "";
+          if (!name.toLowerCase().includes(term)) continue;
+          hits.push({
+            id: `object-${entry.apiVersion}-${entry.kind}-${object.metadata?.namespace ?? ""}-${object.metadata?.uid ?? name}`,
+            label: name,
+            group: `Resources · ${kindLabel(entry.kind, entry.plural)}`,
+            hint: object.metadata?.namespace ?? entry.apiVersion,
+            icon: <Icon className="h-3.5 w-3.5" />,
+            run: () =>
+              openDetails(activeClusterId, {
+                clusterId: activeClusterId,
+                apiVersion: entry.apiVersion,
+                kind: entry.kind,
+                namespace: object.metadata?.namespace,
+                name,
+              }),
+          });
+          if (hits.length >= 60) break;
+        }
+      });
+      setResourceHits(hits.slice(0, 60));
+      setSearchingResources(false);
+    }, 300);
+    return () => {
+      disposed = true;
+      window.clearTimeout(timer);
+    };
+  }, [open, query, activeClusterId, session?.resources, openDetails]);
 
   useEffect(() => {
     setIndex(0);
@@ -286,7 +375,17 @@ export function CommandPalette({
 
         <div className="flex h-7 shrink-0 items-center gap-2 border-t border-theme-border px-3 text-[10px] text-theme-text-disabled">
           <Command className="h-2.5 w-2.5" />
-          <span>{filtered.length} commands</span>
+          <span>{filtered.length} results</span>
+          {searchingResources ? (
+            <span className="flex items-center gap-1 text-theme-text-tertiary">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              searching resources…
+            </span>
+          ) : query.trim().length >= 2 ? (
+            <span>{resourceHits.length} live resources</span>
+          ) : (
+            <span>type 2+ letters to search live resources</span>
+          )}
           <span className="ml-auto">↑ ↓ navigate · ↵ run · Esc close</span>
         </div>
       </div>

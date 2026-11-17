@@ -48,9 +48,9 @@ Home-дашборда уже начата — см. §13.
 | Namespace scope pill | ✅ | 🟡 (в toolbar) | |
 | Сохранение состояния при switch | 🟡 per-cluster view memory | ✅ полностью (scroll, drawer, PTY) | mLens лучше |
 | Command palette `⌘K` | ✅ богаче (серверный поиск, секции) | ✅ | |
-| Глобальный поиск по ресурсам с синтаксисом | ✅ `ns:`/`kind:`/`label:`/`image:` | ❌ | |
+| Глобальный поиск по ресурсам | ✅ с синтаксисом `ns:`/`kind:`/`label:` | 🟡 палитра ищет ресурсы, без синтаксиса (в работе) | |
 | `g`+letter навигация | ✅ | ❌ | |
-| Оверлей всех шорткатов `?` | ✅ | ❌ | |
+| Оверлей всех шорткатов `?` | ✅ | ✅ (в работе) | |
 | URL как состояние / deep links | ✅ | — | desktop |
 | Phone layout | ✅ (6 экранов) | — | |
 | Dock | ✅ логи + терминалы + traffic | 🟡 только терминалы | |
@@ -106,7 +106,7 @@ Home-дашборда уже начата — см. §13.
 | Bulk-выбор | ✅ | ✅ | |
 | Bulk-действия | ✅ delete / restart / scale | 🟡 только delete | |
 | CRD schema search / browser | ✅ | ❌ | |
-| Set image (в т.ч. init) | ✅ | ❌ | |
+| Set image (в т.ч. init) | ✅ | 🟡 обычные контейнеры (в работе) | |
 | Rollout progress UI | ✅ | 🟡 статус и conditions |
 | Compare двух ресурсов | ✅ | ❌ | |
 | Copy name / copy kubectl | ✅ | 🟡 copy kubectl |
@@ -115,7 +115,7 @@ Home-дашборда уже начата — см. §13.
 | Force delete (`--grace-period=0`) | ✅ | ✅ (в работе): row menu + диалог + проброс в main |
 | YAML schema/autocomplete | ✅ OpenAPI кластера | ❌ | |
 | Cordon/uncordon Node | ✅ | 🟡 (в работе): AGENTS.md уже описывает; кнопки в drawer/row menu |
-| Drain Node с планом | ✅ | ❌ | |
+| Drain Node с планом | ✅ | 🟡 (в работе) | |
 | Node debug pod | ✅ | ❌ | |
 | Pod file browser (list/preview/upload) | ✅ | ❌ | |
 | Image filesystem viewer | ✅ | ❌ | |
@@ -164,14 +164,14 @@ Reachability, Cost, YAML**.
 | Restart | ✅ bulk | ✅ | |
 | Pause/Resume rollout | ✅ | ✅ | Deployment |
 | Suspend/Resume | ✅ Job/CronJob/Flux/Argo | ✅ Job/CronJob | |
-| Set image | ✅ | ❌ | |
+| Set image | ✅ | 🟡 (в работе) | |
 | Revision history + rollback | ✅ | ❌ | в планах mLens |
-| CronJob Trigger | ✅ | ❌ | в планах mLens |
+| CronJob Trigger | ✅ | ✅ (в работе) | |
 | Argo Rollouts actions | ✅ | ❌ | |
 | GitOps sync/suspend/resume/rollback | ✅ | ❌ | |
 | Delete force/cascade preview | ✅ | 🟡 (в работе): force delete готов (меню + диалог), каскадного плана нет |
 | Node cordon/uncordon | ✅ | 🟡 (в работе) | |
-| Node drain | ✅ | ❌ | |
+| Node drain | ✅ | ✅ (в работе) | |
 | Node terminal | ✅ | ❌ | |
 | Pod debug/ephemeral container | ✅ | ❌ | attach-режим в работе как задел |
 | Copy kubectl/port-forward команды | ✅ | 🟡 kubectl | |
@@ -322,51 +322,46 @@ Reachability, Cost, YAML**.
 
 ### P0 — дешёвые доборы в существующем UI
 
-1. **Set image** для Deployment/StatefulSet/DaemonSet (JSON/merge patch
-   `spec.template.spec.containers[].image`) — данные уже есть.
-2. **Revision history + rollback** через ReplicaSets с
+1. **Revision history + rollback** через ReplicaSets с
    `deployment.kubernetes.io/revision`.
-3. **CronJob Trigger** — создать Job из `jobTemplate`.
-4. **Init-контейнеры в логах** — picker сейчас берёт только `spec.containers`.
-5. **Выбор контейнера для exec** (сейчас первый; attach-режим уже начат).
-6. **Pin колонок**, **exclude-фильтры**, **фильтр по label**.
-7. **Bulk restart/scale** по аналогии с bulk delete.
-8. **Кастомные колонки из label/annotation** — данные уже в объектах.
-9. **Node drain** с планом (cordon/uncordon уже в работе; нужны eviction +
-   PDB-проверки).
-10. **SelfSubjectRulesReview / SelfSubjectAccessReview** — capability-aware UI,
-    убирает ошибки 403.
-11. **Workload logs** — агрегировать логи по селектору workload в dock-вкладку.
-12. **Compare** — diff двух YAML, дёшево и полезно.
-13. **Force delete** (уже начат) + каскадный предпросмотр удаления.
+2. **Init-контейнеры в логах** — picker сейчас берёт только `spec.containers`.
+3. **Выбор контейнера для exec** (сейчас первый; attach-режим уже начат).
+4. **Pin колонок**, **exclude-фильтры**, **фильтр по label**.
+5. **Bulk restart/scale** по аналогии с bulk delete.
+6. **Кастомные колонки из label/annotation** — данные уже в объектах.
+7. **SelfSubjectRulesReview / SelfSubjectAccessReview** — capability-aware UI,
+   убирает ошибки 403.
+8. **Workload logs** — агрегировать логи по селектору workload в dock-вкладку.
+9. **Compare** — diff двух YAML, дёшево и полезно.
+10. **Каскадный предпросмотр удаления** (force delete уже есть).
 
 ### P1 — крупные экраны на уже готовом data-layer
 
-14. **Topology** — owner refs, selectors, volumes, env refs уже резолвятся;
+1. **Topology** — owner refs, selectors, volumes, env refs уже резолвятся;
     граф можно начать без ELK.
-15. **Timeline** — watch-поток есть; писать изменения в SQLite/JSON, показывать
+2. **Timeline** — watch-поток есть; писать изменения в SQLite/JSON, показывать
     diffs.
-16. **Helm** — парсинг Secret `sh.helm.release.v1.*`, список релизов, values,
+3. **Helm** — парсинг Secret `sh.helm.release.v1.*`, список релизов, values,
     rollback.
-17. **Prometheus-графики + history** (URL в настройках) + **rightsizing**.
-18. **Issues** — поверх status/event/owner-данных (crash loop, image pull,
+4. **Prometheus-графики + history** (URL в настройках) + **rightsizing**.
+5. **Issues** — поверх status/event/owner-данных (crash loop, image pull,
     unschedulable, dangling refs).
-19. **TLS-сертификаты** — парсинг `tls.crt` (x509 в Node).
-20. **GitOps** — Argo/Flux CRD уже видны; нужны renderers и actions.
-21. **Audit** — набор проверок на кэше ресурсов, без установки в кластер.
-22. **NetworkPolicy evaluation / Reachability** — netpol-правила и hop-диагноз.
+6. **TLS-сертификаты** — парсинг `tls.crt` (x509 в Node).
+7. **GitOps** — Argo/Flux CRD уже видны; нужны renderers и actions.
+8. **Audit** — набор проверок на кэше ресурсов, без установки в кластер.
+9. **NetworkPolicy evaluation / Reachability** — netpol-правила и hop-диагноз.
 
 ### P2 — отдельные подсистемы
 
-23. **Traffic** — требует Hubble/Istio/Beyla, самый дорогой пункт.
-24. **Cost** — OpenCost/Prometheus.
-25. **Capacity (Karpenter)** + scheduling card.
-26. **Image filesystem / Pod file browser** — реестры, pull secrets, слои.
-27. **Applications / Packages** — группировка workload по image.
-28. **CNPG / Kueue / Kyverno / Trivy** — dedicated views.
-29. **MCP-сервер** — отдельный процесс/порт; архитектурно конфликтует с
+1. **Traffic** — требует Hubble/Istio/Beyla, самый дорогой пункт.
+2. **Cost** — OpenCost/Prometheus.
+3. **Capacity (Karpenter)** + scheduling card.
+4. **Image filesystem / Pod file browser** — реестры, pull secrets, слои.
+5. **Applications / Packages** — группировка workload по image.
+6. **CNPG / Kueue / Kyverno / Trivy** — dedicated views.
+7. **MCP-сервер** — отдельный процесс/порт; архитектурно конфликтует с
     «no server», решать осознанно.
-30. **AI investigations** — только после MCP/локального агента.
+8. **AI investigations** — только после MCP/локального агента.
 
 ---
 
@@ -383,6 +378,11 @@ Reachability, Cost, YAML**.
   Cordon/Uncordon для Nodes и новое расположение действий (иконки в шапке
   drawer, Delete рядом с Close, Reload vs Restart).
 - **Force delete** (`gracePeriodSeconds: 0`) — backend + row menu + диалог.
+- **Set image** для Deployment/StatefulSet/DaemonSet — диалог и patch.
+- **CronJob Trigger** — создание Job из `jobTemplate`.
+- **Node Drain** — диалог с подтверждением; cordon/uncordon уже есть.
+- **Оверлей шорткатов `?`** и переходы `G`+буква.
+- **Глобальный поиск ресурсов** в командной палитре (fan-out по kinds).
 - **Attach-режим exec** (`Attach` вместо `Exec`) — задел под подключение к
   запущенному процессу/контейнеру.
 - **Колонка действий «…»** в каждой строке таблицы, клик по фону для снятия
@@ -404,18 +404,18 @@ Reachability, Cost, YAML**.
    `DESIGN_SPEC.md` §2.7 и `PROJECT_CONTEXT.md` §8 всё ещё утверждают, что
    вкладка удалена, а резолвер не используется. Код в рабочем дереве её
    рендерит. Нужно привести три документа к одному состоянию после коммита.
-2. **Cordon/Uncordon.** AGENTS.md описывает, в `DESIGN_SPEC.md` и
-   `IMPLEMENTATION_PLAN.md` — нет. Drain отсутствует, это стоит указать явно.
-3. **Действия в шапке drawer.** AGENTS.md теперь описывает иконки
-   Logs/Exec/Forward/Scale/Restart/Pause/Resume/Cordon/Delete и разделение
-   Reload vs Restart; `DESIGN_SPEC.md` §2.7 всё ещё описывает текстовый
-   action-row под заголовком. Синхронизировать.
+2. **Cordon/Uncordon/Drain.** AGENTS.md и код уже описывают Cordon/Uncordon и
+   Drain; `DESIGN_SPEC.md` и `IMPLEMENTATION_PLAN.md` ещё не обновлены.
+3. **Действия в drawer.** AGENTS.md описывает labelled-кнопки под именем
+   (Logs/Exec/Forward, Scale/Restart/Set image, Pause/Resume, Suspend/Resume/
+   Trigger, Cordon/Uncordon/Drain) и Reload vs Restart; `DESIGN_SPEC.md` §2.7
+   всё ещё описывает старый текстовый action-row. Синхронизировать.
 4. **CPU/Memory колонки.** `IMPLEMENTATION_PLAN.md` одновременно помечает
    «Table CPU/memory columns from metrics-server» как not started (Stage 5) и
    как Done (Stage 4) + Pass в verification log. Противоречие.
-5. **Бэклог Radar-действий.** `PROJECT_CONTEXT.md` §8 перечисляет revision
-   history/rollback, Set image, CronJob Trigger, Argo/Flux — их действительно
-   нет; сверка это подтверждает.
+5. **Бэклог Radar-действий.** Set image, CronJob Trigger и Node drain уже
+   реализованы в рабочем дереве, но `PROJECT_CONTEXT.md` §8 всё ещё перечисляет
+   их как отсутствующие; revision history/rollback и Argo/Flux по-прежнему нет.
 6. **«Logs are Pod-only».** Соблюдается в drawer, но init-контейнеры в picker
    не попадают. Если правило осознанное — записать; если нет — это баг.
 7. **Force delete / attach.** Force delete подключён в UI, но не описан в

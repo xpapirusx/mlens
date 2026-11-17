@@ -212,14 +212,14 @@ contains a single kind.
 - Right edge, inside the cluster frame, **not** a modal and **not** a new window.
 - Default width 560px; draggable 460px → 74% of the window; expand button morphs
   to nearly full width.
-- Header: kind outline pill, status badge, API version, back-to-previous-resource,
-  right-aligned kind actions as icon buttons, then Delete, Reload, Expand, Close.
-  Kind actions: Logs / Exec / Forward (Pods), Scale / Restart (Deployments,
-  StatefulSets), Scale (ReplicaSets), Restart (DaemonSets), Pause/Resume rollout
-  (Deployments), Suspend/Resume (Jobs, CronJobs), Cordon/Uncordon (Nodes). Delete
-  always asks for confirmation. Reload (clockwise arrow) refetches data; Restart
-  uses the counter-clockwise arrow. This follows Freelens' action-in-drawer-header
-  pattern with Radar's kind-specific action set.
+- Header: kind outline pill, status badge, API version, Back, Delete, Reload,
+  Expand and Close. Delete sits next to Close and always asks for confirmation.
+  A right-aligned kind-action row sits under the resource name: Logs / Exec /
+  Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
+  ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
+  rollout (Deployments), Suspend/Resume / Trigger / Set image (Jobs, CronJobs),
+  Cordon/Uncordon and Drain (Nodes). Reload (clockwise arrow) refetches data;
+  Restart uses the counter-clockwise arrow.
 - Tabs: **Overview, Details, YAML, Events, Related, Logs (Pods only), Metrics**. Related is shown for every kind and lists owners, selectors, services, mounted config, node pods and bound volumes when they exist; the list uses Freelens-style rows (kind, name, namespace, relation, status).
 - `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
 - Opening another row replaces the content and pushes the previous resource onto
@@ -354,6 +354,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Column widths are draggable from the header divider (minimum 72px, double-click
   resets). The table keeps a horizontal scroll range when the sum exceeds the
   viewport.
+- Columns can be pinned from the column picker; pinned columns are frozen at the
+  left edge while the rest scrolls horizontally.
+- Open-resource tabs can be collapsed to a one-line count and expanded again.
 - A checkbox column is always present: header selects all visible rows; the
   selection bar with bulk delete sits at the bottom of the resource browser,
   directly above the terminal dock. A second, always-visible leading column
@@ -361,8 +364,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   restart, pause, suspend, cordon, copy kubectl, delete, force delete) — the
   same menu as right-click.
 - Force delete sends `gracePeriodSeconds: 0` after an explicit confirmation.
-- Discovered custom kinds show `kind: …` and `apiVersion: …` on two lines in the
-  sidebar, so identically named CRDs from different groups stay distinguishable.
+- Discovered custom kinds show the kind name as-is in the sidebar; the tooltip
+  carries `<apiVersion> <Kind> (CRD)`. Built-in kinds win over same-named CRDs
+  (e.g. `v1 Node` is the Nodes row, a CRD called Node lives in its API group).
 - Pod Containers cells mark init containers with an outlined square, a separator
   and a `+N init` count; the Pod Overview has a dedicated **Init containers**
   section with numbered, amber-edged cards.
@@ -484,6 +488,12 @@ workload counts, warning events, CPU/memory capacity totals, API-kind/CRD
 surface, and quick links into resource kinds. Counts use the cheap
 `limit=1` + `remainingItemCount` path and refresh at the normal polling interval
 while the page is visible.
+
+Drain (Nodes) previews a live plan before acting: pods on the node, DaemonSet and
+mirror pods kept, emptyDir/hostPath and unmanaged pods flagged, optional cordon,
+then eviction through the `policy/v1` Eviction API (falling back to delete on
+clusters without it). `Set image` edits container and init-container images of the
+pod template; CronJob `Trigger` creates a one-off Job from `jobTemplate`.
 
 A per-cluster **Overview** page (first entry in the sidebar, default landing view
 after connecting) mirrors Radar's home: nodes ready, pod/workload counts, recent

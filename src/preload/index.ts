@@ -28,6 +28,7 @@ import type {
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
+  EvictPodRequest,
   RestartRequest,
   ScaleRequest,
   TerminalDataPayload,
@@ -86,6 +87,7 @@ const api: MlensApi = {
       ipcRenderer.invoke(IPC.resourcesApply, request) as Promise<ApplyYamlResult[]>,
     scale: (request: ScaleRequest) => ipcRenderer.invoke(IPC.resourcesScale, request) as Promise<void>,
     restart: (request: RestartRequest) => ipcRenderer.invoke(IPC.resourcesRestart, request) as Promise<void>,
+    evict: (request: EvictPodRequest) => ipcRenderer.invoke(IPC.resourcesEvict, request) as Promise<void>,
     onWatchEvent: (callback) => on<WatchEventPayload>(IPC.resourcesWatchEvent, callback),
   },
   pods: {

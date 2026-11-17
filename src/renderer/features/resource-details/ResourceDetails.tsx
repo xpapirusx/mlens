@@ -3,6 +3,7 @@ import {
   Activity,
   ArrowLeft,
   Ban,
+  Box,
   ChevronLeft,
   Copy,
   FileCode,
@@ -18,6 +19,7 @@ import {
   RotateCw,
   Scale,
   ScrollText,
+  Server,
   SquareTerminal,
   Trash2,
   X,
@@ -35,6 +37,8 @@ import { Button } from "../../design-system/components/Button";
 import { ConfirmActionDialog, ScaleDialog } from "../resource-browser/ResourceDialogs";
 import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
 import { EditDataDialog } from "./EditDataDialog";
+import { SetImageDialog } from "./SetImageDialog";
+import { NodeDrainDialog } from "./NodeDrainDialog";
 import { Tabs } from "../../design-system/components/Tabs";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
@@ -46,6 +50,7 @@ import {
   scaleWorkload,
   setWorkloadPaused,
   setWorkloadSuspended,
+  triggerCronJob,
   workloadCapabilities,
 } from "../../lib/workload-actions";
 import { useEvents, useRelatedResources, useResourceObject } from "./useDetailsData";
@@ -95,6 +100,8 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [editDataOpen, setEditDataOpen] = useState(false);
   const [scaleOpen, setScaleOpen] = useState(false);
   const [restartConfirm, setRestartConfirm] = useState(false);
+  const [setImageOpen, setSetImageOpen] = useState(false);
+  const [drainOpen, setDrainOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -291,6 +298,20 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     }
   };
 
+  const trigger = async () => {
+    if (!object) return;
+    setActionBusy("trigger");
+    try {
+      const name = await triggerCronJob(clusterId, object);
+      toast.success("CronJob triggered", `Created Job ${name}`);
+      await data.refresh();
+    } catch (error) {
+      toast.error("Trigger failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   const toggleCordon = async () => {
     if (!object) return;
     const cordoned = object.spec?.unschedulable === true;
@@ -358,71 +379,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
 
-            {isPod ? (
-              <>
-                <DetailIcon
-                  icon={<ScrollText />}
-                  title="Logs"
-                  onClick={() => setDetailsTab(clusterId, "logs")}
-                />
-                <DetailIcon icon={<SquareTerminal />} title="Exec shell" onClick={() => void openShell()} />
-                <DetailIcon icon={<Plug />} title="Port forward" onClick={() => setForwardPort(8080)} />
-              </>
-            ) : null}
-
-            {caps.scalable ? (
-              <DetailIcon
-                icon={<Scale />}
-                title="Scale replicas"
-                disabled={actionBusy === "scale"}
-                onClick={() => void openScaleDialog()}
-              />
-            ) : null}
-
-            {caps.restartable ? (
-              <DetailIcon
-                icon={<RotateCcw />}
-                title="Restart rollout"
-                disabled={actionBusy === "restart"}
-                onClick={() => {
-                  if (isDeploymentPaused(object)) {
-                    toast.error("Rollout is paused", "Resume the rollout before restarting it.");
-                    return;
-                  }
-                  setRestartConfirm(true);
-                }}
-              />
-            ) : null}
-
-            {caps.pausable ? (
-              <DetailIcon
-                icon={isDeploymentPaused(object) ? <Play /> : <Pause />}
-                title={isDeploymentPaused(object) ? "Resume rollout" : "Pause rollout"}
-                disabled={actionBusy === "pause"}
-                onClick={() => void togglePause()}
-              />
-            ) : null}
-
-            {caps.suspendable ? (
-              <DetailIcon
-                icon={isSuspended(object) ? <Play /> : <Pause />}
-                title={isSuspended(object) ? "Resume" : "Suspend"}
-                disabled={actionBusy === "suspend"}
-                onClick={() => void toggleSuspend()}
-              />
-            ) : null}
-
-            {isNode ? (
-              <DetailIcon
-                icon={<Ban />}
-                title={object?.spec?.unschedulable ? "Uncordon node" : "Cordon node"}
-                disabled={actionBusy === "cordon"}
-                onClick={() => void toggleCordon()}
-              />
-            ) : null}
-
-            <span className="mx-0.5 h-4 w-px bg-theme-border" aria-hidden />
-
             <DetailIcon
               icon={<Trash2 />}
               title="Delete resource"
@@ -475,6 +431,89 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <span className="ml-auto shrink-0 text-[10px] text-theme-text-disabled">
               {formatAge(object.metadata?.creationTimestamp)} old
             </span>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-end gap-1 px-3 pb-1.5">
+          {isPod ? (
+            <>
+              <DetailAction icon={<ScrollText />} label="Logs" onClick={() => setDetailsTab(clusterId, "logs")} />
+              <DetailAction icon={<SquareTerminal />} label="Exec" onClick={() => void openShell()} />
+              <DetailAction icon={<Plug />} label="Forward" onClick={() => setForwardPort(8080)} />
+            </>
+          ) : null}
+
+          {caps.scalable ? (
+            <DetailAction
+              icon={<Scale />}
+              label="Scale"
+              busy={actionBusy === "scale"}
+              onClick={() => void openScaleDialog()}
+            />
+          ) : null}
+
+          {caps.restartable ? (
+            <DetailAction
+              icon={<RotateCcw />}
+              label="Restart"
+              busy={actionBusy === "restart"}
+              onClick={() => {
+                if (isDeploymentPaused(object)) {
+                  toast.error("Rollout is paused", "Resume the rollout before restarting it.");
+                  return;
+                }
+                setRestartConfirm(true);
+              }}
+            />
+          ) : null}
+
+          {caps.pausable ? (
+            <DetailAction
+              icon={isDeploymentPaused(object) ? <Play /> : <Pause />}
+              label={isDeploymentPaused(object) ? "Resume rollout" : "Pause rollout"}
+              busy={actionBusy === "pause"}
+              onClick={() => void togglePause()}
+            />
+          ) : null}
+
+          {caps.suspendable ? (
+            <DetailAction
+              icon={isSuspended(object) ? <Play /> : <Pause />}
+              label={isSuspended(object) ? "Resume" : "Suspend"}
+              busy={actionBusy === "suspend"}
+              onClick={() => void toggleSuspend()}
+            />
+          ) : null}
+
+          {caps.imageEditable ? (
+            <DetailAction icon={<Box />} label="Set image" onClick={() => setSetImageOpen(true)} />
+          ) : null}
+
+          {caps.triggerable ? (
+            <DetailAction
+              icon={<Play />}
+              label="Trigger"
+              busy={actionBusy === "trigger"}
+              onClick={() => void trigger()}
+            />
+          ) : null}
+
+          {isNode ? (
+            <DetailAction
+              icon={<Ban />}
+              label={object?.spec?.unschedulable ? "Uncordon" : "Cordon"}
+              busy={actionBusy === "cordon"}
+              onClick={() => void toggleCordon()}
+            />
+          ) : null}
+
+          {isNode ? (
+            <DetailAction
+              icon={<Server />}
+              label="Drain"
+              busy={actionBusy === "drain"}
+              onClick={() => setDrainOpen(true)}
+            />
           ) : null}
         </div>
 
@@ -630,6 +669,26 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         }
       />
 
+      {object ? (
+        <SetImageDialog
+          open={setImageOpen}
+          onClose={() => setSetImageOpen(false)}
+          clusterId={clusterId}
+          object={object}
+          onSaved={() => void data.refresh()}
+        />
+      ) : null}
+
+      {isNode ? (
+        <NodeDrainDialog
+          open={drainOpen}
+          onClose={() => setDrainOpen(false)}
+          clusterId={clusterId}
+          node={details.ref.name}
+          onDone={() => void data.refresh()}
+        />
+      ) : null}
+
       <ConfirmActionDialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
@@ -651,6 +710,30 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         }
       />
     </aside>
+  );
+}
+
+function DetailAction({
+  icon,
+  label,
+  onClick,
+  busy,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={onClick}
+      className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-40 [&>svg]:h-3.5 [&>svg]:w-3.5"
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 

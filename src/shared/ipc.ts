@@ -10,6 +10,7 @@ import type {
   ClusterId,
   ClusterSummary,
   DeleteResourceRequest,
+  EvictPodRequest,
   ExecRequest,
   PatchResourceRequest,
   KubeObject,
@@ -66,6 +67,7 @@ export const IPC = {
   resourcesApply: "kube:resources-apply",
   resourcesScale: "kube:resources-scale",
   resourcesRestart: "kube:resources-restart",
+  resourcesEvict: "kube:resources-evict",
   resourcesWatchEvent: "kube:resources-watch-event",
   podContainers: "kube:pod-containers",
 
@@ -132,6 +134,7 @@ export interface MlensApi {
     apply(request: ApplyYamlRequest): Promise<ApplyYamlResult[]>;
     scale(request: ScaleRequest): Promise<void>;
     restart(request: RestartRequest): Promise<void>;
+    evict(request: EvictPodRequest): Promise<void>;
     onWatchEvent(callback: (event: WatchEventPayload) => void): () => void;
   };
   pods: {

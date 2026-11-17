@@ -239,8 +239,8 @@ export function kindColor(kind: string): string {
   return "text-theme-text-secondary";
 }
 
-export function getKindIcon(kind: string, group?: string): LucideIcon {
-  const key = kind.toLowerCase().replace(/[^a-z0-9]/g, "");
+export function getKindIcon(kind: string | undefined, group?: string): LucideIcon {
+  const key = (kind ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
   if (group) {
     const match = BY_GROUP_PREFIX.find(([prefix]) => group.includes(prefix));
     const groupIcon = match?.[1][key];

@@ -12,6 +12,8 @@ export interface KindState {
   filters: Record<string, string[]>;
   hiddenColumns: string[];
   columnWidths: Record<string, number>;
+  /** Column keys frozen to the left edge of the table. */
+  pinnedColumns: string[];
 }
 
 export type TerminalTarget =
@@ -100,6 +102,7 @@ const emptyKindState = (): KindState => ({
   filters: {},
   hiddenColumns: [],
   columnWidths: {},
+  pinnedColumns: [],
 });
 
 function createSession(id: ClusterId, selectedNamespaces: string[] = [], sidebarWidth = 236, dockHeight = 340): ClusterSession {

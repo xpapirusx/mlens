@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Columns3, FolderOpen, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Columns3, FolderOpen, Pin, Search } from "lucide-react";
 import { Menu, MenuLabel } from "../../design-system/components/Menu";
 import { cn } from "../../lib/cn";
 import type { ColumnDef } from "../../lib/columns";
@@ -140,13 +140,17 @@ export function NamespacePicker({
 export function ColumnPicker({
   columns,
   hidden,
+  pinned,
   onChange,
   onMove,
+  onTogglePin,
 }: {
   columns: ColumnDef[];
   hidden: Set<string>;
+  pinned?: Set<string>;
   onChange: (hidden: string[]) => void;
   onMove: (key: string, direction: "up" | "down") => void;
+  onTogglePin?: (key: string) => void;
 }) {
   return (
     <Menu
@@ -203,6 +207,19 @@ export function ColumnPicker({
                     />
                     <span className="min-w-0 flex-1 truncate">{column.label}</span>
                   </button>
+                  {onTogglePin ? (
+                    <button
+                      type="button"
+                      title={pinned?.has(column.key) ? "Unpin column" : "Pin column to the left"}
+                      className={cn(
+                        "shrink-0 rounded p-0.5 hover:bg-theme-hover hover:text-theme-text-primary",
+                        pinned?.has(column.key) ? "text-amber-500" : "text-theme-text-tertiary",
+                      )}
+                      onClick={() => onTogglePin(column.key)}
+                    >
+                      <Pin className={cn("h-3 w-3", pinned?.has(column.key) && "fill-current")} />
+                    </button>
+                  ) : null}
                   {column.key !== "name" ? (
                     <span className="flex shrink-0 items-center gap-0.5">
                       <button

@@ -160,13 +160,13 @@ Important:
   Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Custom Resources contains Definitions + one child per API group.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
-  Related / Logs (Pods only) / Metrics. Kind actions are icon buttons in the
-  drawer header, right-aligned: Logs/Exec/Forward for Pods; Scale/Restart for
-  Deployments and StatefulSets; Scale for ReplicaSets; Restart for DaemonSets;
-  Pause/Resume rollout for Deployments; Suspend/Resume for Jobs and CronJobs;
-  Cordon/Uncordon for Nodes; Delete sits next to Close. A separate Reload icon
-  (clockwise arrow) only refetches data — Restart uses the counter-clockwise
-  arrow. YAML is a tab. Workload Scale also appears in the Overview Status
+  Related / Logs (Pods only) / Metrics. Kind actions are labelled buttons in a
+  right-aligned row under the resource name (Logs/Exec/Forward for Pods; Scale/Restart/Set image for
+  workloads; Pause/Resume for Deployments; Suspend/Resume and Trigger for
+  Jobs/CronJobs; Cordon/Uncordon and Drain for Nodes). Delete, Reload, Expand
+  and Close stay in the header; Delete sits next to Close. Reload (clockwise
+  arrow) only refetches data — Restart uses the counter-clockwise arrow. YAML
+  and Related are tabs. Workload Scale also appears in the Overview Status
   section, as in Radar.
 - Resource tabs (open resources) and cluster tabs (open clusters) are separate
   rows. Do not turn the app into a browser-style single tab bar.

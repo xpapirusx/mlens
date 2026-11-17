@@ -69,8 +69,7 @@ export function RelatedTab({
           <div className="overflow-hidden rounded-md border border-theme-border">
             {group.items.map((item, index) => {
               const Icon = getKindIcon(item.kind);
-              return (
-                <button
+              return (                <button
                   key={`${item.kind}-${item.namespace}-${item.name}-${index}`}
                   type="button"
                   onClick={() => onNavigate(item.kind, item.name, item.namespace)}

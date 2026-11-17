@@ -174,12 +174,7 @@ export function ResourceSidebar({
         >
           <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
           {resource.isCrd ? (
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[12px] text-theme-text-primary">kind: {resource.kind}</span>
-              <span className="block truncate font-mono text-[10px] text-theme-text-tertiary">
-                apiVersion: {resource.apiVersion}
-              </span>
-            </span>
+            <span className="min-w-0 flex-1 truncate text-[12px]">{resource.kind}</span>
           ) : (
             <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
           )}

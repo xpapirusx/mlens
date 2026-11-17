@@ -281,6 +281,13 @@ export interface RestartRequest {
   name: string;
 }
 
+export interface EvictPodRequest {
+  clusterId: ClusterId;
+  namespace: string;
+  name: string;
+  gracePeriodSeconds?: number;
+}
+
 export interface ClusterHealth {
   id: ClusterId;
   status: "connected" | "connecting" | "disconnected" | "error";

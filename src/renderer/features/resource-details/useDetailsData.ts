@@ -172,7 +172,11 @@ export function useRelatedResources(
             limit: 1000,
           }),
         );
-        return result.items;
+        return result.items.map((item) => ({
+          ...item,
+          kind: item.kind ?? listKind,
+          apiVersion: item.apiVersion ?? apiVersion,
+        }));
       } catch (listError) {
         const message = errorText(listError);
         setWarnings((current) => (current.includes(message) ? current : [...current, message]));

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Blocks } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { ClusterTabs } from "./ClusterTabs";
 import { Hotbar } from "./Hotbar";
 import { StatusBar } from "./StatusBar";
 import { CommandPalette } from "./CommandPalette";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { ClusterWorkspace } from "./ClusterWorkspace";
 import { CatalogPage } from "../features/catalog/CatalogPage";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
@@ -14,6 +15,8 @@ import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { Spinner } from "../design-system/components/Spinner";
 import { cn } from "../lib/cn";
+
+const EMPTY_RESOURCES: never[] = [];
 
 export function AppShell() {
   const settings = useCatalogStore((state) => state.settings);
@@ -28,9 +31,15 @@ export function AppShell() {
   const sessionIds = Object.keys(sessions);
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const openTerminal = useSessionStore((state) => state.openTerminal);
+  const selectKind = useSessionStore((state) => state.selectKind);
+  const activeResources = useSessionStore(
+    (state) => (activeClusterId ? state.sessions[activeClusterId]?.resources : undefined) ?? EMPTY_RESOURCES,
+  );
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [forwardsOpen, setForwardsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const lastG = useRef(0);
 
   useEffect(() => {
     void loadSettings();
@@ -61,6 +70,12 @@ export function AppShell() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -77,6 +92,43 @@ export function AppShell() {
         openTerminal(activeClusterId, { type: "local" });
         return;
       }
+      if (!mod && !typing && (paletteOpen || shortcutsOpen)) return;
+      if (!mod && !typing && event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+      if (!mod && !typing && event.key.toLowerCase() === "g") {
+        lastG.current = Date.now();
+        return;
+      }
+      if (!mod && !typing && Date.now() - lastG.current < 1200 && activeClusterId) {
+        const letter = event.key.toLowerCase();
+        const kindByLetter: Record<string, string> = {
+          p: "Pod",
+          d: "Deployment",
+          s: "Service",
+          j: "Job",
+          c: "ConfigMap",
+          n: "Node",
+          x: "Secret",
+          i: "Ingress",
+        };
+        if (letter === "o") {
+          event.preventDefault();
+          lastG.current = 0;
+          selectKind(activeClusterId, { apiVersion: "", kind: "__overview__" });
+          return;
+        }
+        const kind = kindByLetter[letter];
+        const resource = kind ? activeResources.find((entry) => entry.kind === kind) : undefined;
+        if (resource) {
+          event.preventDefault();
+          lastG.current = 0;
+          selectKind(activeClusterId, { apiVersion: resource.apiVersion, kind: resource.kind });
+          return;
+        }
+      }
       if (event.key === "Escape" && activeClusterId && details) {
         closeDetails(activeClusterId);
       }
@@ -87,7 +139,17 @@ export function AppShell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeClusterId, details, openSettings, openTerminal, closeDetails]);
+  }, [
+    activeClusterId,
+    details,
+    openSettings,
+    openTerminal,
+    closeDetails,
+    selectKind,
+    activeResources,
+    paletteOpen,
+    shortcutsOpen,
+  ]);
 
   if (!settings) {
     return (
@@ -130,6 +192,7 @@ export function AppShell() {
       <StatusBar activeClusterId={activeClusterId} />
       <SettingsDialog />
       <PortForwardsPanel open={forwardsOpen} onClose={() => setForwardsOpen(false)} />
+      <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}

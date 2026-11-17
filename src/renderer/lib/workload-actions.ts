@@ -1,4 +1,5 @@
 import type { KubeObject } from "@shared/types";
+import { stringify } from "yaml";
 import { api, call } from "./api";
 
 /**
@@ -19,12 +20,16 @@ const SCALABLE = new Set(["deployment", "statefulset", "replicaset"]);
 const RESTARTABLE = new Set(["deployment", "statefulset", "daemonset"]);
 const PAUSABLE = new Set(["deployment"]);
 const SUSPENDABLE = new Set(["job", "cronjob"]);
+const IMAGE_EDITABLE = new Set(["deployment", "statefulset", "daemonset", "replicaset", "job", "cronjob"]);
 
 export interface WorkloadCapabilities {
   scalable: boolean;
   restartable: boolean;
   pausable: boolean;
   suspendable: boolean;
+  imageEditable: boolean;
+  triggerable: boolean;
+  drainable: boolean;
 }
 
 export function workloadCapabilities(kind: string, apiVersion?: string): WorkloadCapabilities {
@@ -34,6 +39,9 @@ export function workloadCapabilities(kind: string, apiVersion?: string): Workloa
     restartable: RESTARTABLE.has(lower),
     pausable: PAUSABLE.has(lower) && (!apiVersion || apiVersion.startsWith("apps/")),
     suspendable: SUSPENDABLE.has(lower),
+    imageEditable: IMAGE_EDITABLE.has(lower),
+    triggerable: lower === "cronjob",
+    drainable: lower === "node",
   };
 }
 
@@ -107,6 +115,31 @@ export async function setWorkloadSuspended(target: Target, suspend: boolean): Pr
 export interface ReplicaScaler {
   kind: string;
   name: string;
+}
+
+/**
+ * `kubectl create job --from=cronjob/x` equivalent: instantiate the
+ * jobTemplate as a one-off Job without touching the CronJob schedule.
+ */
+export async function triggerCronJob(clusterId: string, object: KubeObject): Promise<string> {
+  const jobTemplate = (object.spec?.jobTemplate as Record<string, unknown> | undefined) ?? {};
+  const namespace = object.metadata?.namespace;
+  if (!namespace) throw new Error("CronJob has no namespace");
+  const base = `${object.metadata?.name ?? "cronjob"}-manual-${Date.now().toString(36)}`;
+  const name = base.slice(0, 63).replace(/[^a-z0-9-]/g, "-");
+  const job = {
+    apiVersion: "batch/v1",
+    kind: "Job",
+    metadata: {
+      name,
+      namespace,
+      labels: { ...(object.metadata?.labels ?? {}), "cronjob.kubernetes.io/instantiate": "manual" },
+      annotations: { "cronjob.kubernetes.io/instantiate": "manual" },
+    },
+    spec: (jobTemplate.spec as Record<string, unknown> | undefined) ?? {},
+  };
+  await call(api.resources.apply({ clusterId, yaml: stringify(job), dryRun: false }));
+  return name;
 }
 
 /**

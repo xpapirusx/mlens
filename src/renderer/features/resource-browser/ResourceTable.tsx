@@ -8,6 +8,8 @@ import { formatColumnWidth } from "../../lib/columns";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
 
+const EMPTY_PINNED = new Set<string>();
+
 interface ResourceTableProps {
   rows: KubeObject[];
   columns: ColumnDef[];
@@ -21,6 +23,8 @@ interface ResourceTableProps {
   onRowMenu?: (object: KubeObject, event: React.MouseEvent) => void;
   /** Click on empty space inside the table (no row, control or header). */
   onBackgroundClick?: () => void;
+  /** Columns frozen to the left edge while the table scrolls horizontally. */
+  pinnedKeys?: Set<string>;
   onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
   columnWidths: Record<string, number>;
   onResizeEnd: (key: string, width: number) => void;
@@ -66,6 +70,7 @@ export function ResourceTable({
   onOpenNode,
   onRowMenu,
   onBackgroundClick,
+  pinnedKeys = EMPTY_PINNED,
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
@@ -87,9 +92,18 @@ export function ResourceTable({
   }, [columns]);
 
   const effectiveWidths = { ...columnWidths, ...previewWidths };
-  const gridTemplate = `${selectionMode ? "40px " : ""}36px ${columns
+  const columnWidth = (column: ColumnDef) =>
+    effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+  const stickyOffsets = new Map<string, number>();
+  let stickyLeft = selectionMode ? 40 : 0;
+  for (const column of columns) {
+    if (!pinnedKeys.has(column.key)) continue;
+    stickyOffsets.set(column.key, stickyLeft);
+    stickyLeft += columnWidth(column);
+  }
+  const gridTemplate = `${selectionMode ? "40px " : ""}${columns
     .map((column) => formatColumnWidth(column, effectiveWidths[column.key]))
-    .join(" ")}`;
+    .join(" ")} 36px`;
   const minWidth =
     (selectionMode ? 40 : 0) +
     36 +
@@ -154,7 +168,6 @@ export function ResourceTable({
               />
             </div>
           ) : null}
-          <div className="border-r-subtle" aria-hidden />
           {columns.map((column, index) => {
             const active = sort?.key === column.key;
             const filterable = filterableKeys.has(column.key);
@@ -162,8 +175,14 @@ export function ResourceTable({
               <div
                 key={column.key}
                 role="columnheader"
+                style={
+                  stickyOffsets.has(column.key)
+                    ? { position: "sticky", left: stickyOffsets.get(column.key), zIndex: 30 }
+                    : undefined
+                }
                 className={cn(
                   "group/th relative flex min-w-0 items-center gap-1 px-4 text-[11px] font-medium uppercase tracking-wide text-theme-text-secondary",
+                  stickyOffsets.has(column.key) && "bg-theme-base",
                   index !== columns.length - 1 && "border-r-subtle",
                   column.align === "right" && "justify-end",
                   column.sortable !== false && "cursor-pointer select-none hover:text-theme-text-primary",
@@ -241,6 +260,10 @@ export function ResourceTable({
               </div>
             );
           })}
+          <div
+            className="sticky right-0 z-30 border-l-subtle bg-theme-base"
+            aria-hidden
+          />
         </div>
 
         {rows.length === 0 ? (
@@ -271,7 +294,7 @@ export function ResourceTable({
                         : "hover:bg-theme-hover/40",
                   )}
                   style={{
-                    transform: `translateY(${virtualRow.start}px)`,
+                    top: virtualRow.start,
                     height: rowHeight,
                     gridTemplateColumns: gridTemplate,
                   }}
@@ -301,8 +324,32 @@ export function ResourceTable({
                       />
                     </div>
                   ) : null}
+
+                  {columns.map((column, index) => (
+                    <div
+                      key={column.key}
+                      role="cell"
+                      style={
+                        stickyOffsets.has(column.key)
+                          ? { position: "sticky", left: stickyOffsets.get(column.key), zIndex: 5 }
+                          : undefined
+                      }
+                      className={cn(
+                        "flex min-w-0 items-center overflow-hidden px-4",
+                        index !== columns.length - 1 && "border-r-subtle",
+                        column.align === "right" && "justify-end",
+                        stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
+                      )}
+                    >
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode })}</div>
+                    </div>
+                  ))}
                   <div
-                    className="flex items-center justify-center border-r-subtle"
+                    style={{ position: "sticky", right: 0, zIndex: 6 }}
+                    className={cn(
+                      "flex items-center justify-center border-l-subtle",
+                      selected ? "selection-strong" : "bg-theme-surface",
+                    )}
                     onClick={(event) => event.stopPropagation()}
                   >
                     <button
@@ -318,19 +365,6 @@ export function ResourceTable({
                       <MoreHorizontal className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                  {columns.map((column, index) => (
-                    <div
-                      key={column.key}
-                      role="cell"
-                      className={cn(
-                        "flex min-w-0 items-center overflow-hidden px-4",
-                        index !== columns.length - 1 && "border-r-subtle",
-                        column.align === "right" && "justify-end",
-                      )}
-                    >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode })}</div>
-                    </div>
-                  ))}
                 </div>
               );
             })}

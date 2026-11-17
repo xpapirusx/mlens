@@ -48,6 +48,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Health, latency, Kubernetes version, context and API server in the UI.
 - Per-cluster **Overview** home page: nodes ready, pod/workload counts, warning
   events, CPU/memory capacity, API/CRD surface and quick links into kinds.
+- Global resource search from the command palette (`⌘K`, debounced live search),
+  `g`-prefix letter navigation, and a `?` keyboard-shortcut overlay.
+- Connected clusters sort to the top of the catalog.
 - Per-cluster isolation: each cluster has its own Kubernetes client/auth context
   in the main process.
 
@@ -62,25 +65,29 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   filters, namespace filters, sortable columns, drag-to-resize columns (double-click
   to reset), horizontal scrolling, column picker and keyboard navigation.
 - Multi-select mode with bulk delete and confirmation.
-- Row actions menu on the left of every row (same as right-click): details,
-  edit YAML, logs, attach, exec shell (Pods), scale
+- Sticky row-actions menu on the right of every row (same as right-click):
+  details, edit YAML, logs, attach, exec shell (Pods), scale
   (Deployments/StatefulSets/ReplicaSets), restart
   (Deployments/StatefulSets/DaemonSets), pause/resume rollout (Deployments),
-  suspend/resume (Jobs/CronJobs), cordon/uncordon (Nodes), copy kubectl command,
-  delete and force delete (`gracePeriodSeconds: 0`).
+  suspend/resume (Jobs/CronJobs), set image (workloads, including init
+  containers), trigger (CronJobs), cordon/uncordon and drain (Nodes), copy
+  kubectl command, delete and force delete (`gracePeriodSeconds: 0`).
+- Columns can be pinned to the left edge; open-resource tabs can be collapsed.
 - Init containers are marked in the Containers column (outlined square,
   separator, `+N init`) and listed in their own Pod Overview section.
-- Custom resources and CRDs are labelled `kind: …` / `apiVersion: …` in the
-  sidebar so same-named CRDs from different groups stay distinguishable.
+- Custom resources and CRDs show their kind name in the sidebar (apiVersion in
+  the tooltip); built-in kinds win over same-named CRDs.
 - Create any discovered kind from YAML with server-side dry-run.
 
 ### Resource details
 
 Overview / Details / YAML / Events / Related / Logs (Pods) / Metrics inside a
-resizable Freelens-style drawer. Kind actions are right-aligned icon buttons in
-the drawer header (logs/exec/port-forward for Pods, scale/restart/pause/suspend
-for workloads, cordon/uncordon for Nodes, delete next to close); reload only
-refetches data. Pods show init containers and environment variables with inline
+resizable Freelens-style drawer. Kind actions are labelled buttons in a
+right-aligned row under the name (logs/exec/port-forward for Pods,
+scale/restart/set image/pause/suspend/trigger for workloads, cordon/uncordon and
+drain for Nodes); delete/reload/expand/close stay in the header, and reload only
+refetches data. Drain shows a live plan (DaemonSet/mirror pods kept, emptyDir and
+unmanaged pods flagged) and evicts through `policy/v1`. Pods show init containers and environment variables with inline
 Secret/ConfigMap peeks; ConfigMaps and Secrets are editable from the UI (Secret
 values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
 data, storage, HPA, CRD and generic CRD renderers; Node Overview uses Radar-style

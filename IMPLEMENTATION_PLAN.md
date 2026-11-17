@@ -84,11 +84,20 @@ configuration).
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
 | Context menu actions | **Done** | Details, edit YAML, Pod logs/attach/exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), pause/resume rollout (Deployment), suspend/resume (Job/CronJob), Node cordon/uncordon, copy kubectl, delete, force delete |
-| Leading row menu | **Done** | Always-visible "…" column opens the same actions; checked against Pods, Deployments, Nodes |
+| Row actions menu | **Done** | Sticky right-hand "…" column opens the same actions; checked against Pods, Deployments, Nodes |
 | Force delete | **Done** | DeleteOptions with gracePeriodSeconds 0 after explicit confirmation |
-| CRD naming in catalog | **Done** | CRs and CRDs show `kind:` + `apiVersion:` on two lines |
+| CRD naming in catalog | **Done** | CRs/CRDs show the kind name; apiVersion in the tooltip; built-ins win name collisions |
 | Init containers | **Done** | Table: outlined squares, separator, `+N init`; Pod Overview: numbered Init containers section |
-| Details workload actions | **Done** | Right-aligned header icons (Scale/Restart/Pause/Suspend/Cordon/Delete/Reload) plus Radar-style Scale/Pause buttons in the Overview Status section; shared capability rules in `lib/workload-actions.ts` |
+| Details workload actions | **Done** | Right-aligned labelled actions under the name (Scale/Restart/Pause/Suspend/Cordon/Drain/Set image/Trigger) plus Radar-style Scale/Pause buttons in Overview; Delete/Reload/Close in the header |
+| Set image | **Done** | Container + init-container image editor patches the pod template for Deployment/STS/DS/RS/Job/CronJob |
+| CronJob trigger | **Done** | Creates a one-off Job from `jobTemplate` via apply |
+| Drain Node | **Done** | Live plan (DaemonSet/mirror kept, emptyDir/unmanaged flagged), optional cordon, policy/v1 Eviction with delete fallback |
+| Global search | **Done** | `⌘K` palette searches live resources for 2+ character queries (debounced, capped) |
+| Letter navigation | **Done** | `g` then p/d/s/j/c/n/x/o |
+| Shortcut overlay | **Done** | `?` opens the full shortcut sheet |
+| Pin columns | **Done** | Column picker pin, sticky left freeze |
+| Collapse resource tabs | **Done** | Chevron collapses the open-resource strip to a count |
+| Connected clusters first | **Done** | Catalog sorts connected/connecting clusters ahead of the rest |
 | Scale safety | **Done** | HPA ownership is checked on pressing Scale (lazy, one namespaced HPA list) and blocks manual scaling |
 | Namespace cell click | **Done** | Clicking a namespace scopes the table to it |
 | Node cell click | **Done** | Pod Node cells open the Node details drawer |
@@ -178,6 +187,21 @@ configuration).
 - [ ] Node shell.
 - [ ] Multi-window.
 - [ ] Extension API.
+- [ ] Global URL state / deep links and a full-page detail route.
+- [ ] Compare two resources (YAML diff).
+- [ ] CRD schema search and YAML schema/autocomplete from CRD OpenAPI.
+- [ ] Revision history + rollback (ReplicaSet revisions).
+- [ ] Pod file browser (list/preview/upload) and debug/ephemeral containers.
+- [ ] Node debug pod / node terminal.
+- [ ] TLS certificate parsing from Secrets (subject, SAN, expiry).
+- [ ] HPA charts + 14-state diagnosis; Prometheus charts; rightsizing;
+      PVC usage bar; restart chart.
+- [ ] Reflector/ownership graph links.
+- [ ] Structured JSON logs with level filters; workload log aggregation;
+      JobSet/Ray/CNPG logs; logs in the bottom dock.
+- [ ] My Permissions (SelfSubjectRulesReview), effective SA permissions and
+      reverse lookup, blast-radius warnings, capability-aware UI.
+- [ ] Resource templates.
 - [ ] Capability-aware (SelfSubjectAccessReview) action gating.
 - [ ] Route-level back/forward across resource kinds.
 - [ ] Table CPU/memory columns from metrics-server.
@@ -222,7 +246,11 @@ configuration).
 | Cluster Overview | Pass — live counts (Pods 282+, Deployments 96, Nodes 1/1), capacity 48 CPU / 504 GiB, warning events, no console errors |
 | Related tab | Pass — Pod owners + 4 referenced ConfigMaps/Secrets resolved from the live API |
 | Init containers | Pass — a 5-init Cilium pod renders `1/1 +5 init` and the Init containers section |
-| Row menu / force delete | Pass — kebab menu opens Attach/Exec/Logs/Delete/Force delete; force dialog shows grace-period 0 |
+| Row menu / force delete | Pass — sticky right-hand kebab opens Attach/Exec/Logs/Set image/Delete/Force delete; force dialog shows grace-period 0 |
+| Drain plan | Pass — 276 pods on the node, 109 evictable, 18 DaemonSet, 167 blocked by emptyDir without local-data consent |
+| Set image | Pass — dialog lists containers and init containers with the template path |
+| CronJob actions | Pass — Suspend / Set image / Trigger present |
+| Global search / shortcuts | Pass — palette returns live resource hits; `?` overlay renders |
 | Attach | Pass — pods/attach WebSocket started against a live pod without errors |
 | Workload actions in table | Pass — context menu shows Scale/Restart/Pause rollout for Deployments, Scale for ReplicaSets, Suspend for Jobs |
 | Column order | Pass — up/down in the column picker, persisted per kind |

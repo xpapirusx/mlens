@@ -84,8 +84,16 @@ export function CatalogPage() {
           .includes(term),
       );
     }
+    if (view !== "removed") {
+      // Connected clusters float to the top; the rest keep their catalog order.
+      const rank = (id: string) => {
+        const status = sessions[id]?.status;
+        return status === "connected" ? 0 : status === "connecting" ? 1 : 2;
+      };
+      list = [...list].sort((left, right) => rank(left.id) - rank(right.id));
+    }
     return list;
-  }, [clusters, removedClusters, favorites, view, search, settings?.recentClusters]);
+  }, [clusters, removedClusters, favorites, view, search, settings?.recentClusters, sessions]);
 
   const connectedCount = clusters.filter((cluster) => sessions[cluster.id]?.status === "connected").length;
 

@@ -6,6 +6,7 @@ import type {
   ClusterHealth,
   ClusterId,
   DeleteResourceRequest,
+  EvictPodRequest,
   KubeObject,
   ListResourcesRequest,
   ListResourcesResult,
@@ -354,6 +355,38 @@ export class ClusterManager {
         },
       },
     });
+  }
+
+  async evict(request: EvictPodRequest): Promise<void> {
+    const connection = this.connection(request.clusterId);
+    try {
+      await kubeRequest(connection.kc, `/api/v1/namespaces/${encodeURIComponent(request.namespace)}/pods/${encodeURIComponent(request.name)}/eviction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: {
+          apiVersion: "policy/v1",
+          kind: "Eviction",
+          metadata: { name: request.name, namespace: request.namespace },
+          deleteOptions: { gracePeriodSeconds: request.gracePeriodSeconds },
+        },
+      });
+    } catch (error) {
+      // Clusters older than 1.22 do not serve policy/v1 Eviction; fall back to
+      // a normal delete so Drain still works there.
+      if (!(error instanceof KubeApiError && error.statusCode === 404)) throw error;
+      await kubeRequest(
+        connection.kc,
+        `/api/v1/namespaces/${encodeURIComponent(request.namespace)}/pods/${encodeURIComponent(request.name)}`,
+        {
+          method: "DELETE",
+          body: {
+            apiVersion: "v1",
+            kind: "DeleteOptions",
+            gracePeriodSeconds: request.gracePeriodSeconds,
+          },
+        },
+      );
+    }
   }
 
   async podContainers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]> {

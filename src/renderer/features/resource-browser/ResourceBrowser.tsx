@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Ban,
+  Box,
   CircleCheck,
   Copy,
   FileCode,
@@ -13,6 +14,7 @@ import {
   RotateCcw,
   RotateCw,
   Scale,
+  Server,
   TriangleExclamationPoint,
   ScrollText,
   SquareTerminal,
@@ -40,11 +42,13 @@ import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
+import { SetImageDialog } from "../resource-details/SetImageDialog";
+import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
-import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, workloadCapabilities } from "../../lib/workload-actions";
+import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
-  type: "create" | "scale" | "delete" | "restart" | "bulk-delete";
+  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain";
   object?: KubeObject;
   force?: boolean;
 }
@@ -82,8 +86,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         filters: {},
         hiddenColumns: [],
         columnWidths: {},
+        pinnedColumns: [],
       })
-    : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [], columnWidths: {} };
+    : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [], columnWidths: {}, pinnedColumns: [] };
 
   const showNamespace = Boolean(resource?.namespaced && selectedNamespaces.length !== 1);
   const baseColumns = useMemo(
@@ -126,7 +131,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   }, [kindStateKey, resource, columns, session.kindStates, clusterId, updateKindState]);
 
   const hidden = useMemo(() => new Set(kindState.hiddenColumns), [kindState.hiddenColumns]);
-  const visible = useMemo(() => columns.filter((column) => !hidden.has(column.key)), [columns, hidden]);
+  const pinnedKeys = useMemo(() => new Set(kindState.pinnedColumns), [kindState.pinnedColumns]);
+  const visible = useMemo(() => {
+    const shown = columns.filter((column) => !hidden.has(column.key));
+    if (pinnedKeys.size === 0) return shown;
+    const pinned = shown.filter((column) => pinnedKeys.has(column.key));
+    const rest = shown.filter((column) => !pinnedKeys.has(column.key));
+    return [...pinned, ...rest];
+  }, [columns, hidden, pinnedKeys]);
   const metrics = useResourceMetrics({
     clusterId,
     resource,
@@ -560,6 +572,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       toast.error(paused ? "Resume failed" : "Pause failed", errorText(error));
     }
   };
+  const triggerObject = async (object: KubeObject) => {
+    try {
+      const name = await triggerCronJob(clusterId, object);
+      toast.success("CronJob triggered", `Created Job ${name}`);
+      await list.refresh(true);
+    } catch (error) {
+      toast.error("Trigger failed", errorText(error));
+    }
+  };
   const contextObject = menu?.object;
 
   return (
@@ -633,6 +654,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           <ColumnPicker
             columns={columns}
             hidden={hidden}
+            pinned={pinnedKeys}
+            onTogglePin={(key) =>
+              setKindPatch({
+                pinnedColumns: pinnedKeys.has(key)
+                  ? kindState.pinnedColumns.filter((entry) => entry !== key)
+                  : [...kindState.pinnedColumns, key],
+              })
+            }
             onChange={(next) => setKindPatch({ hiddenColumns: next })}
             onMove={(key, direction) => {
               if (!resource) return;
@@ -765,6 +794,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onBackgroundClick={() => {
             if (details) closeDetails(clusterId);
           }}
+          pinnedKeys={pinnedKeys}
           onFilterColumn={openFilter}
           columnWidths={columnWidths}
           onResizeEnd={(key, width) => {
@@ -986,6 +1016,39 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             {isSuspended(contextObject) ? "Resume" : "Suspend"}
           </MenuItem>
         ) : null}
+        {caps.imageEditable ? (
+          <MenuItem
+            icon={<Box className="h-3.5 w-3.5" />}
+            onClick={() => {
+              setDialog({ type: "set-image", object: contextObject });
+              setMenu(null);
+            }}
+          >
+            Set image…
+          </MenuItem>
+        ) : null}
+        {caps.triggerable ? (
+          <MenuItem
+            icon={<Play className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (contextObject) void triggerObject(contextObject);
+              setMenu(null);
+            }}
+          >
+            Trigger now
+          </MenuItem>
+        ) : null}
+        {isNode ? (
+          <MenuItem
+            icon={<Server className="h-3.5 w-3.5" />}
+            onClick={() => {
+              setDialog({ type: "drain", object: contextObject });
+              setMenu(null);
+            }}
+          >
+            Drain node…
+          </MenuItem>
+        ) : null}
         <MenuSeparator />
         <MenuItem
           icon={<Copy className="h-3.5 w-3.5" />}
@@ -1025,6 +1088,22 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           Force delete…
         </MenuItem>
       </ContextMenu>
+
+      <SetImageDialog
+        open={dialog?.type === "set-image"}
+        onClose={() => setDialog(null)}
+        clusterId={clusterId}
+        object={dialog?.object ?? null}
+        onSaved={() => void list.refresh(true)}
+      />
+
+      <NodeDrainDialog
+        open={dialog?.type === "drain"}
+        onClose={() => setDialog(null)}
+        clusterId={clusterId}
+        node={dialog?.object?.metadata?.name ?? ""}
+        onDone={() => void list.refresh(true)}
+      />
 
       <CreateResourceDialog
         open={dialog?.type === "create"}
