@@ -125,19 +125,23 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
 
   if (!details) return null;
 
-  const navigate = (kind: string, name: string, namespace?: string) => {
+  const navigate = (kind: string, name: string, namespace?: string, apiVersion?: string) => {
+    if (!kind || !name) return;
+    const lower = kind.toLowerCase();
     const target = resources.find(
-      (entry) => entry.kind.toLowerCase() === kind.toLowerCase() && (namespace ? entry.namespaced : true),
+      (entry) => entry.kind.toLowerCase() === lower && (!apiVersion || entry.apiVersion === apiVersion),
     );
-    if (!target) {
-      toast.error("Cannot open related resource", `${kind} is not discovered in this cluster.`);
+    const chosenApiVersion = apiVersion ?? target?.apiVersion;
+    if (!chosenApiVersion) {
+      toast.error("Cannot open related resource", `${kind} has no apiVersion in the relationship data.`);
       return;
     }
+    const isNamespaced = target ? target.namespaced : Boolean(namespace);
     openDetails(clusterId, {
       clusterId,
-      apiVersion: target.apiVersion,
-      kind: target.kind,
-      namespace: namespace ?? (target.namespaced ? object?.metadata?.namespace : undefined),
+      apiVersion: chosenApiVersion,
+      kind: target?.kind ?? kind,
+      namespace: isNamespaced ? (namespace ?? object?.metadata?.namespace) : undefined,
       name,
     });
   };

@@ -873,6 +873,12 @@ function DataOverview({ object, onEditData }: OverviewProps) {
           </Button>
         }
       >
+        <div className="mb-2 flex items-center gap-2 font-mono text-[10px] text-theme-text-tertiary">
+          <span className="truncate text-theme-text-secondary">{object.metadata?.name}</span>
+          <span>·</span>
+          <span>{Object.keys(data).length} keys</span>
+          {object.metadata?.namespace ? <span>· {object.metadata.namespace}</span> : null}
+        </div>
         <KeyValueList data={data as Record<string, string>} secret={isSecret} />
       </DetailSection>
     </div>

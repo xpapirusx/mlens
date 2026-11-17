@@ -295,7 +295,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move left
+                Move up
               </MenuItem>
               <MenuItem
                 disabled={from < 0 || from >= SLOT_COUNT - 1}
@@ -304,7 +304,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move right
+                Move down
               </MenuItem>
               <MenuSeparator />
               {Array.from({ length: SLOT_COUNT }, (_, index) => (

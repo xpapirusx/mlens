@@ -476,7 +476,7 @@ export function CatalogPage() {
                 <span>Status</span>
                 <span>Version</span>
                 <span>Kubeconfig</span>
-                <span>Namespace</span>
+                {/* <span>Namespace</span> */}
                 <span>Last opened</span>
                 <span className="text-right">Actions</span>
               </div>

@@ -207,42 +207,54 @@ export function KeyValueList({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {entries.map(([key, value]) => {
         const decoded = secret ? safeBase64(value) : value;
         const shown = !secret || revealed.has(key);
         return (
-          <div key={key} className="flex items-start gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2 py-1.5">
-            <span className="w-44 shrink-0 truncate font-mono text-[11px] text-theme-text-tertiary" title={key}>
-              {key}
-            </span>
-            <pre className="min-w-0 flex-1 overflow-hidden whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-theme-text-primary">
-              {shown ? decoded : "••••••••••••"}
-            </pre>
-            {secret ? (
+          <div key={key} className="rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium text-theme-text-secondary" title={key}>
+                {key}
+              </span>
+              {secret ? (
+                <button
+                  type="button"
+                  className="shrink-0 rounded px-1 py-0.5 text-[10px] text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                  onClick={() =>
+                    setRevealed((current) => {
+                      const next = new Set(current);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    })
+                  }
+                >
+                  {shown ? "Hide" : "Reveal"}
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="shrink-0 rounded px-1 py-0.5 text-[10px] text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
-                onClick={() =>
-                  setRevealed((current) => {
-                    const next = new Set(current);
-                    if (next.has(key)) next.delete(key);
-                    else next.add(key);
-                    return next;
-                  })
-                }
+                title="Copy key"
+                className="shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                onClick={() => void navigator.clipboard.writeText(key)}
               >
-                {shown ? "Hide" : "Reveal"}
+                <Copy className="h-3 w-3" />
               </button>
-            ) : null}
-            <button
-              type="button"
-              title="Copy value"
-              className="shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
-              onClick={() => void navigator.clipboard.writeText(shown ? decoded : value)}
-            >
-              <Copy className="h-3 w-3" />
-            </button>
+            </div>
+            <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-theme-text-primary">
+              {shown ? decoded : "••••••••••••"}
+            </pre>
+            <div className="mt-1 flex justify-end">
+              <button
+                type="button"
+                title="Copy value"
+                className="shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                onClick={() => void navigator.clipboard.writeText(shown ? decoded : value)}
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         );
       })}

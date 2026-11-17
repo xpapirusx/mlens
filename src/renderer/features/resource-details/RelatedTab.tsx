@@ -17,7 +17,7 @@ export function RelatedTab({
   loading: boolean;
   error: string | null;
   warnings?: string[];
-  onNavigate: (kind: string, name: string, namespace?: string) => void;
+  onNavigate: (kind: string, name: string, namespace?: string, apiVersion?: string) => void;
 }) {
   if (loading && groups.length === 0) {
     return (
@@ -72,7 +72,7 @@ export function RelatedTab({
               return (                <button
                   key={`${item.kind}-${item.namespace}-${item.name}-${index}`}
                   type="button"
-                  onClick={() => onNavigate(item.kind, item.name, item.namespace)}
+                  onClick={() => onNavigate(item.kind, item.name, item.namespace, item.apiVersion)}
                   className={cn(
                     "flex w-full items-center gap-2 px-2 py-1.5 text-left transition-colors hover:bg-theme-hover/60",
                     index > 0 && "border-t border-theme-border-subtle",

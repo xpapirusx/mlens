@@ -256,6 +256,8 @@ configuration).
 | Catalog sorting/status | Pass — connected cluster first, Status `Connected`, Version in its own column, Sort: Status/Name/Recent/Source |
 | CR/CRD details | Pass — CiliumEndpoint opens on Details; Overview shows cards + 7 printer columns + status |
 | Bottom tab tray | Pass — 4 open tabs collapse into a bottom shadow tray, tabs clickable, chevron restores the strip |
+| Related: cluster-scoped owner | Pass — owner refs no longer inherit the child's namespace; navigation resolves apiVersion and cluster-scoped targets (reported on PinataHost) |
+| Secret/ConfigMap layout | Pass — resource name + key count above the table, key stacked over value, reveal/copy per key |
 | Attach | Pass — pods/attach WebSocket started against a live pod without errors |
 | Workload actions in table | Pass — context menu shows Scale/Restart/Pause rollout for Deployments, Scale for ReplicaSets, Suspend for Jobs |
 | Column order | Pass — up/down in the column picker, persisted per kind |

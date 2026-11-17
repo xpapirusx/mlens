@@ -438,14 +438,18 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - **YAML** — Monaco, read-only by default, edit + dry-run + apply.
 - **Events** — live event list, warning filter, search, counts, timestamps.
 - **Related** — owners/selectors/config/node/volume relationships, refreshed
-  from the live API; empty state says when nothing is related.
+  from the live API; empty state says when nothing is related. Owner references
+  are opened with their own apiVersion and without a namespace, so cluster-scoped
+  owners (e.g. CAPI `PinataHost`) resolve correctly.
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
   timestamps, search, download, clear, line numbers; error/warn lines tinted.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,
   secret/configMap/field references. Ref badges have an eye that fetches the
   referenced ConfigMap/Secret and shows the decoded value inline (no navigation).
-- **ConfigMap / Secret** — Freelens-style key/value view, Secret values decoded
-  for editing and encoded back on save; add/remove keys with a merge patch.
+- **ConfigMap / Secret** — the resource name and key count sit above the value
+  table, and each key is stacked over its value (not side by side). Secret values
+  are decoded for editing and encoded back on save; add/remove keys with a merge
+  patch.
 - Specification/Status fields are sorted; complex objects/arrays are collapsed
   JSON blocks so the drawer never grows to a multi-thousand-pixel page.
 - **Metrics** — real metrics.k8s.io usage for **Pods only**; when the API is

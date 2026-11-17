@@ -194,7 +194,9 @@ export function useRelatedResources(
           owners.push({
             kind: owner.kind,
             apiVersion: owner.apiVersion,
-            namespace,
+            // Owner references do not carry a namespace: the owner may be
+            // cluster-scoped even when the child is namespaced.
+            namespace: undefined,
             name: owner.name,
             relationship: "owner",
             status: { text: "owner", tone: "info" },
