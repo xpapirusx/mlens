@@ -10,6 +10,7 @@ import { formatBytes } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
 import { daysUntil, parseCertificate } from "../../lib/certificate";
+import { readJsonPath } from "../../lib/jsonpath";
 import { NodeOverview } from "./NodeOverview";
 import { PermissionsSection } from "./PermissionsSection";
 import { PolicySection } from "./PolicySection";
@@ -1536,20 +1537,6 @@ function AffinityView({ affinity }: { affinity: any }) {
       ) : null}
     </div>
   );
-}
-
-function readJsonPath(value: unknown, path: string): unknown {
-  const clean = path.replace(/^\./, "");
-  return clean.split(".").reduce<unknown>((current, key) => {
-    if (current === null || current === undefined) return undefined;
-    if (key.includes("[")) {
-      const [name, indexPart] = key.split("[");
-      const index = Number(indexPart?.replace("]", ""));
-      const container = (current as Record<string, unknown>)[name] as unknown[] | undefined;
-      return container?.[index];
-    }
-    return (current as Record<string, unknown>)[key];
-  }, value);
 }
 
 /** "observedGeneration" → "Observed Generation" for the flat status rows. */

@@ -7,6 +7,7 @@ import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { daysUntil, parseCertificate } from "./certificate";
+import { readJsonPath } from "./jsonpath";
 import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
 
 export type AnyObject = any;
@@ -1929,20 +1930,7 @@ function NodeTaintsCell({ object }: { object: AnyObject }) {
 
 function printerValue(object: AnyObject, jsonPath: string | undefined, type: string): string | number | undefined {
   if (!jsonPath) return undefined;
-  const path = jsonPath.replace(/^\{/, "").replace(/\}$/, "").replace(/^\./, "");
-  let current: any = object;
-  for (const token of path.split(".")) {
-    if (current === undefined || current === null) return undefined;
-    const match = /^([^[\]]+)((\[\d+\])*)$/.exec(token);
-    if (!match) return undefined;
-    current = current[match[1]];
-    const indices = match[2].match(/\d+/g);
-    if (indices) {
-      for (const index of indices) {
-        current = current?.[Number(index)];
-      }
-    }
-  }
+  const current = readJsonPath(object, jsonPath);
   if (current === undefined || current === null) return undefined;
   if (type === "integer" || type === "number") {
     const number = Number(current);

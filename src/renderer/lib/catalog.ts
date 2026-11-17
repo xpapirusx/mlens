@@ -425,8 +425,10 @@ export function findResource(
  * them after everything they saved. Ids that no longer exist are ignored.
  */
 export function mergeGroupOrder(baseIds: string[], saved: string[]): string[] {
-  const result = baseIds.filter((id) => saved.includes(id));
-  for (const id of baseIds.filter((entry) => !saved.includes(entry))) {
+  // The saved order is the user's drag order — it must lead, minus ids that no
+  // longer exist (a removed category).
+  const result = saved.filter((id) => baseIds.includes(id));
+  for (const id of baseIds.filter((entry) => !result.includes(entry))) {
     const canonical = baseIds.indexOf(id);
     let insertAt = 0;
     for (let index = canonical - 1; index >= 0; index -= 1) {

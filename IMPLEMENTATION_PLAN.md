@@ -73,7 +73,7 @@ configuration).
 |---|---|---|
 | Radar-style table | **Done** | Fixed layout, 44px rows, 40px uppercase header, virtualised |
 | Column definitions for core kinds | **Done** | Pods, workloads, jobs, services, ingress, netpol, config/secret, nodes, namespaces, events, PV/PVC/SC, RBAC, HPA, PDB, CRD + generic |
-| Dynamic CRD columns | **Done** | `additionalPrinterColumns` from CRDs |
+| Dynamic CRD columns | **Done** | `additionalPrinterColumns` from CRDs, including the `{…}`/`$.` path forms and `[?(@.type=='Ready')]` predicates (shared `lib/jsonpath.ts`, checked against a real CAPI-style CR) |
 | Search | **Done** | All visible values + labels; `/` shortcut; regex mode |
 | Per-column filters | **Done** | Distinct-value popovers, include multi-select, counts |
 | Namespace scope | **Done** | All / one / several namespaces; merged rows, per-namespace watches, summed counts; system namespace toggle |
@@ -300,6 +300,7 @@ configuration).
 | Windows / Linux packaging | Configured (NSIS, AppImage, deb); not yet built on those OSes |
 | Radar container squares / Node table + details / RBAC permissions / hotbar pages | Pass — `pnpm typecheck` and `pnpm build`; real-cluster smoke test still pending |
 | Radar columns+statuses, Service/Access Control/Policy/Secret overviews, YAML find, debug shell, Related filters, cluster-switch animation | Pass — typecheck and `electron-vite build` (Monaco find widget confirmed in the bundle); certificate parser checked against real kubeconfig certs with Node's `X509Certificate` (10/10 dates and CNs match); real-cluster smoke test pending |
+| CRD printer columns (predicate/`$.`/braced JSONPath) + sidebar drag order | Pass — `readJsonPath` 11/11 on a CAPI-style CR (`Ready → True`, `envoyHosts[0]`, numeric predicate); `mergeGroupOrder` keeps the saved drag order and inserts new categories at their default slot |
 
 ---
 

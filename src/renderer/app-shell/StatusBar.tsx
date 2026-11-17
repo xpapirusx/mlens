@@ -57,7 +57,7 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
         <span className={cn("text-theme-text-disabled")}>
           Electron {info?.electron ?? "—"} · Node {info?.node ?? "—"}
         </span>
-        <span className="text-theme-text-secondary">mLens {info?.version ?? "0.1.0"}</span>
+        <span className="text-theme-text-secondary">mLens {info?.version ?? "v2.2.9"}</span>
       </span>
     </footer>
   );
