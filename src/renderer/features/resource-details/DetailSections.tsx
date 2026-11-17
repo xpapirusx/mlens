@@ -167,7 +167,9 @@ export function NestedObject({ value, depth = 0 }: { value: unknown; depth?: num
     );
   }
 
-  const entries = Object.entries(value as Record<string, unknown>);
+  const entries = Object.entries(value as Record<string, unknown>).sort(([left], [right]) =>
+    left.localeCompare(right, undefined, { numeric: true }),
+  );
   if (entries.length === 0) return <span className="text-theme-text-tertiary">{"{}"}</span>;
 
   return (

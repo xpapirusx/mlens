@@ -11,6 +11,7 @@ import type {
   ClusterSummary,
   DeleteResourceRequest,
   ExecRequest,
+  PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
   ListResourcesRequest,
@@ -61,6 +62,7 @@ export const IPC = {
   resourcesUnwatch: "kube:resources-unwatch",
   resourcesCounts: "kube:resources-counts",
   resourcesDelete: "kube:resources-delete",
+  resourcesPatch: "kube:resources-patch",
   resourcesApply: "kube:resources-apply",
   resourcesScale: "kube:resources-scale",
   resourcesRestart: "kube:resources-restart",
@@ -126,6 +128,7 @@ export interface MlensApi {
     unwatch(subscriptionId: string): Promise<void>;
     counts(request: ResourceCountRequest): Promise<ResourceCountResult[]>;
     delete(request: DeleteResourceRequest): Promise<void>;
+    patch(request: PatchResourceRequest): Promise<KubeObject>;
     apply(request: ApplyYamlRequest): Promise<ApplyYamlResult[]>;
     scale(request: ScaleRequest): Promise<void>;
     restart(request: RestartRequest): Promise<void>;

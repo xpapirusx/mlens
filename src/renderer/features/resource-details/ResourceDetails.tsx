@@ -7,7 +7,6 @@ import {
   FileCode,
   FileText,
   Layers,
-  ListTree,
   Maximize2,
   Minimize2,
   Plug,
@@ -29,16 +28,16 @@ import { InlineError } from "../../design-system/components/EmptyState";
 import { Button } from "../../design-system/components/Button";
 import { ConfirmActionDialog } from "../resource-browser/ResourceDialogs";
 import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
+import { EditDataDialog } from "./EditDataDialog";
 import { Tabs } from "../../design-system/components/Tabs";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
-import { useEvents, useRelatedResources, useResourceObject } from "./useDetailsData";
+import { useEvents, useResourceObject } from "./useDetailsData";
 import { OverviewTab } from "./OverviewTab";
 import { DetailsTab } from "./DetailsTab";
 import { YamlTab } from "./YamlTab";
 import { EventsTab } from "./EventsTab";
 import { LogsTab } from "./LogsTab";
-import { RelatedTab } from "./RelatedTab";
 import { MetricsTab } from "./MetricsTab";
 
 export function ResourceDetails({ clusterId }: { clusterId: string }) {
@@ -68,7 +67,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
 
   const tab: DetailTab = details?.tab ?? "overview";
   const events = useEvents(clusterId, details?.ref ?? null, refreshSeconds, tab === "events");
-  const related = useRelatedResources(clusterId, details?.ref ?? null, object, tab === "related");
 
   const [width, setWidth] = useState(560);
   const [expanded, setExpanded] = useState(false);
@@ -76,6 +74,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [forwardPort, setForwardPort] = useState<number | null>(null);
+  const [editDataOpen, setEditDataOpen] = useState(false);
 
   useEffect(() => {
     setExpanded(false);
@@ -186,6 +185,62 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const isPod = details.ref.kind === "Pod";
   const fullHeightTab = tab === "yaml" || tab === "logs";
 
+  const actionButtons = (
+    <>
+      {isPod ? (
+        <button
+          type="button"
+          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+          onClick={() => setDetailsTab(clusterId, "logs")}
+          title="Logs"
+        >
+          <ScrollText className="h-3.5 w-3.5" />
+          Logs
+        </button>
+      ) : null}
+      {isPod ? (
+        <button
+          type="button"
+          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+          onClick={() => void openShell()}
+          title="Attach / exec into pod"
+        >
+          <SquareTerminal className="h-3.5 w-3.5" />
+          Attach
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+        onClick={() => setDetailsTab(clusterId, "yaml")}
+        title="Edit YAML"
+      >
+        <FileCode className="h-3.5 w-3.5" />
+        YAML
+      </button>
+      {isPod ? (
+        <button
+          type="button"
+          className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+          onClick={() => setForwardPort(8080)}
+          title="Port forward"
+        >
+          <Plug className="h-3.5 w-3.5" />
+          Forward
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-red-500 hover:bg-red-500/10"
+        onClick={() => setConfirmDelete(true)}
+        title="Delete resource"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Delete
+      </button>
+    </>
+  );
+
   return (
     <aside
       className={cn(
@@ -228,6 +283,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             >
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
+            {actionButtons}
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
@@ -297,8 +353,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                   </span>
                 ) : null,
               },
-              { id: "logs", label: "Logs", icon: <SquareTerminal /> },
-              { id: "related", label: "Related", icon: <ListTree /> },
+              ...(isPod
+                ? [{ id: "logs" as const, label: "Logs", icon: <SquareTerminal /> }]
+                : []),
               { id: "metrics", label: "Metrics", icon: <Activity /> },
             ]}
           />
@@ -333,6 +390,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 onNavigate={navigate}
                 onPortForward={(port) => setForwardPort(port)}
                 onQuickPortForward={(port) => void quickPortForward(port)}
+                onEditData={() => setEditDataOpen(true)}
               />
             ) : null}
             {tab === "details" ? <DetailsTab object={object} /> : null}
@@ -342,16 +400,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             {tab === "events" ? (
               <EventsTab events={events.events} loading={events.loading} error={events.error} />
             ) : null}
-            {tab === "logs" ? <LogsTab clusterId={clusterId} object={object} /> : null}
-            {tab === "related" ? (
-              <RelatedTab
-                groups={related.groups}
-                loading={related.loading}
-                error={related.error}
-                warnings={related.warnings}
-                onNavigate={navigate}
-              />
-            ) : null}
+            {tab === "logs" && isPod ? <LogsTab clusterId={clusterId} object={object} /> : null}
             {tab === "metrics" ? (
               <MetricsTab
                 clusterId={clusterId}
@@ -364,64 +413,19 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         )}
       </div>
 
-      <div className="flex h-9 shrink-0 items-center gap-1 border-t border-theme-border bg-theme-base px-2">
-        <ChevronLeft className="h-2.5 w-2.5 text-theme-text-disabled" />
-        <span className="font-mono text-[10px] text-theme-text-disabled">
-          {resource?.plural ?? details.ref.kind}
-        </span>
-        <span className="text-[10px] text-theme-text-disabled">· {data.loading ? "refreshing…" : "live"}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            type="button"
-            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-            onClick={() => setDetailsTab(clusterId, "logs")}
-            title="Logs"
-          >
-            <ScrollText className="h-3.5 w-3.5" />
-            Logs
-          </button>
-          {isPod ? (
-            <button
-              type="button"
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-              onClick={() => void openShell()}
-              title="Attach / exec into pod"
-            >
-              <SquareTerminal className="h-3.5 w-3.5" />
-              Attach
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-            onClick={() => setDetailsTab(clusterId, "yaml")}
-            title="Edit YAML"
-          >
-            <FileCode className="h-3.5 w-3.5" />
-            YAML
-          </button>
-          {isPod ? (
-            <button
-              type="button"
-              className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-              onClick={() => setForwardPort(8080)}
-              title="Port forward"
-            >
-              <Plug className="h-3.5 w-3.5" />
-              Forward
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-red-500 hover:bg-red-500/10"
-            onClick={() => setConfirmDelete(true)}
-            title="Delete resource"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete
-          </button>
-        </div>
+      <div className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-disabled">
+        <ChevronLeft className="h-2.5 w-2.5" />
+        <span className="font-mono">{resource?.plural ?? details.ref.kind}</span>
+        <span className="ml-auto">{data.loading ? "Refreshing…" : "Live data"}</span>
       </div>
+
+      <EditDataDialog
+        open={editDataOpen}
+        onClose={() => setEditDataOpen(false)}
+        clusterId={clusterId}
+        object={object}
+        onSaved={() => void data.refresh()}
+      />
 
       {isPod && details.ref.namespace && object ? (
         <StartPortForwardDialog

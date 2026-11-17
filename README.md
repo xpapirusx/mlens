@@ -66,9 +66,10 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 
 ### Resource details
 
-Overview / Details / YAML / Events / Logs / Related / Metrics inside a resizable
+Overview / Details / YAML / Events / Logs (Pods) / Metrics inside a resizable
 Freelens-style drawer. Header actions for logs, attach/exec, YAML, port forward,
-delete, refresh and close. Kind-specific Pod, workload, Service, Ingress, Node,
+delete, refresh and close. Pods show environment variables and ports; ConfigMaps
+and Secrets are editable from the UI (Secret values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
 data, storage, HPA, CRD and generic CRD renderers. Pod Overview includes a Ports
 table with one-click forwarding. Real events, real streaming logs, real
 related-resource resolution. Secrets reveal only on request.

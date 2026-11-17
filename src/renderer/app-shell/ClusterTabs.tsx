@@ -1,4 +1,4 @@
-import { Blocks, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Blocks, Home, Plus, X } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { disconnectCluster } from "../lib/cluster-actions";
@@ -9,9 +9,22 @@ export function ClusterTabs() {
   const activeClusterId = useCatalogStore((state) => state.activeClusterId);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const clusters = useCatalogStore((state) => state.clusters);
+  const detailsBack = useSessionStore((state) => state.detailsBack);
+  const closeDetails = useSessionStore((state) => state.closeDetails);
 
   const ids = Object.keys(sessions);
-  if (ids.length === 0) return null;
+  const activeSession = activeClusterId ? sessions[activeClusterId] : undefined;
+  const details = activeSession?.details ?? null;
+  const detailsHistory = activeSession?.detailsHistory ?? [];
+
+  const goBack = () => {
+    if (activeClusterId && details) {
+      if (detailsHistory.length > 0) detailsBack(activeClusterId);
+      else closeDetails(activeClusterId);
+      return;
+    }
+    if (activeClusterId) setActiveCluster(null);
+  };
 
   const closeTab = async (id: string) => {
     const next = ids.find((entry) => entry !== id);
@@ -23,6 +36,39 @@ export function ClusterTabs() {
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-theme-border bg-theme-sidebar px-2">
+      <div className="flex shrink-0 items-center gap-0.5 border-r border-theme-border pr-2">
+        <button
+          type="button"
+          className="shell-icon-button h-6 w-6"
+          title="Catalog (home)"
+          aria-label="Catalog"
+          onClick={() => setActiveCluster(null)}
+        >
+          <Home className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          className="shell-icon-button h-6 w-6 disabled:opacity-30"
+          title={details ? "Back to previous resource" : "Back to catalog"}
+          aria-label="Back"
+          disabled={!activeClusterId}
+          onClick={goBack}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          className="shell-icon-button h-6 w-6 disabled:opacity-30"
+          title="Forward navigation is not implemented yet"
+          aria-label="Forward"
+          disabled
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {ids.length === 0 ? (
+        <span className="px-2 text-[11px] text-theme-text-tertiary">Catalog</span>
+      ) : null}
       {ids.map((id) => {
         const session = sessions[id];
         const cluster = clusters.find((entry) => entry.id === id);

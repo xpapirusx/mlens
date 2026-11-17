@@ -783,15 +783,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         >
           View YAML
         </MenuItem>
-        <MenuItem
-          icon={<ScrollText className="h-3.5 w-3.5" />}
-          onClick={() => {
-            if (contextObject) openTab(contextObject, "logs");
-            setMenu(null);
-          }}
-        >
-          Logs
-        </MenuItem>
+        {isPod ? (
+          <MenuItem
+            icon={<ScrollText className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (contextObject) openTab(contextObject, "logs");
+              setMenu(null);
+            }}
+          >
+            Logs
+          </MenuItem>
+        ) : null}
         {isPod ? (
           <MenuItem
             icon={<SquareTerminal className="h-3.5 w-3.5" />}

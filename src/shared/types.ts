@@ -252,6 +252,10 @@ export interface ApplyYamlResult {
   action: "created" | "updated";
 }
 
+export interface PatchResourceRequest extends ResourceKey {
+  patch: Record<string, unknown>;
+}
+
 export interface DeleteResourceRequest extends ResourceKey {
   propagationPolicy?: "Foreground" | "Background" | "Orphan";
 }

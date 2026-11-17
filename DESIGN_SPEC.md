@@ -36,7 +36,7 @@ Both reference repositories were studied at source level before implementation.
 | Resource Browser | **Radar** | `packages/k8s-ui/src/components/resources/ResourcesView.tsx`, `ResourcesSidebar.tsx` |
 | Resource tables | **Radar** | `TableVirtuoso`, fixed layout, colgroup, 44px rows, 12px uppercase headers |
 | Resource filters | **Radar** | `ActiveFilterBar`, per-column filter popovers, `/` search, regex mode |
-| Resource Details content | **Radar** | Overview / Details / YAML / Events / Logs / Related / Metrics tabs |
+| Resource Details content | **Radar** | Overview / Details / YAML / Events / Logs (Pods) / Metrics tabs |
 | Typography | **Radar** | DM Sans Variable + DM Mono |
 | Icons | **Radar** | `lucide-react` + kind→icon map |
 | Colors | **Radar** | cool blue-gray surfaces, brand `#4A7CC9`/`#6A9FE0` |
@@ -134,10 +134,9 @@ The bar is the window drag region; every control is `no-drag`.
 ### 2.3 Hotbar
 
 - 54px rail, deepest surface token (`--bg-sidebar`).
-- The rail is the **favourite clusters** rail, like Freelens. Open clusters live
-  in the top cluster-tab strip, so the hotbar is curated rather than a copy of
-  open sessions. Favourite tiles can be dragged to reorder them (persisted in
-  `hotbarOrder`); clicking launches/activates the cluster.
+- The rail has **10 slots** and shows favourite clusters only, like Freelens. Open
+  clusters live in the top cluster-tab strip. Favourite tiles can be dragged to
+  reorder them (persisted in `hotbarOrder`); empty slots open the catalog.
 - Each cell: gradient tile with cluster initials, connection dot, tooltip with
   context/server/state. Duplicate-looking names remain distinguishable by colour
   and tooltip.
@@ -145,7 +144,8 @@ The bar is the window drag region; every control is `no-drag`.
 
 ### 2.3a Cluster tabs and open-resource tabs
 
-- A 36px cluster tab strip sits directly under the top bar. Each visited cluster
+- A 36px cluster tab strip sits directly under the top bar, with Home/Back/Forward
+  controls at its left (the old top-bar navigation was moved here). Each visited cluster
   keeps a tab with a health dot; the close button disconnects that cluster and
   removes its workspace. `+` returns to the catalog. The strip is hidden when no
   session exists.
@@ -216,7 +216,7 @@ contains a single kind.
   refresh, logs, attach/exec (Pods), YAML edit, port forward (Pods), delete,
   expand, close. Below: name, copy, namespace, age. Delete always asks for
   confirmation. This follows Freelens' action-in-drawer-header pattern.
-- Tabs: **Overview, Details, YAML, Events, Logs, Related, Metrics**.
+- Tabs: **Overview, Details, YAML, Events, Logs (Pods only), Metrics**. Related is intentionally not shown; relationship exploration is not part of this build.
 - `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
 - Opening another row replaces the content and pushes the previous resource onto
   a 25-entry back stack.
@@ -387,7 +387,7 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
   account, containers (image, readiness, restarts, requests/limits, ports),
   a **Ports** table where clicking the port number starts an automatic local
-  forward and the Forward button opens the custom-port dialog, conditions, volumes, scheduling
+  forward (random local port 30000–65355) and the Forward button opens the custom-port dialog, conditions, volumes, scheduling
   (node selector, tolerations and affinity rendered as aligned rows, not raw
   overflowing JSON). Workloads: replicas, rollout state,
   conditions, container template. Node: capacity/allocatable bars, conditions,
@@ -396,19 +396,19 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
 - **YAML** — Monaco, read-only by default, edit + dry-run + apply.
 - **Events** — live event list, warning filter, search, counts, timestamps.
-- **Logs** — streaming pod logs; workload/service/node pod picker; container,
-  tail, follow, previous, timestamps, search, download, clear, line numbers;
-  error/warn lines tinted.
-- **Related** — owners, services selecting a Pod, pods managed by a workload,
-  replicasets of a deployment, jobs of a cronjob, mounted config refs, node pods,
-  bound PV. Every row navigates in the same drawer.
+- **Logs** — available for **Pods only**; container, tail, follow, previous,
+  timestamps, search, download, clear, line numbers; error/warn lines tinted.
+- **Environment** — Pod containers and init containers, env vars, `envFrom`,
+  secret/configMap/field references.
+- **ConfigMap / Secret** — Freelens-style key/value view, Secret values decoded
+  for editing and encoded back on save; add/remove keys with a merge patch.
 - **Metrics** — real metrics.k8s.io usage for Pods/Nodes; when the API is absent
   the panel says exactly that. No synthetic numbers; historical charts are not
   implemented.
 
 ### 3.6a Port forwarding
 
-- A Pod action opens a start dialog (local port 0 = free port, pod port), creates a
+- A Pod action opens a start dialog (random local port 30000–65355 by default, pod port), creates a
   loopback listener and tunnels through the Kubernetes WebSocket
   port-forward protocol. The ports table exposes one-click Forward buttons.
 - A **Port forwards** panel in the top bar lists every active forward across

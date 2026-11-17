@@ -12,6 +12,7 @@ import type {
   ClusterId,
   DeleteResourceRequest,
   ExecRequest,
+  PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
   ListResourcesRequest,
@@ -80,6 +81,7 @@ const api: MlensApi = {
     counts: (request: ResourceCountRequest) =>
       ipcRenderer.invoke(IPC.resourcesCounts, request) as Promise<ResourceCountResult[]>,
     delete: (request: DeleteResourceRequest) => ipcRenderer.invoke(IPC.resourcesDelete, request) as Promise<void>,
+    patch: (request: PatchResourceRequest) => ipcRenderer.invoke(IPC.resourcesPatch, request) as Promise<KubeObject>,
     apply: (request: ApplyYamlRequest) =>
       ipcRenderer.invoke(IPC.resourcesApply, request) as Promise<ApplyYamlResult[]>,
     scale: (request: ScaleRequest) => ipcRenderer.invoke(IPC.resourcesScale, request) as Promise<void>,

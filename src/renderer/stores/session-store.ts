@@ -3,7 +3,7 @@ import type { ApiResourceInfo, ClusterConnectionInfo, ClusterId, ResourceKey } f
 import { api, call, errorText } from "../lib/api";
 import { toast } from "../design-system/components/Toast";
 
-export type DetailTab = "overview" | "details" | "yaml" | "events" | "logs" | "related" | "metrics";
+export type DetailTab = "overview" | "details" | "yaml" | "events" | "logs" | "metrics";
 
 export interface KindState {
   search: string;
@@ -302,7 +302,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...state.sessions,
           [id]: {
             ...session,
-            details: { ref, tab: session.details?.tab ?? "overview" },
+            details: {
+              ref,
+              tab:
+                ref.kind !== "Pod" && session.details?.tab === "logs"
+                  ? "overview"
+                  : (session.details?.tab ?? "overview"),
+            },
             detailsHistory: history,
             resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
           },
@@ -354,7 +360,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           ...state.sessions,
           [id]: {
             ...session,
-            details: { ref, tab: session.details?.tab ?? "overview" },
+            details: {
+              ref,
+              tab:
+                ref.kind !== "Pod" && session.details?.tab === "logs"
+                  ? "overview"
+                  : (session.details?.tab ?? "overview"),
+            },
             resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
           },
         },

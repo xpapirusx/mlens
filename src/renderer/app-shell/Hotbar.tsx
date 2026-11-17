@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Blocks, Plus, Settings, Star } from "lucide-react";
+import { Blocks, Plus, Settings } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { cn } from "../lib/cn";
@@ -78,80 +78,87 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
       <div className="my-1 h-px w-7 bg-theme-border" />
 
       <div className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto px-0.5">
-        {ordered.slice(0, 9).map((cluster: ClusterSummary) => {
-          const active = cluster.id === activeClusterId;
-          const session = sessions[cluster.id];
-          const state: string | undefined = session?.status ?? health[cluster.id]?.status;
-          const dot =
-            state === "connected"
-              ? "bg-emerald-500"
-              : state === "error"
-                ? "bg-red-500"
-                : state === "disconnected"
-                  ? "bg-slate-500"
-                  : "bg-theme-text-disabled";
-          return (
-            <Tooltip
-              key={cluster.id}
-              side="bottom"
-              content={
-                <div>
-                  <div className="font-medium text-theme-text-primary">{cluster.name}</div>
-                  <div className="mt-0.5 text-[10px] text-theme-text-tertiary">{cluster.context}</div>
-                  <div className="mt-0.5 text-[10px] text-theme-text-disabled">
-                    {state === "connected" ? "Connected" : state === "error" ? "Connection error" : "Not connected"}
+        {[...ordered.slice(0, 10), ...Array(Math.max(0, 10 - Math.min(ordered.length, 10))).fill(null)].map(
+          (cluster: ClusterSummary | null, slotIndex) => {
+            if (!cluster) {
+              return (
+                <Tooltip
+                  key={`slot-${slotIndex}`}
+                  content={`Empty hotbar slot ${slotIndex + 1} — favourite a cluster in the catalog`}
+                  side="bottom"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveCluster(null)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-theme-border/70 text-theme-text-disabled transition-colors hover:border-theme-border hover:text-theme-text-secondary"
+                  >
+                    <span className="text-[11px]">+</span>
+                  </button>
+                </Tooltip>
+              );
+            }
+            const active = cluster.id === activeClusterId;
+            const session = sessions[cluster.id];
+            const state: string | undefined = session?.status ?? health[cluster.id]?.status;
+            const dot =
+              state === "connected"
+                ? "bg-emerald-500"
+                : state === "error"
+                  ? "bg-red-500"
+                  : state === "disconnected"
+                    ? "bg-slate-500"
+                    : "bg-theme-text-disabled";
+            return (
+              <Tooltip
+                key={cluster.id}
+                side="bottom"
+                content={
+                  <div>
+                    <div className="font-medium text-theme-text-primary">{cluster.name}</div>
+                    <div className="mt-0.5 text-[10px] text-theme-text-tertiary">{cluster.context}</div>
+                    <div className="mt-0.5 text-[10px] text-theme-text-disabled">
+                      {state === "connected" ? "Connected" : state === "error" ? "Connection error" : "Not connected"}
+                    </div>
                   </div>
-                </div>
-              }
-            >
-              <button
-                type="button"
-                draggable
-                onDragStart={(event) => {
-                  setDragging(cluster.id);
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", cluster.id);
-                }}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const source = event.dataTransfer.getData("text/plain") || dragging;
-                  if (source) reorder(source, cluster.id);
-                  setDragging(null);
-                }}
-                onDragEnd={() => setDragging(null)}
-                onClick={() => void openCluster(cluster.id)}
-                className={cn(
-                  "relative flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-semibold text-white shadow-theme-sm transition-all",
-                  active ? "ring-2 ring-skyhook-500 ring-offset-1 ring-offset-theme-sidebar" : "opacity-85 hover:opacity-100",
-                  dragging === cluster.id && "opacity-40",
-                )}
-                style={{
-                  background: `linear-gradient(135deg, hsl(${(cluster.name.charCodeAt(0) * 37) % 360} 45% 42%), hsl(${(cluster.name.charCodeAt(0) * 37 + 40) % 360} 48% 30%))`,
-                }}
-                aria-label={cluster.name}
+                }
               >
-                {initials(cluster.name)}
-                <span className={cn("absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-theme-sidebar", dot)} />
-              </button>
-            </Tooltip>
-          );
-        })}
-
-        {ordered.length === 0 ? (
-          <Tooltip content="Star clusters in the catalog to pin them here. Drag to reorder." side="bottom">
-            <button
-              type="button"
-              onClick={() => setActiveCluster(null)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-dashed border-theme-border text-theme-text-tertiary hover:text-theme-text-primary"
-            >
-              <Star className="h-4 w-4" />
-            </button>
-          </Tooltip>
-        ) : null}
+                <button
+                  type="button"
+                  draggable
+                  onDragStart={(event) => {
+                    setDragging(cluster.id);
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", cluster.id);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "move";
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const source = event.dataTransfer.getData("text/plain") || dragging;
+                    if (source) reorder(source, cluster.id);
+                    setDragging(null);
+                  }}
+                  onDragEnd={() => setDragging(null)}
+                  onClick={() => void openCluster(cluster.id)}
+                  className={cn(
+                    "relative flex h-9 w-9 items-center justify-center rounded-lg text-[11px] font-semibold text-white shadow-theme-sm transition-all",
+                    active ? "ring-2 ring-skyhook-500 ring-offset-1 ring-offset-theme-sidebar" : "opacity-85 hover:opacity-100",
+                    dragging === cluster.id && "opacity-40",
+                  )}
+                  style={{
+                    background: `linear-gradient(135deg, hsl(${(cluster.name.charCodeAt(0) * 37) % 360} 45% 42%), hsl(${(cluster.name.charCodeAt(0) * 37 + 40) % 360} 48% 30%))`,
+                  }}
+                  aria-label={cluster.name}
+                >
+                  {initials(cluster.name)}
+                  <span className={cn("absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-theme-sidebar", dot)} />
+                </button>
+              </Tooltip>
+            );
+          },
+        )}
       </div>
 
       <div className="mt-1 flex flex-col items-center gap-1 border-t border-theme-border pt-2">

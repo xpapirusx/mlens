@@ -227,6 +227,17 @@ export class ClusterManager {
     return results;
   }
 
+  async patch(request: import("@shared/types").PatchResourceRequest): Promise<KubeObject> {
+    const connection = this.connection(request.clusterId);
+    const info = await connection.catalog.get(request.apiVersion, request.kind);
+    const apiPath = `${buildApiPath(info.apiVersion, info.plural, info.namespaced ? request.namespace : undefined)}/${encodeURIComponent(request.name)}`;
+    return await kubeRequest<KubeObject>(connection.kc, apiPath, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/merge-patch+json" },
+      body: request.patch,
+    });
+  }
+
   async remove(request: DeleteResourceRequest): Promise<void> {
     const connection = this.connection(request.clusterId);
     const info = await connection.catalog.get(request.apiVersion, request.kind);

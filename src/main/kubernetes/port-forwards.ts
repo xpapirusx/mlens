@@ -35,12 +35,38 @@ export class PortForwardManager {
   async start(request: PortForwardRequest): Promise<PortForwardInfo> {
     const connection = this.getConnection(request.clusterId);
     const server = net.createServer();
-    const requestedPort = request.localPort && request.localPort > 0 ? request.localPort : 0;
+    const explicitPort = request.localPort && request.localPort > 0 ? request.localPort : undefined;
+    const randomPort = () => 30000 + Math.floor(Math.random() * (65355 - 30000 + 1));
 
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", (error) => reject(new Error(`Cannot listen on 127.0.0.1:${requestedPort}: ${error.message}`)));
-      server.listen(requestedPort, "127.0.0.1", () => resolve());
-    });
+    const listen = (port: number) =>
+      new Promise<void>((resolve, reject) => {
+        const onError = (error: NodeJS.ErrnoException) => {
+          server.off("listening", onListening);
+          reject(error);
+        };
+        const onListening = () => {
+          server.off("error", onError);
+          resolve();
+        };
+        server.once("error", onError);
+        server.once("listening", onListening);
+        server.listen(port, "127.0.0.1");
+      });
+
+    let attempts = 0;
+    for (;;) {
+      const port = explicitPort ?? randomPort();
+      try {
+        await listen(port);
+        break;
+      } catch (error) {
+        attempts += 1;
+        const code = (error as NodeJS.ErrnoException).code;
+        if (explicitPort || code !== "EADDRINUSE" || attempts >= 12) {
+          throw new Error(`Cannot listen on 127.0.0.1:${port}: ${(error as Error).message}`);
+        }
+      }
+    }
 
     const address = server.address();
     if (!address || typeof address === "string") {

@@ -157,8 +157,8 @@ Important:
   Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Custom Resources contains Definitions + one child per API group.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
-  Logs / Related / Metrics. Actions (Logs, Attach, YAML, Forward, Delete) are in
-  the drawer footer directly above the terminal dock; close stays top-right.
+  Logs (Pods only) / Metrics. Actions (Logs, Attach, YAML, Forward, Delete) are in
+  the drawer header; close stays top-right.
 - Resource tabs (open resources) and cluster tabs (open clusters) are separate
   rows. Do not turn the app into a browser-style single tab bar.
 - Terminal surface stays dark in every theme; Dracula/Freelens themes select the

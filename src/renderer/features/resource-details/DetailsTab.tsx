@@ -83,13 +83,64 @@ export function DetailsTab({ object }: { object: KubeObject }) {
         </div>
       </DetailSection>
 
-      <DetailSection title="Specification" icon={<Database />} defaultOpen={false}>
-        {object.spec ? <NestedObject value={object.spec} /> : <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>}
+      <DetailSection title="Specification" icon={<Database />} defaultOpen>
+        {object.spec ? (
+          <StructuredFields value={object.spec as Record<string, unknown>} />
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>
+        )}
       </DetailSection>
 
-      <DetailSection title="Status" icon={<Database />} defaultOpen={false}>
-        {object.status ? <NestedObject value={object.status} /> : <div className="text-xs text-theme-text-tertiary">This resource has no status.</div>}
+      <DetailSection title="Status" icon={<Database />} defaultOpen>
+        {object.status ? (
+          <StructuredFields value={object.status as Record<string, unknown>} />
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">This resource has no status.</div>
+        )}
       </DetailSection>
+    </div>
+  );
+}
+
+function StructuredFields({ value }: { value: Record<string, unknown> }) {
+  const entries = Object.entries(value ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right, undefined, { numeric: true }),
+  );
+  if (entries.length === 0) {
+    return <div className="text-xs text-theme-text-tertiary">No fields.</div>;
+  }
+
+  const flat = entries.filter(([, entry]) => entry === null || typeof entry !== "object");
+  const nested = entries.filter(([, entry]) => entry !== null && typeof entry === "object");
+
+  const display = (entry: unknown) => {
+    if (entry === null || entry === undefined) return "null";
+    if (typeof entry === "boolean") {
+      return <span className={entry ? "badge-sm status-healthy" : "badge-sm status-unknown"}>{String(entry)}</span>;
+    }
+    if (Array.isArray(entry) && entry.every((item) => typeof item !== "object")) {
+      return entry.join(", ");
+    }
+    return String(entry);
+  };
+
+  return (
+    <div className="space-y-3">
+      {flat.length > 0 ? (
+        <PropertyList>
+          {flat.map(([key, entry]) => (
+            <Property key={key} label={key} value={display(entry)} mono={typeof entry === "string" && /^[a-z0-9./:_-]+$/i.test(entry) && entry.length < 80} />
+          ))}
+        </PropertyList>
+      ) : null}
+      {nested.map(([key, entry]) => (
+        <div key={key} className="min-w-0 rounded-md border border-theme-border-subtle bg-theme-base p-2">
+          <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-theme-text-tertiary">{key}</div>
+          <div className="min-w-0">
+            <NestedObject value={entry} />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

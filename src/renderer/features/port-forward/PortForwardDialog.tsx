@@ -27,13 +27,14 @@ export function StartPortForwardDialog({
   onStarted?: () => void;
 }) {
   const [remotePort, setRemotePort] = useState(String(defaultRemotePort ?? 8080));
-  const [localPort, setLocalPort] = useState("0");
+  const randomPort = () => String(30000 + Math.floor(Math.random() * (65355 - 30000 + 1)));
+  const [localPort, setLocalPort] = useState(randomPort);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setRemotePort(String(defaultRemotePort ?? 8080));
-    setLocalPort("0");
+    setLocalPort(randomPort());
   }, [open, defaultRemotePort]);
 
   const start = async () => {
@@ -97,7 +98,7 @@ export function StartPortForwardDialog({
             onChange={(event) => setLocalPort(event.target.value)}
             className="mt-1 h-8 w-full rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-sm text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
           />
-          <span className="mt-1 block text-[10px] font-normal text-theme-text-tertiary">0 picks a free port</span>
+          <span className="mt-1 block text-[10px] font-normal text-theme-text-tertiary">0 picks a random port 30000–65355</span>
         </label>
         <label className="text-[11px] font-medium text-theme-text-secondary">
           Pod port

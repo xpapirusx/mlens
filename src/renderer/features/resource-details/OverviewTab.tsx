@@ -14,6 +14,7 @@ export interface OverviewProps {
   onNavigate: (kind: string, name: string, namespace?: string) => void;
   onPortForward?: (port: number) => void;
   onQuickPortForward?: (port: number) => void;
+  onEditData?: () => void;
 }
 
 function ResourceLink({
@@ -208,6 +209,72 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: 
           )}
         </div>
       </DetailSection>
+
+      {(() => {
+        const containers = [
+          ...((object.spec?.initContainers ?? []) as Array<Record<string, any>>),
+          ...((object.spec?.containers ?? []) as Array<Record<string, any>>),
+        ];
+        const total = containers.reduce(
+          (sum, container) => sum + (container.env?.length ?? 0) + (container.envFrom?.length ?? 0),
+          0,
+        );
+        if (total === 0) return null;
+        return (
+          <DetailSection title="Environment" icon={<Settings2 />} defaultOpen={false} count={total}>
+            <div className="space-y-2">
+              {containers.map((container) => {
+                const env = (container.env ?? []) as Array<Record<string, any>>;
+                const envFrom = (container.envFrom ?? []) as Array<Record<string, any>>;
+                if (env.length === 0 && envFrom.length === 0) return null;
+                return (
+                  <div key={container.name} className="card-inner">
+                    <div className="mb-1 text-[12px] font-medium text-theme-text-primary">{container.name}</div>
+                    {envFrom.map((entry, index) => (
+                      <div key={`from-${index}`} className="flex items-center gap-2 py-0.5 text-[11px]">
+                        <span className="w-40 shrink-0 text-theme-text-tertiary">envFrom</span>
+                        <span className="badge-sm status-unknown font-mono">
+                          {entry.configMapRef ? `configMap/${entry.configMapRef.name}` : `secret/${entry.secretRef?.name}`}
+                        </span>
+                        {entry.prefix ? <span className="text-[10px] text-theme-text-disabled">prefix {entry.prefix}</span> : null}
+                      </div>
+                    ))}
+                    {env.map((entry) => {
+                      const ref =
+                        entry.valueFrom?.secretKeyRef
+                          ? `secret/${entry.valueFrom.secretKeyRef.name}[${entry.valueFrom.secretKeyRef.key}]`
+                          : entry.valueFrom?.configMapKeyRef
+                            ? `configMap/${entry.valueFrom.configMapKeyRef.name}[${entry.valueFrom.configMapKeyRef.key}]`
+                            : entry.valueFrom?.fieldRef
+                              ? `fieldRef ${entry.valueFrom.fieldRef.fieldPath}`
+                              : entry.valueFrom?.resourceFieldRef
+                                ? `resource ${entry.valueFrom.resourceFieldRef.resource}`
+                                : undefined;
+                      return (
+                        <div key={entry.name} className="flex items-start gap-2 py-0.5 text-[11px]">
+                          <span className="w-40 shrink-0 truncate font-mono text-theme-text-tertiary" title={entry.name}>
+                            {entry.name}
+                          </span>
+                          {ref ? (
+                            <span className="badge-sm status-unknown max-w-full truncate font-mono">{ref}</span>
+                          ) : (
+                            <span
+                              className="min-w-0 flex-1 truncate font-mono text-theme-text-primary"
+                              title={entry.value}
+                            >
+                              {entry.value === "" ? '""' : entry.value}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </DetailSection>
+        );
+      })()}
 
       {(() => {
         const ports = ((object.spec?.containers ?? []) as Array<Record<string, any>>).flatMap((container) =>
@@ -593,7 +660,7 @@ function IngressOverview({ object }: OverviewProps) {
   );
 }
 
-function DataOverview({ object }: OverviewProps) {
+function DataOverview({ object, onEditData }: OverviewProps) {
   const isSecret = object.kind === "Secret";
   const data = isSecret ? (object.data ?? {}) : { ...(object.data ?? {}), ...(object.binaryData ?? {}) };
   return (
@@ -606,7 +673,16 @@ function DataOverview({ object }: OverviewProps) {
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
       </DetailSection>
-      <DetailSection title="Data" icon={<Database />} count={Object.keys(data).length}>
+      <DetailSection
+        title="Data"
+        icon={<Database />}
+        count={Object.keys(data).length}
+        actions={
+          <Button size="xs" variant="secondary" onClick={() => onEditData?.()}>
+            Edit
+          </Button>
+        }
+      >
         <KeyValueList data={data as Record<string, string>} secret={isSecret} />
       </DetailSection>
     </div>

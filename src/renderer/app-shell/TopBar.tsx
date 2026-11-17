@@ -1,8 +1,5 @@
 import {
-  ArrowLeft,
-  ArrowRight,
   Command,
-  Home,
   Minus,
   Moon,
   Plug,
@@ -32,15 +29,10 @@ export function TopBar({
 }) {
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
-  const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const openSettings = useCatalogStore((state) => state.openSettings);
   const clusters = useCatalogStore((state) => state.clusters);
   const health = useCatalogStore((state) => state.health);
   const session = useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId] : undefined));
-  const detailsBack = useSessionStore((state) => state.detailsBack);
-  const closeDetails = useSessionStore((state) => state.closeDetails);
-  const details = session?.details ?? null;
-  const detailsHistory = session?.detailsHistory ?? [];
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const [maximized, setMaximized] = useState(false);
 
@@ -51,15 +43,6 @@ export function TopBar({
 
   const activeCluster = clusters.find((cluster) => cluster.id === activeClusterId);
   const clusterHealth = activeClusterId ? health[activeClusterId] : undefined;
-
-  const goBack = () => {
-    if (activeClusterId && details) {
-      if (detailsHistory.length > 0) detailsBack(activeClusterId);
-      else closeDetails(activeClusterId);
-      return;
-    }
-    if (activeClusterId) setActiveCluster(null);
-  };
 
   const toggleTheme = () => {
     if (!settings) return;
@@ -83,31 +66,6 @@ export function TopBar({
         if (!isMac) void api.app.maximize();
       }}
     >
-      <div className="app-no-drag flex shrink-0 items-center gap-0.5">
-        <Tooltip content="Catalog (home)">
-          <button type="button" className="shell-icon-button" onClick={() => setActiveCluster(null)} title="Catalog (home)" aria-label="Catalog">
-            <Home className="h-4 w-4" />
-          </button>
-        </Tooltip>
-        <Tooltip content={details ? "Back to previous resource" : "Back to catalog"}>
-          <button
-            type="button"
-            className="shell-icon-button"
-            onClick={goBack}
-            disabled={!activeClusterId}
-            title={details ? "Back to previous resource" : "Back to catalog"}
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-        </Tooltip>
-        <Tooltip content="Forward navigation is not implemented (no route history yet)">
-          <button type="button" className="shell-icon-button" disabled title="Forward navigation is not implemented yet" aria-label="Forward">
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </Tooltip>
-      </div>
-
       {activeCluster ? (
         <div className="app-no-drag ml-1 flex min-w-0 items-center gap-1.5">
           <span

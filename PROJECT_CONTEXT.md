@@ -127,8 +127,10 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs row (open clusters) and resource tabs row (open resources) follow
   the Lens mental model while using Radar sizing/typography.
 - Resource list lives in the main pane; clicking a row opens the right drawer.
-- Details actions (Logs, Attach, YAML, Forward, Delete) sit in the drawer footer
-  directly above the terminal dock; close stays at the top-right.
+- Details actions (Logs, Attach, YAML, Forward, Delete) sit in the drawer header;
+  close stays at the top-right. Related tab was removed at the user request.
+- Logs are available for Pods only. Pods show environment variables; ConfigMaps
+  and Secrets have a key/value editor (Secrets decoded/encoded transparently).
 - Bottom dock holds terminal sessions, all mounted, only active visible.
 
 ### 3.4 Kubernetes data layer
@@ -186,8 +188,8 @@ Freelens gets isolation from iframes. mLens instead:
 - Reads `~/.kube/config` + `KUBECONFIG`; imports files or pasted YAML; multiple
   sources; favourites; recent; removed/restore; catalog multi-select.
 - Per-cluster connection, version, namespaces, health.
-- Cluster tabs; close = disconnect.
-- Hotbar is a reorderable favourites rail; open clusters live in top tabs.
+- Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
+- Hotbar is a 10-slot reorderable favourites rail; open clusters live in top tabs.
 
 **Resource browser**
 
@@ -208,15 +210,14 @@ Freelens gets isolation from iframes. mLens instead:
 **Details**
 
 - Right drawer, resizable/expandable, tabbed: Overview, Details, YAML, Events,
-  Logs, Related, Metrics.
-- Freelens-like action footer above terminal: Logs, Attach, YAML, Forward,
-  Delete; close at top right; delete confirmation.
+  Logs (Pods only), Metrics.
+- Header actions: Logs, Attach, YAML, Forward, Delete; close top-right; delete
+  confirmation.
 - Pod overview includes status, containers, Ports (click port = instant forward;
   Forward button = custom port dialog), conditions, volumes, scheduling with
   structured tolerations/affinity.
 - Workload/Service/Ingress/ConfigMap/Secret/Node/PV/PVC/HPA/CRD/generic renderers.
-- Related resolver uses owners/selectors/config refs/node pods/PV; partial RBAC
-  failures produce warnings instead of a broken tab.
+- Related tab was intentionally removed; the resolver remains unused.
 - Metrics tab shows real metrics-server values or an explicit “not installed”.
 
 **Terminal/logs/ports**
@@ -225,11 +226,13 @@ Freelens gets isolation from iframes. mLens instead:
   multiple tabs; search; copy/paste.
 - Streaming logs with container/pod picker, follow/previous/tail/timestamps,
   filtering, download.
-- Port forwarding over WebSocket, active forwards panel, quick forward.
+- Port forwarding over WebSocket, active forwards panel, quick forward with a
+  random local port in 30000–65355.
 
 **Themes/settings**
 
-- Radar light/dark/system, Dracula, Freelens.
+- Radar light/dark/system, Dracula, Freelens (app tokens, Monaco and terminal
+  palettes).
 - Settings: color theme, mode, refresh interval (default 60s), system namespaces,
   table row height, collapse groups, sidebar favourite kinds, terminal font,
   kubeconfig sources, clusters, about.
@@ -295,7 +298,7 @@ pnpm dist:mac | dist:win | dist:linux
   resource history and catalog.
 - Catalog group order/hotbar order use HTML5 drag; no drag library.
 - Status filters appear only when a column has 2+ distinct values (Radar-style).
-- Related resolution is best-effort and warns on denied reads.
+- Related tab was removed; the resolver is unused and can be deleted in a cleanup pass.
 
 ---
 

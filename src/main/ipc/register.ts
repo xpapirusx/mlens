@@ -160,6 +160,9 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
   ipcMain.handle(IPC.resourcesDelete, (_event, raw: unknown) =>
     clusters.remove(assertObject<DeleteResourceRequest>(raw, "request")),
   );
+  ipcMain.handle(IPC.resourcesPatch, (_event, raw: unknown) =>
+    clusters.patch(assertObject<import("@shared/types").PatchResourceRequest>(raw, "request")),
+  );
   ipcMain.handle(IPC.resourcesApply, (_event, raw: unknown) =>
     clusters.apply(assertObject<ApplyYamlRequest>(raw, "request")),
   );

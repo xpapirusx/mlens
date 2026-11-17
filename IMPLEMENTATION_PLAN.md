@@ -107,7 +107,7 @@ configuration).
 | Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
-| ConfigMap / Secret | **Done** | Keys, values, explicit reveal for secrets |
+| ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
 | PV/PVC, StorageClass | **Done** | Capacity, claim/volume, class, access modes |
 | CRD description | **Done** | Group, scope, versions, printer columns |
 | Generic CRD renderer | **Done** | Status/spec/metadata, never blank |
@@ -198,6 +198,8 @@ configuration).
 | Quick port forward | Pass — clicking port 8080 started a loopback forward |
 | Sidebar favorites / collapsed groups | Pass — pinned kinds appear at top; groups start folded |
 | Dracula / Freelens themes | Pass — theme tokens, shell, tables, details and terminal palettes |
+| ConfigMap/Secret editor | Pass — create/patch/get/delete verified against a real ConfigMap |
+| Random port forwarding | Pass — packaged app forwarded on local port 30120 and returned HTTP 200 |
 | Problems status filter | Pass — 115 warning/error rows isolated on a live cluster |
 | Column order | Pass — up/down in the column picker, persisted per kind |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
