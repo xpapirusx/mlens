@@ -145,7 +145,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
       </div>
 
       {dock.open ? (
-        <div className="relative min-h-0 flex-1 bg-[#0f172a]">
+        <div className="relative min-h-0 flex-1 bg-[#0b1322]">
           {dock.tabs.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
               <SquareTerminal className="h-5 w-5" />

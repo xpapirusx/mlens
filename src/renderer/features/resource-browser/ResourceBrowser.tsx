@@ -462,7 +462,29 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const lowerKind = resource.kind.toLowerCase();
   const canScale = ["deployment", "statefulset", "replicaset"].includes(lowerKind);
   const canRestart = ["deployment", "statefulset", "daemonset"].includes(lowerKind);
+  const canSuspend = ["job", "cronjob"].includes(lowerKind);
   const isPod = lowerKind === "pod";
+
+  const toggleSuspend = async (object: KubeObject) => {
+    if (!resource) return;
+    const suspended = Boolean(object.spec?.suspend);
+    try {
+      await call(
+        api.resources.patch({
+          clusterId,
+          apiVersion: resource.apiVersion,
+          kind: resource.kind,
+          namespace: object.metadata?.namespace,
+          name: object.metadata?.name,
+          patch: { spec: { suspend: !suspended } },
+        }),
+      );
+      toast.success(suspended ? "Resource resumed" : "Resource suspended", object.metadata?.name);
+      await list.refresh(true);
+    } catch (error) {
+      toast.error(suspended ? "Resume failed" : "Suspend failed", errorText(error));
+    }
+  };
   const contextObject = menu?.object;
 
   return (
@@ -606,32 +628,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         </div>
       ) : null}
 
-      {selectedKeys.size > 0 ? (
-        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
-          <span className="font-medium text-accent-text">{selectedKeys.size} selected</span>
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-            onClick={toggleAllSelection}
-          >
-            {sorted.length > 0 && sorted.every((row) => selectedKeys.has(rowKey(row))) ? "Clear visible" : "Select visible"}
-          </button>
-          <button
-            type="button"
-            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-            onClick={() => setSelectedKeys(new Set())}
-          >
-            Clear
-          </button>
-          <div className="ml-auto flex items-center gap-1.5">
-            <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
-              <Trash2 className="h-3 w-3" />
-              Delete selected
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
       {activeFilterChips.length > 0 ? (
         <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-theme-border bg-theme-base/60 px-3">
           <span className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">Filters</span>
@@ -708,6 +704,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           rowHeight={settings?.tableRowHeight ?? 44}
           podMetrics={metrics.pods}
           nodeMetrics={metrics.nodes}
+          onSelectNamespace={(namespace) => setSelectedNamespaces(clusterId, [namespace])}
           selectionMode
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}
@@ -726,6 +723,32 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           }
         />
       )}
+
+      {selectedKeys.size > 0 ? (
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
+          <span className="font-medium text-accent-text">{selectedKeys.size} selected</span>
+          <button
+            type="button"
+            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={toggleAllSelection}
+          >
+            {sorted.length > 0 && sorted.every((row) => selectedKeys.has(rowKey(row))) ? "Clear visible" : "Select visible"}
+          </button>
+          <button
+            type="button"
+            className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={() => setSelectedKeys(new Set())}
+          >
+            Clear
+          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
+              <Trash2 className="h-3 w-3" />
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex h-7 shrink-0 items-center gap-3 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-tertiary">
         <span>{list.items.length} loaded</span>
@@ -828,6 +851,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             }}
           >
             Restart rollout…
+          </MenuItem>
+        ) : null}
+        {canSuspend ? (
+          <MenuItem
+            icon={<Pause className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (contextObject) void toggleSuspend(contextObject);
+              setMenu(null);
+            }}
+          >
+            {contextObject?.spec?.suspend ? "Resume" : "Suspend"}
           </MenuItem>
         ) : null}
         <MenuSeparator />

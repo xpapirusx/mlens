@@ -83,7 +83,9 @@ configuration).
 | Status indicators | **Done** | Kind-aware status mapping, Radar status badges |
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
-| Context menu actions | **Done** | Details, YAML, logs, exec, scale, restart, copy kubectl, delete |
+| Context menu actions | **Done** | Details, YAML, Pod logs, Pod exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), suspend/resume (Job/CronJob), copy kubectl, delete |
+| Namespace cell click | **Done** | Clicking a namespace scopes the table to it |
+| Bulk bar placement | **Done** | Selection + delete bar sits above the terminal dock |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
 | Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
 | Dracula / Freelens themes | **Done** | Token-level themes, Monaco themes, terminal palettes |
@@ -92,7 +94,7 @@ configuration).
 | Hotbar favourites + drag reorder | **Done** | 10 fixed slots, pointer/HTML5 drag, context-menu move fallback; open clusters in top tabs |
 | Sidebar group reorder | **Done** | Drag top-level catalog groups; persisted in settings |
 | Request-volume reduction | **Done** | Counts only expanded/favourite groups (≥120s), metrics only when visible (≥60s), 60s default polling |
-| CPU/Memory table columns | **Done** | Radar-style bullet bars, request markers, per-container tooltips; Node usage/allocatable bars; “–” without metrics |
+| CPU/Memory table columns | **Done** | Container-only Radar bars for Pods; Node remains capacity-based; Metrics tab Pod-only |
 | Configurable row height | **Done** | Settings: 24–52px |
 | Sidebar kind favorites | **Done** | Pinned kinds section + settings list, stored globally |
 | Groups collapsed by default | **Done** | Settings toggle, on by default; expanded state kept per cluster |

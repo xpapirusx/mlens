@@ -31,6 +31,7 @@ interface ResourceTableProps {
   rowHeight?: number;
   podMetrics?: Map<string, PodUsage>;
   nodeMetrics?: Map<string, NodeUsage>;
+  onSelectNamespace?: (namespace: string) => void;
 }
 
 export function ResourceTable({
@@ -56,6 +57,7 @@ export function ResourceTable({
   rowHeight = 44,
   podMetrics,
   nodeMetrics,
+  onSelectNamespace,
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
@@ -294,7 +296,7 @@ export function ResourceTable({
                         column.align === "right" && "justify-end",
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace })}</div>
                     </div>
                   ))}
                 </div>

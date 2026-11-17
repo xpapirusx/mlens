@@ -230,6 +230,8 @@ Freelens gets isolation from iframes. mLens instead:
   filtering, download.
 - Port forwarding over WebSocket, active forwards panel, quick forward with a
   random local port in 30000–65355.
+- Workload actions (scale/restart/suspend/resume), clickable namespace cells,
+  bulk selection bar above the terminal, terminal full-line hover highlight.
 
 **Themes/settings**
 

@@ -27,6 +27,7 @@ export interface CellContext {
   showNamespace: boolean;
   podMetrics?: Map<string, PodUsage>;
   nodeMetrics?: Map<string, NodeUsage>;
+  onSelectNamespace?: (namespace: string) => void;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -217,7 +218,22 @@ const namespaceColumn: ColumnDef = {
   width: 168,
   sortable: true,
   value: (object) => object.metadata?.namespace ?? "",
-  cell: (object) => <TextCell>{object.metadata?.namespace ?? "–"}</TextCell>,
+  cell: (object, context) =>
+    object.metadata?.namespace ? (
+      <button
+        type="button"
+        className="truncate text-left text-accent-text hover:underline"
+        title={`Scope the table to ${object.metadata.namespace}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          context.onSelectNamespace?.(object.metadata.namespace!);
+        }}
+      >
+        {object.metadata.namespace}
+      </button>
+    ) : (
+      <TextCell>–</TextCell>
+    ),
   filterValue: (object) => object.metadata?.namespace,
 };
 
@@ -778,48 +794,20 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "cpu",
           label: "CPU",
-          width: 196,
-          tooltip: "CPU usage / limit (marker = request)",
+          width: 88,
+          align: "right",
           sortable: true,
           value: (object) => parseCpu(object.status?.capacity?.cpu) ?? 0,
-          cell: (object, context) => {
-            const usage = context.nodeMetrics?.get(object.metadata?.name ?? "");
-            const allocatable = parseCpu(object.status?.allocatable?.cpu) ?? 0;
-            if (!usage || allocatable <= 0) {
-              return <Mono>{object.status?.capacity?.cpu ?? "–"}</Mono>;
-            }
-            return (
-              <ResourceBar
-                used={formatCpu(usage.cpu)}
-                total={formatCpu(allocatable)}
-                percent={(usage.cpu / allocatable) * 100}
-                tooltip={`Node CPU usage / allocatable · ${formatCpu(usage.cpu)} / ${formatCpu(allocatable)}`}
-              />
-            );
-          },
+          cell: (object) => <Mono>{object.status?.capacity?.cpu ?? "–"}</Mono>,
         },
         {
           key: "memory",
           label: "Memory",
-          width: 196,
-          tooltip: "Memory usage / limit (marker = request)",
+          width: 104,
+          align: "right",
           sortable: true,
           value: (object) => parseMemory(object.status?.capacity?.memory) ?? 0,
-          cell: (object, context) => {
-            const usage = context.nodeMetrics?.get(object.metadata?.name ?? "");
-            const allocatable = parseMemory(object.status?.allocatable?.memory) ?? 0;
-            if (!usage || allocatable <= 0) {
-              return <Mono>{object.status?.capacity?.memory ?? "–"}</Mono>;
-            }
-            return (
-              <ResourceBar
-                used={formatBytes(usage.memory)}
-                total={formatBytes(allocatable)}
-                percent={(usage.memory / allocatable) * 100}
-                tooltip={`Node memory usage / allocatable · ${formatBytes(usage.memory)} / ${formatBytes(allocatable)}`}
-              />
-            );
-          },
+          cell: (object) => <Mono>{object.status?.capacity?.memory ?? "–"}</Mono>,
         },
         {
           key: "pods",

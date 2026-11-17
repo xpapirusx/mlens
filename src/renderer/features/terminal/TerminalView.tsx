@@ -12,7 +12,7 @@ import { cn } from "../../lib/cn";
 import { toast } from "../../design-system/components/Toast";
 
 const RADAR_TERMINAL_THEME = {
-  background: "#0f172a",
+  background: "#0b1322",
   foreground: "#e2e8f0",
   cursor: "#60a5fa",
   cursorAccent: "#0f172a",
@@ -281,7 +281,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
   }, [active]);
 
   return (
-    <div className={cn("absolute inset-0 flex flex-col bg-[#0f172a]", !active && "invisible")}>
+    <div className={cn("terminal-surface absolute inset-0 flex flex-col bg-[#0b1322]", !active && "invisible")}>
       <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/10 bg-[#111b2e] px-2 text-[10px] text-slate-500">
         <span
           className={cn(
@@ -354,7 +354,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
       </div>
       <div
         ref={containerRef}
-        className="min-h-0 flex-1 bg-[#0f172a] p-1 [&_.xterm-viewport]:!bg-[#0f172a]"
+        className="min-h-0 flex-1 bg-[#0b1322] p-1 [&_.xterm-viewport]:!bg-[#0b1322]"
       />
     </div>
   );

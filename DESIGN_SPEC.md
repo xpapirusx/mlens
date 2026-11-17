@@ -350,14 +350,17 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Column widths are draggable from the header divider (minimum 72px, double-click
   resets). The table keeps a horizontal scroll range when the sum exceeds the
   viewport.
-- A checkbox column is always present: header selects all visible rows, the
-  selection bar shows the count and offers bulk delete with an explicit
-  confirmation listing the selected objects.
+- A checkbox column is always present: header selects all visible rows; the
+  selection bar with bulk delete sits at the bottom of the resource browser,
+  directly above the terminal dock.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
 - Status is surfaced three ways: the status badge column, per-column status
   filters, and a **Problems** toggle that keeps only warning/error resources
   across any kind.
+- Namespace cells are clickable: clicking one scopes the table to that namespace.
+- Workload actions: Scale for Deployment/StatefulSet/ReplicaSet, Restart for
+  Deployment/StatefulSet/DaemonSet, Suspend/Resume for Job/CronJob.
 - CPU and Memory columns use Radar's bullet-bar pattern: usage / limit, request
   marker, percentage, and a per-container tooltip. Without metrics the cell shows
   “–”; there are no synthetic values. Row height is configurable (24–52px).

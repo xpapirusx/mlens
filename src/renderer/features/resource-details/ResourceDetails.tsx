@@ -347,7 +347,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               ...(isPod
                 ? [{ id: "logs" as const, label: "Logs", icon: <SquareTerminal /> }]
                 : []),
-              { id: "metrics", label: "Metrics", icon: <Activity /> },
+              ...(isPod ? [{ id: "metrics" as const, label: "Metrics", icon: <Activity /> }] : []),
             ]}
           />
         </div>
@@ -393,7 +393,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               <EventsTab events={events.events} loading={events.loading} error={events.error} />
             ) : null}
             {tab === "logs" && isPod ? <LogsTab clusterId={clusterId} object={object} /> : null}
-            {tab === "metrics" ? (
+            {tab === "metrics" && isPod ? (
               <MetricsTab
                 clusterId={clusterId}
                 object={object}

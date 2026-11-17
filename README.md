@@ -60,8 +60,10 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   filters, namespace filters, sortable columns, drag-to-resize columns (double-click
   to reset), horizontal scrolling, column picker and keyboard navigation.
 - Multi-select mode with bulk delete and confirmation.
-- Row context menu: details, YAML, logs, exec, scale, restart, copy kubectl
-  command, delete.
+- Row context menu: details, YAML, logs (Pods), exec (Pods), scale
+  (Deployments/StatefulSets/ReplicaSets), restart
+  (Deployments/StatefulSets/DaemonSets), suspend/resume (Jobs/CronJobs),
+  copy kubectl command, delete.
 - Create any discovered kind from YAML with server-side dry-run.
 
 ### Resource details
