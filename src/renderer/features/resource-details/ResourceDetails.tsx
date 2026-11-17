@@ -203,21 +203,12 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           type="button"
           className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
           onClick={() => void openShell()}
-          title="Attach / exec into pod"
+          title="Exec into pod"
         >
           <SquareTerminal className="h-3.5 w-3.5" />
-          Attach
+          Exec
         </button>
       ) : null}
-      <button
-        type="button"
-        className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary"
-        onClick={() => setDetailsTab(clusterId, "yaml")}
-        title="Edit YAML"
-      >
-        <FileCode className="h-3.5 w-3.5" />
-        YAML
-      </button>
       {isPod ? (
         <button
           type="button"
@@ -391,6 +382,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 onPortForward={(port) => setForwardPort(port)}
                 onQuickPortForward={(port) => void quickPortForward(port)}
                 onEditData={() => setEditDataOpen(true)}
+                clusterId={clusterId}
               />
             ) : null}
             {tab === "details" ? <DetailsTab object={object} /> : null}

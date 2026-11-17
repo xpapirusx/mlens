@@ -134,6 +134,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     const map = new Map<string, ReturnType<typeof buildFilterOptions>>();
     for (const column of columns) {
       if (!column.filterValue) continue;
+      // Namespace has a dedicated scope picker, so it must not open a second
+      // namespace menu from the column header.
+      if (column.key === "namespace") continue;
       const options = buildFilterOptions(list.items, column);
       if (options.length >= 2 && options.length <= 60) map.set(column.key, options);
     }

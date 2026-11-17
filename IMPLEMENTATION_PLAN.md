@@ -53,7 +53,7 @@ configuration).
 | Connect / disconnect | **Done** | Per-cluster `KubeConfig`, health, latency |
 | Kubernetes version + namespaces | **Done** | Real API calls |
 | Multiple simultaneous clusters | **Done** | One mounted workspace per visited cluster (hidden when inactive); switching preserves scroll, drawer, filters and live PTYs |
-| Cluster tabs / open-resource tabs | **Done** | Top cluster tabs (close = disconnect) and per-cluster resource tabs with back stack |
+| Cluster tabs / open-resource tabs | **Done** | Top cluster tabs with Home/Back/Forward in the tab strip (close = disconnect), and per-cluster resource tabs with back stack |
 | Multiple namespace scopes | **Done** | All / one / several; merged lists, per-namespace watches, summed counts |
 | Application shell (Freelens layout) | **Done** | Sidebar, sibling tabs, dock, drawer, status bar |
 | Sidebar resource catalog | **Done** | Dynamic discovery incl. CRDs; counts; collapse; filter |
@@ -89,7 +89,7 @@ configuration).
 | Dracula / Freelens themes | **Done** | Token-level themes, Monaco themes, terminal palettes |
 | Status problems filter | **Done** | Warning/error toggle with live count across kinds |
 | Column order + global widths | **Done** | Per-kind order; widths keyed kind+column across clusters |
-| Hotbar favourites + drag reorder | **Done** | Open clusters in top tabs; hotbar is reorderable favourites |
+| Hotbar favourites + drag reorder | **Done** | 10 fixed slots, pointer/HTML5 drag, context-menu move fallback; open clusters in top tabs |
 | Sidebar group reorder | **Done** | Drag top-level catalog groups; persisted in settings |
 | Request-volume reduction | **Done** | Counts only expanded/favourite groups (≥120s), metrics only when visible (≥60s), 60s default polling |
 | CPU/Memory table columns | **Done** | Radar-style bullet bars, request markers, per-container tooltips; Node usage/allocatable bars; “–” without metrics |
@@ -102,18 +102,22 @@ configuration).
 | Feature | Status | Notes |
 |---|---|---|
 | Lens drawer mechanics | **Done** | Right panel, resizable, expand, back stack, action toolbar (logs/exec/YAML/port-forward/delete/close), Escape |
-| Radar content and tabs | **Done** | Overview / Details / YAML / Events / Logs / Related / Metrics |
-| Pod overview | **Done** | Freelens-style sections with aligned property rows: status, containers, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
+| Radar content and tabs | **Done** | Overview / Details / YAML / Events / Logs (Pods only) / Metrics |
+| Pod overview | **Done** | Freelens-style sections: status, containers, environment with inline Secret/ConfigMap peek, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
 | Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
+| Env references | **Done** | Eye reveals referenced ConfigMap/Secret values inline without leaving the Pod |
+| Loading screen | **Done** | Animated cluster ring, indeterminate sweep and staged discovery text |
+| Hotbar interactions | **Done** | 10 slots, pointer/native drag, context-menu move, Freelens-style neutral tiles |
 | PV/PVC, StorageClass | **Done** | Capacity, claim/volume, class, access modes |
 | CRD description | **Done** | Group, scope, versions, printer columns |
 | Generic CRD renderer | **Done** | Status/spec/metadata, never blank |
 | Events tab | **Done** | Live, filtered by involved object, warning filter, search |
-| Logs tab | **Done** | Streaming, container/pod picker, follow/previous/tail/timestamps, search, download |
-| Related resources | **Done** | Owners, selectors, services, replicasets, config refs, node pods, bound PV |
+| Logs tab | **Done** | Pods only; streaming, container picker, follow/previous/tail/timestamps, search, download |
+| Specification & Status | **Done** | Sorted flat fields; complex objects/arrays are collapsed JSON blocks (drawer height stable) |
+| Related resources | **Removed** | Tab removed by product decision; resolver is unused |
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
 | Metrics tab | **Partial** | Real metrics-server values for Pod/Node; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
@@ -151,7 +155,7 @@ configuration).
 
 ## Stage 5 — Advanced features (not started)
 
-- [ ] Topology graph (data already available through Related).
+- [ ] Topology graph (owner references/selectors are available from the data layer).
 - [ ] Diagnostics / problem scoring.
 - [ ] Timeline of changes.
 - [ ] Helm release browsing (secrets-based, no Helm binary).
@@ -216,6 +220,6 @@ configuration).
 2. **Capability-aware write actions** using SelfSubjectAccessReview.
 3. **Prometheus history** on top of the live metrics columns.
 4. **Helm** (release secrets parsed in TypeScript, no Helm binary).
-5. **Topology/Timeline**, reusing Related + watch data.
+5. **Topology/Timeline**, reusing owner/selector and watch data.
 6. **Automated tests**: unit tests for status/format/columns, integration tests
    against `kind`, Playwright Electron smoke tests.

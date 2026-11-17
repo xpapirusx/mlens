@@ -89,7 +89,9 @@ related-resource resolution. Secrets reveal only on request.
 
 - Radar (light/dark/system), **Dracula**, and **Freelens** colour themes; each
   theme also selects its terminal ANSI palette.
-- Reorderable favourite-cluster hotbar (open clusters stay in the top tab strip).
+- Ten-slot favourite-cluster hotbar with drag-and-drop and a context-menu
+  "Move to slot" fallback; open clusters stay in the top tab strip. Home/Back
+  navigation lives in the tab strip.
 - Reorderable sidebar groups, column order, column widths (remembered per kind
   across clusters), and configurable row height from 24 to 52px.
 - Problems filter for warning/error statuses, plus the regular status badges and

@@ -399,9 +399,12 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
   timestamps, search, download, clear, line numbers; error/warn lines tinted.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,
-  secret/configMap/field references.
+  secret/configMap/field references. Ref badges have an eye that fetches the
+  referenced ConfigMap/Secret and shows the decoded value inline (no navigation).
 - **ConfigMap / Secret** — Freelens-style key/value view, Secret values decoded
   for editing and encoded back on save; add/remove keys with a merge patch.
+- Specification/Status fields are sorted; complex objects/arrays are collapsed
+  JSON blocks so the drawer never grows to a multi-thousand-pixel page.
 - **Metrics** — real metrics.k8s.io usage for Pods/Nodes; when the API is absent
   the panel says exactly that. No synthetic numbers; historical charts are not
   implemented.

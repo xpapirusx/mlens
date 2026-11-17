@@ -45,6 +45,7 @@ export function defaultSettings(): AppSettings {
     favoriteKinds: [],
     hiddenClusters: [],
     hotbarOrder: [],
+    hotbarSlots: [],
     sidebarGroupOrder: [],
     tableColumnWidths: {},
     tableColumnOrder: {},
@@ -93,6 +94,11 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (out.hotbarOrder) {
     out.hotbarOrder = [...new Set(out.hotbarOrder.filter((entry) => typeof entry === "string"))] as ClusterId[];
+  }
+  if (out.hotbarSlots) {
+    out.hotbarSlots = out.hotbarSlots
+      .slice(0, 10)
+      .map((entry) => (typeof entry === "string" ? entry : null));
   }
   if (out.sidebarGroupOrder) {
     out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");

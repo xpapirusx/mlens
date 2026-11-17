@@ -1,7 +1,9 @@
 import type { KubeObject } from "@shared/types";
-import { Database, FileSliders, Tags } from "lucide-react";
+import { ChevronRight, Database, FileSliders, Tags } from "lucide-react";
+import { useState } from "react";
 import { formatAge, formatTimestamp } from "../../lib/format";
-import { NestedObject, DetailSection, Property, PropertyList } from "./DetailSections";
+import { DetailSection, Property, PropertyList } from "./DetailSections";
+import { cn } from "../../lib/cn";
 
 export function DetailsTab({ object }: { object: KubeObject }) {
   const metadata = object.metadata ?? {};
@@ -103,6 +105,7 @@ export function DetailsTab({ object }: { object: KubeObject }) {
 }
 
 function StructuredFields({ value }: { value: Record<string, unknown> }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const entries = Object.entries(value ?? {}).sort(([left], [right]) =>
     left.localeCompare(right, undefined, { numeric: true }),
   );
@@ -118,29 +121,57 @@ function StructuredFields({ value }: { value: Record<string, unknown> }) {
     if (typeof entry === "boolean") {
       return <span className={entry ? "badge-sm status-healthy" : "badge-sm status-unknown"}>{String(entry)}</span>;
     }
-    if (Array.isArray(entry) && entry.every((item) => typeof item !== "object")) {
-      return entry.join(", ");
-    }
     return String(entry);
   };
+
+  const toggle = (key: string) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   return (
     <div className="space-y-3">
       {flat.length > 0 ? (
         <PropertyList>
           {flat.map(([key, entry]) => (
-            <Property key={key} label={key} value={display(entry)} mono={typeof entry === "string" && /^[a-z0-9./:_-]+$/i.test(entry) && entry.length < 80} />
+            <Property
+              key={key}
+              label={key}
+              value={display(entry)}
+              mono={typeof entry === "string" && /^[a-z0-9./:_-]+$/i.test(entry) && entry.length < 80}
+            />
           ))}
         </PropertyList>
       ) : null}
-      {nested.map(([key, entry]) => (
-        <div key={key} className="min-w-0 rounded-md border border-theme-border-subtle bg-theme-base p-2">
-          <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-theme-text-tertiary">{key}</div>
-          <div className="min-w-0">
-            <NestedObject value={entry} />
+      {nested.map(([key, entry]) => {
+        const open = expanded.has(key);
+        const isArray = Array.isArray(entry);
+        const count = isArray ? entry.length : Object.keys(entry as object).length;
+        return (
+          <div key={key} className="min-w-0 overflow-hidden rounded-md border border-theme-border-subtle bg-theme-base">
+            <button
+              type="button"
+              className="flex h-7 w-full items-center gap-1.5 px-2 text-left hover:bg-theme-hover/50"
+              onClick={() => toggle(key)}
+              aria-expanded={open}
+            >
+              <ChevronRight className={cn("h-3 w-3 shrink-0 text-theme-text-tertiary transition-transform", open && "rotate-90")} />
+              <span className="font-mono text-[11px] text-theme-text-primary">{key}</span>
+              <span className="ml-auto text-[10px] text-theme-text-disabled">
+                {isArray ? `${count} item${count === 1 ? "" : "s"}` : `${count} field${count === 1 ? "" : "s"}`}
+              </span>
+            </button>
+            {open ? (
+              <pre className="max-h-72 overflow-auto border-t border-theme-border-subtle p-2 font-mono text-[10px] leading-relaxed text-theme-text-secondary">
+                {JSON.stringify(entry, null, 2)}
+              </pre>
+            ) : null}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

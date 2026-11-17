@@ -304,6 +304,8 @@ export interface AppSettings {
   favoriteKinds: string[];
   hiddenClusters: ClusterId[];
   hotbarOrder: ClusterId[];
+  /** Ten hotbar positions; null is an empty slot. */
+  hotbarSlots: Array<ClusterId | null>;
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;

@@ -249,15 +249,18 @@ export function ResourceSidebar({
           type="button"
           onClick={() => toggleGroup(clusterId, group.id, expanded)}
           className={cn(
-            "group flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-[11px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
-            depth > 0 ? "pl-4" : "pl-1.5",
+            "group flex h-8 w-full items-center gap-1.5 rounded-md pr-2 font-semibold text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
+            depth > 0 || group.id === "custom"
+              ? "pl-4 text-[12px] normal-case tracking-normal"
+              : "pl-1.5 text-[11px] uppercase tracking-wider",
+            group.id === "custom" && "pl-1.5",
           )}
         >
           {depth === 0 ? (
             <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-theme-text-disabled opacity-0 group-hover:opacity-100" />
           ) : null}
           {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-          {depth === 0 ? (
+          {depth === 0 && group.id !== "custom" ? (
             <GroupIcon className="h-3.5 w-3.5 shrink-0" />
           ) : null}
           <span className="truncate">{group.title}</span>

@@ -22,13 +22,15 @@ export interface CategoryMeta {
 
 /** Top-level order of the Freelens sidebar (overview omitted). */
 export const CATEGORIES: CategoryMeta[] = [
+
+  { id: "events", title: "Events", icon: Activity, order: 70 },
+  { id: "namespaces", title: "Namespaces", icon: FolderOpen, order: 60 },
   { id: "nodes", title: "Nodes", icon: Cpu, order: 10 },
   { id: "workloads", title: "Workloads", icon: Boxes, order: 20 },
-  { id: "config", title: "Config", icon: SlidersHorizontal, order: 30 },
   { id: "network", title: "Network", icon: Network, order: 40 },
+  { id: "config", title: "Config", icon: SlidersHorizontal, order: 30 },
   { id: "storage", title: "Storage", icon: HardDrive, order: 50 },
-  { id: "namespaces", title: "Namespaces", icon: FolderOpen, order: 60 },
-  { id: "events", title: "Events", icon: Activity, order: 70 },
+
   { id: "access-control", title: "User Management", icon: ShieldCheck, order: 80 },
 ];
 
@@ -58,19 +60,11 @@ const WORKLOAD_KINDS = new Set([
 const CONFIG_KINDS = new Set([
   "ConfigMap",
   "Secret",
-  "ResourceQuota",
-  "LimitRange",
-  "PodTemplate",
   "HorizontalPodAutoscaler",
   "VerticalPodAutoscaler",
   "PodDisruptionBudget",
-  "RuntimeClass",
   "Lease",
   "PriorityClass",
-  "APIService",
-  "ControllerRevision",
-  "CertificateSigningRequest",
-  "FlowSchema",
   "PriorityLevelConfiguration",
   "MutatingWebhookConfiguration",
   "ValidatingWebhookConfiguration",
@@ -78,6 +72,15 @@ const CONFIG_KINDS = new Set([
   "ValidatingAdmissionPolicyBinding",
   "MutatingAdmissionPolicy",
   "MutatingAdmissionPolicyBinding",
+  "RuntimeClass",
+  "ResourceQuota",
+  "LimitRange",
+  "PodTemplate",
+  "APIService",
+  "ControllerRevision",
+  "CertificateSigningRequest",
+  "FlowSchema",
+
 ]);
 
 const NETWORK_KINDS = new Set([

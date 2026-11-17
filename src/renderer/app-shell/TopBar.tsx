@@ -30,9 +30,6 @@ export function TopBar({
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const openSettings = useCatalogStore((state) => state.openSettings);
-  const clusters = useCatalogStore((state) => state.clusters);
-  const health = useCatalogStore((state) => state.health);
-  const session = useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId] : undefined));
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const [maximized, setMaximized] = useState(false);
 
@@ -41,8 +38,6 @@ export function TopBar({
     return api.app.onWindowState(setMaximized);
   }, []);
 
-  const activeCluster = clusters.find((cluster) => cluster.id === activeClusterId);
-  const clusterHealth = activeClusterId ? health[activeClusterId] : undefined;
 
   const toggleTheme = () => {
     if (!settings) return;
@@ -66,29 +61,6 @@ export function TopBar({
         if (!isMac) void api.app.maximize();
       }}
     >
-      {activeCluster ? (
-        <div className="app-no-drag ml-1 flex min-w-0 items-center gap-1.5">
-          <span
-            className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full",
-              clusterHealth?.status === "connected" || session?.status === "connected"
-                ? "bg-emerald-500"
-                : clusterHealth?.status === "error"
-                  ? "bg-red-500"
-                  : "bg-amber-500",
-            )}
-          />
-          <span className="max-w-[14rem] truncate text-[12px] font-medium text-theme-text-primary">
-            {activeCluster.name}
-          </span>
-          {session?.info ? (
-            <span className="hidden rounded bg-theme-elevated px-1.5 py-0.5 font-mono text-[10px] text-theme-text-tertiary md:inline">
-              v{session.info.version}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-
       <div className="app-no-drag flex min-w-0 flex-1 justify-center px-2">
         <button
           type="button"

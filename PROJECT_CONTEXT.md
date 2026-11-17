@@ -127,8 +127,9 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs row (open clusters) and resource tabs row (open resources) follow
   the Lens mental model while using Radar sizing/typography.
 - Resource list lives in the main pane; clicking a row opens the right drawer.
-- Details actions (Logs, Attach, YAML, Forward, Delete) sit in the drawer header;
-  close stays at the top-right. Related tab was removed at the user request.
+- Details actions (Logs, Exec, Forward, Delete) sit in the drawer header; YAML is
+  a tab, close stays at the top-right. Related tab was removed at the user request.
+  Env references are peekable inline; ConfigMaps/Secrets have a key/value editor.
 - Logs are available for Pods only. Pods show environment variables; ConfigMaps
   and Secrets have a key/value editor (Secrets decoded/encoded transparently).
 - Bottom dock holds terminal sessions, all mounted, only active visible.
@@ -189,7 +190,8 @@ Freelens gets isolation from iframes. mLens instead:
   sources; favourites; recent; removed/restore; catalog multi-select.
 - Per-cluster connection, version, namespaces, health.
 - Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
-- Hotbar is a 10-slot reorderable favourites rail; open clusters live in top tabs.
+- Hotbar is a 10-slot reorderable favourites rail (drag or context-menu move);
+  open clusters live in top tabs with the Home/Back/Forward controls.
 
 **Resource browser**
 

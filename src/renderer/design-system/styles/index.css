@@ -115,3 +115,16 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Indeterminate loading sweep used by the cluster connection screen. */
+@keyframes mlens-sweep {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+.loading-sweep {
+  animation: mlens-sweep 1.35s cubic-bezier(0.32, 0.72, 0, 1) infinite;
+}

@@ -1,5 +1,7 @@
-import { Box, Cpu, Database, FileSliders, Info, Network, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
+import { api, call, errorText } from "../../lib/api";
+import { useState } from "react";
 import type { ApiResourceInfo } from "@shared/types";
 import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory, titleCase } from "../../lib/format";
@@ -15,6 +17,7 @@ export interface OverviewProps {
   onPortForward?: (port: number) => void;
   onQuickPortForward?: (port: number) => void;
   onEditData?: () => void;
+  clusterId: string;
 }
 
 function ResourceLink({
@@ -84,7 +87,119 @@ export function OverviewTab(props: OverviewProps) {
   }
 }
 
-function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: OverviewProps) {
+function EnvReference({
+  clusterId,
+  namespace,
+  kind,
+  name,
+  keyName,
+  prefix,
+}: {
+  clusterId: string;
+  namespace?: string;
+  kind: "ConfigMap" | "Secret";
+  name?: string;
+  keyName?: string;
+  prefix?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  if (!name) return <span className="text-xs text-theme-text-tertiary">–</span>;
+
+  const load = async () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setOpen(true);
+    if (value !== null || loading) return;
+    setLoading(true);
+    try {
+      const object = await call(
+        api.resources.get({
+          clusterId,
+          apiVersion: "v1",
+          kind,
+          namespace,
+          name,
+        }),
+      );
+      const data = (object.data ?? {}) as Record<string, string>;
+      if (keyName) {
+        const raw = data[keyName];
+        if (raw === undefined) throw new Error(`Key "${keyName}" not found in ${kind}/${name}`);
+        setValue(kind === "Secret" ? decodeSecret(raw) : raw);
+      } else {
+        const entries = Object.entries(data).map(([key, raw]) => {
+          const display = kind === "Secret" ? decodeSecret(raw) : raw;
+          return `${prefix ?? ""}${key} = ${display}`;
+        });
+        setValue(entries.join("\n") || "(empty)");
+      }
+      setError(null);
+    } catch (loadError) {
+      setError(errorText(loadError));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="min-w-0 max-w-full">
+      <span className="inline-flex max-w-full items-center gap-1">
+        <span className="badge-sm status-unknown max-w-full truncate font-mono">
+          {kind === "Secret" ? "secret" : "configMap"}/{name}
+          {keyName ? `[${keyName}]` : ""}
+        </span>
+        <button
+          type="button"
+          className="shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+          title={`View ${kind === "Secret" ? "decoded secret" : "value"} without leaving the Pod`}
+          onClick={() => void load()}
+        >
+          {open ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+        </button>
+      </span>
+      {open ? (
+        <div className="mt-1 w-full rounded-md border border-theme-border-subtle bg-theme-base p-2">
+          {loading ? (
+            <span className="text-[10px] text-theme-text-tertiary">Reading {kind}…</span>
+          ) : error ? (
+            <span className="text-[10px] text-red-500">{error}</span>
+          ) : (
+            <div className="flex items-start gap-2">
+              <pre className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-theme-text-primary">
+                {value}
+              </pre>
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                title="Copy value"
+                onClick={() => void navigator.clipboard.writeText(value ?? "")}
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
+function decodeSecret(value: string): string {
+  try {
+    const bytes = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return value;
+  }
+}
+
+function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, clusterId }: OverviewProps) {
   const containerStatuses = [
     ...(object.status?.initContainerStatuses ?? []),
     ...(object.status?.containerStatuses ?? []),
@@ -231,12 +346,15 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: 
                   <div key={container.name} className="card-inner">
                     <div className="mb-1 text-[12px] font-medium text-theme-text-primary">{container.name}</div>
                     {envFrom.map((entry, index) => (
-                      <div key={`from-${index}`} className="flex items-center gap-2 py-0.5 text-[11px]">
+                      <div key={`from-${index}`} className="flex flex-wrap items-center gap-2 py-0.5 text-[11px]">
                         <span className="w-40 shrink-0 text-theme-text-tertiary">envFrom</span>
-                        <span className="badge-sm status-unknown font-mono">
-                          {entry.configMapRef ? `configMap/${entry.configMapRef.name}` : `secret/${entry.secretRef?.name}`}
-                        </span>
-                        {entry.prefix ? <span className="text-[10px] text-theme-text-disabled">prefix {entry.prefix}</span> : null}
+                        <EnvReference
+                          clusterId={clusterId}
+                          namespace={object.metadata?.namespace}
+                          kind={entry.configMapRef ? "ConfigMap" : "Secret"}
+                          name={entry.configMapRef?.name ?? entry.secretRef?.name}
+                          prefix={entry.prefix}
+                        />
                       </div>
                     ))}
                     {env.map((entry) => {
@@ -255,7 +373,23 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: 
                           <span className="w-40 shrink-0 truncate font-mono text-theme-text-tertiary" title={entry.name}>
                             {entry.name}
                           </span>
-                          {ref ? (
+                          {entry.valueFrom?.secretKeyRef ? (
+                            <EnvReference
+                              clusterId={clusterId}
+                              namespace={object.metadata?.namespace}
+                              kind="Secret"
+                              name={entry.valueFrom.secretKeyRef.name}
+                              keyName={entry.valueFrom.secretKeyRef.key}
+                            />
+                          ) : entry.valueFrom?.configMapKeyRef ? (
+                            <EnvReference
+                              clusterId={clusterId}
+                              namespace={object.metadata?.namespace}
+                              kind="ConfigMap"
+                              name={entry.valueFrom.configMapKeyRef.name}
+                              keyName={entry.valueFrom.configMapKeyRef.key}
+                            />
+                          ) : ref ? (
                             <span className="badge-sm status-unknown max-w-full truncate font-mono">{ref}</span>
                           ) : (
                             <span
@@ -943,7 +1077,8 @@ function HpaOverview({ object }: OverviewProps) {
 function MatchExpressions({ selector }: { selector: any }) {
   const labels = Object.entries(selector?.matchLabels ?? {}) as Array<[string, string]>;
   const expressions = (selector?.matchExpressions ?? []) as Array<Record<string, any>>;
-  if (labels.length === 0 && expressions.length === 0) {
+  const fields = (selector?.matchFields ?? []) as Array<Record<string, any>>;
+  if (labels.length === 0 && expressions.length === 0 && fields.length === 0) {
     return <span className="text-[11px] text-theme-text-tertiary">any</span>;
   }
   return (
@@ -957,6 +1092,12 @@ function MatchExpressions({ selector }: { selector: any }) {
         <span key={`${expression.key}-${index}`} className="badge-sm status-unknown max-w-full truncate font-mono">
           {expression.key} {expression.operator}
           {expression.values?.length ? ` (${expression.values.join(", ")})` : ""}
+        </span>
+      ))}
+      {fields.map((field, index) => (
+        <span key={`field-${field.key}-${index}`} className="badge-sm status-unknown max-w-full truncate font-mono">
+          field:{field.key} {field.operator}
+          {field.values?.length ? ` (${field.values.join(", ")})` : ""}
         </span>
       ))}
     </div>
@@ -978,22 +1119,25 @@ function AffinityView({ affinity }: { affinity: any }) {
       <div>
         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">{label}</div>
         <div className="space-y-1">
-          {terms.map((term, index) => (
-            <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2 text-[11px]">
-              <div className="flex flex-wrap items-center gap-2 text-theme-text-secondary">
-                {term.weight !== undefined ? <span className="badge-sm status-neutral">weight {term.weight}</span> : null}
-                <span>
-                  topology: <span className="font-mono text-theme-text-primary">{term.topologyKey ?? "–"}</span>
-                </span>
-                {term.namespaces?.length ? (
-                  <span className="truncate text-theme-text-tertiary">namespaces: {term.namespaces.join(", ")}</span>
-                ) : null}
+          {terms.map((term, index) => {
+            const affinityTerm = term.podAffinityTerm ?? term;
+            return (
+              <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2 text-[11px]">
+                <div className="flex flex-wrap items-center gap-2 text-theme-text-secondary">
+                  {term.weight !== undefined ? <span className="badge-sm status-neutral">weight {term.weight}</span> : null}
+                  <span>
+                    topology: <span className="font-mono text-theme-text-primary">{affinityTerm.topologyKey ?? "–"}</span>
+                  </span>
+                  {affinityTerm.namespaces?.length ? (
+                    <span className="truncate text-theme-text-tertiary">namespaces: {affinityTerm.namespaces.join(", ")}</span>
+                  ) : null}
+                </div>
+                <div className="mt-1">
+                  <MatchExpressions selector={affinityTerm.labelSelector} />
+                </div>
               </div>
-              <div className="mt-1">
-                <MatchExpressions selector={term.labelSelector} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
