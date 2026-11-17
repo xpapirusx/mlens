@@ -12,8 +12,12 @@ import type {
   ListResourcesResult,
   NamespaceInfo,
   PodContainerInfo,
+  PolicyResourceRequest,
+  PolicyResourceResponse,
   RbacSubjectRequest,
   RbacSubjectResponse,
+  RbacRoleRequest,
+  RbacRoleResponse,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -27,7 +31,8 @@ import { ClusterConnection } from "./session";
 import { ResourceWatcher } from "./resource-watcher";
 import { LogStreams } from "./log-streams";
 import { ExecSessions } from "./exec-sessions";
-import { rbacSubject } from "./rbac";
+import { policyResource } from "./policy";
+import { rbacRole, rbacSubject } from "./rbac";
 import type { SettingsStore } from "../settings/store";
 
 interface ConnectedSession {
@@ -417,6 +422,13 @@ export class ClusterManager {
     });
   }
 
+  /** What the cluster's policy engine reports for one resource. */
+  async policyResource(request: PolicyResourceRequest): Promise<PolicyResourceResponse> {
+    if (typeof request.kind !== "string" || !request.kind) throw new Error("A resource kind is required.");
+    if (typeof request.name !== "string" || !request.name) throw new Error("A resource name is required.");
+    return policyResource(this.connection(request.clusterId), request);
+  }
+
   /** Effective RBAC permissions for a ServiceAccount (Radar's reverse lookup). */
   async rbacSubject(request: RbacSubjectRequest): Promise<RbacSubjectResponse> {
     if (typeof request.namespace !== "string" || !request.namespace) {
@@ -426,6 +438,16 @@ export class ClusterManager {
       throw new Error("A ServiceAccount name is required.");
     }
     return rbacSubject(this.connection(request.clusterId), request);
+  }
+
+  /** Bindings referencing a Role/ClusterRole, plus the role's own rules. */
+  async rbacRole(request: RbacRoleRequest): Promise<RbacRoleResponse> {
+    if (typeof request.name !== "string" || !request.name) throw new Error("A role name is required.");
+    if (request.kind !== "Role" && request.kind !== "ClusterRole") {
+      throw new Error("Only Role and ClusterRole subjects are supported.");
+    }
+    if (request.kind === "Role" && !request.namespace) throw new Error("A Role namespace is required.");
+    return rbacRole(this.connection(request.clusterId), request);
   }
 
   /** Serialize an object for the YAML tab (server JSON -> YAML). */

@@ -241,13 +241,13 @@ contains a single kind.
 - Default width 560px; draggable 460px → 74% of the window; expand button morphs
   to nearly full width.
 - Header: kind outline pill, status badge, API version, Back, Delete, Reload,
-  Minimize, Expand and Close. Minimize hides the drawer without closing it — the
+  Expand, Minimize and Close. Minimize hides the drawer without closing it — the
   open-resource tabs stay and a floating pill at the bottom-right restores it. Delete sits next to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
   Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
   ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
   rollout (Deployments), Suspend/Resume / Trigger / Set image (Jobs, CronJobs),
-  Cordon/Uncordon and Drain (Nodes). Reload (clockwise arrow) refetches data;
+  Cordon/Uncordon, Drain and Debug shell (Nodes). Reload (clockwise arrow) refetches data;
   Restart uses the counter-clockwise arrow.
 - Tabs: **Overview, Details, YAML, Events, Related, Logs (Pods only), Metrics**. Related is shown for every kind and lists owners, selectors, services, mounted config, node pods and bound volumes when they exist; the list uses Freelens-style rows (kind, name, namespace, relation, status).
 - `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
@@ -413,6 +413,20 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   **Taints** (`key=value:effect`, amber, with the count in the tooltip). Pods
   stays a plain capacity number because a per-node running count would need a
   cluster-wide pod list per table render.
+- The Config/Access Control/Service kinds follow Radar's column sets:
+  Services show **Type** (badge: violet for LoadBalancer/NodePort, sky for
+  ClusterIP), **Selector**, **Endpoints** (Active / No endpoints / None /
+  External — resolved from the core `Endpoints` object, one list per scope,
+  `–` while not fetched), **Ports** and **External** load-balancer addresses;
+  ConfigMaps add **Size**; Secrets show a coloured **Type** badge and
+  **Expires** (days until the `tls.crt` certificate expires — red past due or
+  under 30d, amber under 90d, `!` when the certificate cannot be parsed);
+  ServiceAccounts lead with **Automount** (green No / amber Yes); Roles show
+  **Rules** with Resources folded away; RoleBindings show a **Role** badge
+  (`R`/`CR` + name) and a `sa:`/`grp:` **Subjects** preview with `+N`;
+  CRDs add **Kind** and **Status** (Established / Terminating / Not
+  established). Certificate parsing is a pure DER walk in `lib/certificate.ts`,
+  verified against real certificates.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
 - Status is surfaced three ways: the status badge column, per-column status
@@ -422,6 +436,8 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Reference cells are clickable too: Controlled by, PVC Pods/Volume/Storage
   class, and every reference field in Details (`volumeName`, `claimRef`,
   `storageClassName`, `imagePullSecrets`, HPA `scaleTargetRef`, owner refs…).
+  Pod **Volumes** link straight to the referenced ConfigMap or Secret (direct
+  volumes and projected sources alike).
 - Workload actions (row context menu and drawer action row): Scale for
   Deployment/StatefulSet/ReplicaSet (merge patch `spec.replicas`, refused when an
   HPA owns the replica count), Restart for Deployment/StatefulSet/DaemonSet,
@@ -481,8 +497,8 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   **Pods on this node** (live `spec.nodeName` list with status badges, first 30
   then “Show all”, click opens the Pod, count in the header), Addresses,
   Platform (instance type, zone, region, node pool, machine family — only when
-  those labels exist), Taints and Conditions. Cordon/Uncordon and Drain stay in
-  the drawer's kind-action row.
+  those labels exist), Taints and Conditions. Cordon/Uncordon, Drain and
+  **Debug shell** stay in the drawer's kind-action row (and the row menu).
 - **Permissions via ServiceAccount** — Radar's reverse-lookup section at the
   bottom of Pod and workload Overviews: `Permissions via ServiceAccount: <name>`
   with the one-line summary (`N direct bindings · N inherited via groups · N
@@ -494,16 +510,53 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   ClusterRoleBinding lists behind a 10s per-cluster snapshot, implicit
   `system:authenticated` / `system:serviceaccounts[:ns]` groups folded in); a
   denied read is a calm note, not an error.
+- **Service** — Radar's composition: a **Load balancer pending** warning while
+  a LoadBalancer has no ingress yet, an info banner when the Service has **no
+  pod selector**, then Service (type, IPs, load balancer, session affinity,
+  external/internal traffic policy, IP families), Ports as a five-column table
+  including NodePort, Selector, and an **Endpoints** section listing ready
+  (green) and not-ready (amber) addresses from the live `Endpoints` object —
+  with honest states for "no object yet" and read failures.
+- **Access Control** — Radar's reverse-lookup sections, all from the same RBAC
+  snapshot as the Permissions section: a ServiceAccount shows **Permissive
+  grant detected**, **Direct bindings**, **Inherited via &lt;group&gt;**,
+  **Effective permissions** (flat rule chips, capped), **Used by Pods**
+  (live `spec.serviceAccountName` list), **Configuration**, **Workload
+  identity**, **Secrets** and **Image pull secrets**; a Role/ClusterRole shows
+  **Wildcard permissions**, **Bindings** (who is bound, subject chips with
+  clickable ServiceAccounts) and **Rules** as cards (verbs / resources / API
+  groups / resource names / non-resource URLs) plus the aggregation rule; a
+  RoleBinding shows **No subjects** and **Wide grant** banners, the cluster
+  scope note, **Role reference**, **Rules granted** (resolved live, with
+  orphan-binding and 403 states) and **Subjects** cards.
+- **Policy** — Radar's per-resource policy section on Pod and workload
+  Overviews: findings come from the cluster's `PolicyReport` /
+  `ClusterPolicyReport` families (whichever discovery finds), so a cluster
+  without a policy engine renders nothing at all. Failures open the section
+  with `Fail`/`Warn`/`Error`/`Skipped` badges, policy · rule and message, plus
+  `N other checks passing`; "no policy applies", "not checked yet" and denied
+  report families each say so in their own words instead of looking clean.
+- **Secret / ConfigMap** — Secrets add a **Certificate** section (subject,
+  issuer, not-before, coloured expiry) with an expired/expiring banner, and
+  both kinds show an **Immutable** banner when the flag is set.
+- **Custom resources** — the Overview leads with the live status badge and
+  reads `status` in Radar's fixed order (phase, state, replicas, … then
+  alphabetically) as flat rows, with a collapsed **Status details** block for
+  nested objects.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
-- **YAML** — Monaco, read-only by default, edit + dry-run + apply. The editor
-  has its own find/replace bar (built on `model.findMatches`, because the
-  standalone Monaco build ships without the find contribution): match counter,
-  match case, next/previous, replace and replace all.
+- **YAML** — Monaco, read-only by default, edit + dry-run + apply. Search is
+  Monaco's own find widget (the contribution is registered in `lib/monaco.ts`,
+  exactly as Radar registers it): `Ctrl/Cmd+F` opens it with match case, whole
+  word, **regex**, the `n of m` counter, next/previous and replace; replace is
+  disabled while the editor is read-only. The toolbar's Find/Replace buttons
+  trigger the same widget.
 - **Events** — live event list, warning filter, search, counts, timestamps.
 - **Related** — owners/selectors/config/node/volume relationships, refreshed
   from the live API; empty state says when nothing is related. Owner references
   are opened with their own apiVersion and without a namespace, so cluster-scoped
-  owners (e.g. CAPI `PinataHost`) resolve correctly.
+  owners (e.g. CAPI `PinataHost`) resolve correctly. A sticky filter bar narrows
+  the list — substring or regex over kind/name/namespace/relation/status — with
+  kind chips as facets and `visible / total` counts in every group header.
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
   timestamps, search, download, clear, line numbers; error/warn lines tinted.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,
@@ -590,6 +643,20 @@ the normal polling interval while the page is visible.
 Switching is done from the cluster tab strip, the hotbar, catalog, command
 palette or settings. Open resources switch from the resource tab strip. The
 catalog remains one click away (`Home`).
+
+Opening a cluster switches to its tab **immediately**, before the API answers:
+the workspace mounts with an `idle` session and plays the connecting animation
+(ringed tile, sweep, staged steps — "Contacting the API server / Loading
+namespaces / Discovering API resources") for the whole connect + discovery.
+Failures land on the workspace's error screen with Retry / Back to catalog
+rather than leaving the catalog up with only a toast.
+
+A **Node debug shell** starts from the drawer's action row or the row menu: a
+dialog shows an editable manifest (privileged pod pinned to the node, host
+PID/network/IPC, host root at `/host`, `sleep infinity`) so image, namespace,
+command or security context can be reassigned first, then Apply waits for the
+pod to reach Running and attaches an exec console in the bottom dock. The pod
+is labelled `mlens.io/debug-node` and is deleted when that tab closes.
 
 ---
 

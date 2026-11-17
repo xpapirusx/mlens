@@ -5,7 +5,7 @@ import { cn } from "../../lib/cn";
 interface TooltipProps {
   content: ReactNode;
   children: ReactNode;
-  side?: "top" | "bottom";
+  side?: "top" | "bottom" | "left" | "right";
   delay?: number;
   className?: string;
   wrapperClassName?: string;
@@ -14,7 +14,7 @@ interface TooltipProps {
 export function Tooltip({ content, children, side = "bottom", delay = 260, className, wrapperClassName }: TooltipProps) {
   const anchor = useRef<HTMLSpanElement>(null);
   const timer = useRef<number | undefined>(undefined);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [position, setPosition] = useState<{ x: number; y: number; transform: string } | null>(null);
 
   const clear = useCallback(() => {
     window.clearTimeout(timer.current);
@@ -26,8 +26,31 @@ export function Tooltip({ content, children, side = "bottom", delay = 260, class
     timer.current = window.setTimeout(() => {
       const rect = anchor.current?.getBoundingClientRect();
       if (!rect) return;
-      const x = Math.min(Math.max(8, rect.left + rect.width / 2), window.innerWidth - 8);
-      setPosition({ x, y: side === "bottom" ? rect.bottom + 6 : rect.top - 6 });
+      let x: number;
+      let y: number;
+      let transform: string;
+      switch (side) {
+        case "left":
+          x = rect.left - 6;
+          y = rect.top + rect.height / 2;
+          transform = "translate(-100%, -50%)";
+          break;
+        case "right":
+          x = rect.right + 6;
+          y = rect.top + rect.height / 2;
+          transform = "translate(0, -50%)";
+          break;
+        case "top":
+          x = Math.min(Math.max(8, rect.left + rect.width / 2), window.innerWidth - 8);
+          y = rect.top - 6;
+          transform = "translate(-50%, -100%)";
+          break;
+        default:
+          x = Math.min(Math.max(8, rect.left + rect.width / 2), window.innerWidth - 8);
+          y = rect.bottom + 6;
+          transform = "translateX(-50%)";
+      }
+      setPosition({ x, y, transform });
     }, delay);
   }, [clear, delay, side]);
 
@@ -61,7 +84,7 @@ export function Tooltip({ content, children, side = "bottom", delay = 260, class
             style={{
               left: position.x,
               top: position.y,
-              transform: side === "bottom" ? "translateX(-50%)" : "translate(-50%, -100%)",
+              transform: position.transform,
             }}
           >
             {content}

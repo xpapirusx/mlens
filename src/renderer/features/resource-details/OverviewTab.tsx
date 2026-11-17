@@ -1,4 +1,4 @@
-import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Layers, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
@@ -9,8 +9,18 @@ import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
+import { daysUntil, parseCertificate } from "../../lib/certificate";
 import { NodeOverview } from "./NodeOverview";
 import { PermissionsSection } from "./PermissionsSection";
+import { PolicySection } from "./PolicySection";
+import { useServiceEndpointsDetail } from "./useDetailsData";
+import {
+  RoleBindingRbacSections,
+  RoleBindingsSection,
+  RoleRbacSections,
+  ServiceAccountExtras,
+  ServiceAccountRbacSections,
+} from "./RbacOverview";
 
 type AnyObject = any;
 
@@ -79,6 +89,14 @@ export function OverviewTab(props: OverviewProps) {
       return <DataOverview {...props} />;
     case "node":
       return <NodeOverview {...props} />;
+    case "serviceaccount":
+      return <ServiceAccountOverview {...props} />;
+    case "role":
+    case "clusterrole":
+      return <RoleOverview {...props} />;
+    case "rolebinding":
+    case "clusterrolebinding":
+      return <RoleBindingOverview {...props} />;
     case "namespace":
       return <NamespaceOverview {...props} />;
     case "event":
@@ -489,28 +507,63 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
           {(object.spec?.volumes ?? []).length === 0 ? (
             <div className="text-xs text-theme-text-tertiary">No volumes.</div>
           ) : (
-            (object.spec.volumes as Array<Record<string, any>>).map((volume) => (
-              <div key={volume.name} className="flex items-center gap-2 text-[12px]">
-                <span className="w-40 shrink-0 truncate font-mono text-[11px] text-theme-text-tertiary">
-                  {volume.name}
-                </span>
-                <span className="truncate text-theme-text-secondary">
-                  {volume.configMap
-                    ? `configMap/${volume.configMap.name}`
-                    : volume.secret
-                      ? `secret/${volume.secret.secretName}`
-                      : volume.persistentVolumeClaim
-                        ? `pvc/${volume.persistentVolumeClaim.claimName}`
-                        : volume.emptyDir
-                          ? "emptyDir"
-                          : volume.hostPath
-                            ? `hostPath ${volume.hostPath.path}`
-                            : volume.projected
-                              ? "projected"
-                              : Object.keys(volume).find((key) => key !== "name") ?? "–"}
-                </span>
-              </div>
-            ))
+            (object.spec.volumes as Array<Record<string, any>>).map((volume) => {
+              const namespace = object.metadata?.namespace as string | undefined;
+              const configMapName = volume.configMap?.name as string | undefined;
+              const secretName = volume.secret?.secretName as string | undefined;
+              const projectedSources = (volume.projected?.sources ?? []) as Array<Record<string, any>>;
+              const label = volume.configMap
+                ? `configMap/${volume.configMap.name}`
+                : volume.secret
+                  ? `secret/${volume.secret.secretName}`
+                  : volume.persistentVolumeClaim
+                    ? `pvc/${volume.persistentVolumeClaim.claimName}`
+                    : volume.emptyDir
+                      ? "emptyDir"
+                      : volume.hostPath
+                        ? `hostPath ${volume.hostPath.path}`
+                        : volume.projected
+                          ? "projected"
+                          : Object.keys(volume).find((key) => key !== "name") ?? "–";
+              const link = (kind: string, name: string, text: string) => (
+                <button
+                  type="button"
+                  className="truncate text-left text-accent-text hover:underline"
+                  title={`Open ${kind} ${name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNavigate(kind, name, namespace);
+                  }}
+                >
+                  {text}
+                </button>
+              );
+              return (
+                <div key={volume.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+                  <span className="w-40 shrink-0 truncate font-mono text-[11px] text-theme-text-tertiary">
+                    {volume.name}
+                  </span>
+                  {configMapName ? (
+                    link("ConfigMap", configMapName, `configMap/${configMapName}`)
+                  ) : secretName ? (
+                    link("Secret", secretName, `secret/${secretName}`)
+                  ) : volume.projected ? (
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-theme-text-secondary">
+                      projected
+                      {projectedSources.map((source, index) =>
+                        source.configMap?.name ? (
+                          link("ConfigMap", source.configMap.name, `configMap/${source.configMap.name}${projectedSources.length > 1 ? ` [${index + 1}]` : ""}`)
+                        ) : source.secret?.name ? (
+                          link("Secret", source.secret.name, `secret/${source.secret.name}${projectedSources.length > 1 ? ` [${index + 1}]` : ""}`)
+                        ) : null,
+                      )}
+                    </span>
+                  ) : (
+                    <span className="truncate text-theme-text-secondary">{label}</span>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </DetailSection>
@@ -571,6 +624,13 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
         saName={object.spec?.serviceAccountName ?? "default"}
         variant="pod"
         onNavigate={onNavigate}
+      />
+
+      <PolicySection
+        clusterId={clusterId}
+        kind={object.kind}
+        namespace={object.metadata?.namespace}
+        name={object.metadata?.name ?? ""}
       />
     </div>
   );
@@ -693,6 +753,13 @@ function WorkloadOverview({ object, onNavigate, onScale, onTogglePause, clusterI
         variant="workload"
         onNavigate={onNavigate}
       />
+
+      <PolicySection
+        clusterId={clusterId}
+        kind={object.kind}
+        namespace={object.metadata?.namespace}
+        name={object.metadata?.name ?? ""}
+      />
     </div>
   );
 }
@@ -757,18 +824,80 @@ function JobOverview({ object, onToggleSuspend }: OverviewProps) {
   );
 }
 
-function ServiceOverview({ object, onNavigate }: OverviewProps) {
-  const spec = object.spec ?? {};
+function ServiceAccountOverview({ object, clusterId, onNavigate }: OverviewProps) {
   return (
     <div className="space-y-4">
+      <ServiceAccountRbacSections
+        clusterId={clusterId}
+        namespace={object.metadata?.namespace}
+        name={object.metadata?.name ?? ""}
+        onNavigate={onNavigate}
+      />
+      <ServiceAccountExtras object={object} />
+    </div>
+  );
+}
+
+function RoleOverview({ object, clusterId, onNavigate }: OverviewProps) {
+  return (
+    <div className="space-y-4">
+      <RoleBindingsSection clusterId={clusterId} object={object} onNavigate={onNavigate} />
+      <RoleRbacSections object={object} />
+    </div>
+  );
+}
+
+function RoleBindingOverview({ object, clusterId, onNavigate }: OverviewProps) {
+  return (
+    <div className="space-y-4">
+      <RoleBindingRbacSections clusterId={clusterId} object={object} onNavigate={onNavigate} />
+    </div>
+  );
+}
+
+function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
+  const spec = object.spec ?? {};
+  const type = (spec.type as string | undefined) ?? "ClusterIP";
+  const hasSelector = Object.keys(spec.selector ?? {}).length > 0;
+  const lbIngress = (object.status?.loadBalancer?.ingress ?? []) as Array<{ ip?: string; hostname?: string }>;
+  const endpoints = useServiceEndpointsDetail(clusterId, object.metadata?.namespace, object.metadata?.name);
+
+  return (
+    <div className="space-y-4">
+      {type === "LoadBalancer" && lbIngress.length === 0 ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+          <div className="font-medium">Load balancer pending</div>
+          <div className="mt-1 text-xs">
+            The external IP/hostname has not been assigned yet. Check the Events tab for cloud-provider messages.
+          </div>
+        </div>
+      ) : null}
+      {!hasSelector && type !== "ExternalName" ? (
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
+          <div className="font-medium">No pod selector</div>
+          <div className="mt-1 text-xs">
+            This Service has no selector — its endpoints must be managed manually or by an external controller.
+          </div>
+        </div>
+      ) : null}
+
       <DetailSection title="Service" icon={<Network />}>
         <PropertyList>
-          <Property label="Type" value={spec.type ?? "ClusterIP"} />
+          <Property label="Type" value={type} />
           <Property label="Cluster IP" value={spec.clusterIP} mono copyable />
           <Property label="Cluster IPs" value={(spec.clusterIPs ?? []).join(", ")} mono />
           <Property label="External IPs" value={(spec.externalIPs ?? []).join(", ")} mono />
-          <Property label="Load balancer" value={object.status?.loadBalancer?.ingress?.[0]?.ip ?? object.status?.loadBalancer?.ingress?.[0]?.hostname} mono />
+          <Property
+            label="Load balancer"
+            value={lbIngress.map((entry) => entry.ip ?? entry.hostname).filter(Boolean).join(", ")}
+            mono
+            copyable
+          />
           <Property label="Session affinity" value={spec.sessionAffinity ?? "None"} />
+          <Property label="External traffic policy" value={spec.externalTrafficPolicy} />
+          <Property label="Internal traffic policy" value={spec.internalTrafficPolicy} />
+          <Property label="IP family policy" value={spec.ipFamilyPolicy} />
+          <Property label="IP families" value={(spec.ipFamilies ?? []).join(", ")} />
           <Property label="External name" value={spec.externalName} />
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
@@ -776,17 +905,19 @@ function ServiceOverview({ object, onNavigate }: OverviewProps) {
 
       <DetailSection title="Ports" icon={<Network />} count={spec.ports?.length ?? 0}>
         <div className="overflow-hidden rounded-md border border-theme-border">
-          <div className="grid grid-cols-4 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+          <div className="grid grid-cols-5 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
             <span>Name</span>
             <span>Port</span>
             <span>Target</span>
+            <span>NodePort</span>
             <span>Protocol</span>
           </div>
           {(spec.ports ?? []).map((port: any, index: number) => (
-            <div key={index} className="grid grid-cols-4 border-b-subtle px-2 py-1 text-[11px] last:border-0">
+            <div key={index} className="grid grid-cols-5 border-b-subtle px-2 py-1 text-[11px] last:border-0">
               <span className="truncate text-theme-text-primary">{port.name ?? "–"}</span>
               <span className="font-mono text-theme-text-secondary">{port.port}</span>
               <span className="font-mono text-theme-text-secondary">{port.targetPort ?? "–"}</span>
+              <span className="font-mono text-theme-text-secondary">{port.nodePort ?? "–"}</span>
               <span className="text-theme-text-secondary">{port.protocol ?? "TCP"}</span>
             </div>
           ))}
@@ -814,6 +945,54 @@ function ServiceOverview({ object, onNavigate }: OverviewProps) {
           )}
         </div>
       </DetailSection>
+
+      {type !== "ExternalName" ? (
+        <DetailSection
+          title="Endpoints"
+          icon={<Network />}
+          count={endpoints.ready.length + endpoints.notReady.length}
+          defaultOpen={endpoints.ready.length === 0}
+        >
+          {endpoints.loading && !endpoints.exists && !endpoints.error ? (
+            <div className="text-xs text-theme-text-tertiary">Loading endpoints…</div>
+          ) : endpoints.error ? (
+            <div className="text-xs text-theme-text-tertiary">Endpoints unavailable: {endpoints.error}</div>
+          ) : !endpoints.exists ? (
+            <div className="text-xs text-theme-text-tertiary">
+              No Endpoints object exists for this Service — it currently has no backing addresses.
+            </div>
+          ) : endpoints.ready.length === 0 && endpoints.notReady.length === 0 ? (
+            <div className="text-xs text-theme-text-tertiary">No addresses are registered for this Service.</div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-xs text-theme-text-secondary">
+                <span className="text-emerald-600 dark:text-emerald-400">{endpoints.ready.length} ready</span>
+                {endpoints.notReady.length > 0 ? (
+                  <>
+                    {" · "}
+                    <span className="text-amber-600 dark:text-amber-400">{endpoints.notReady.length} not ready</span>
+                  </>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {endpoints.ready.slice(0, 40).map((ip) => (
+                  <span key={`ready-${ip}`} className="badge-sm status-healthy font-mono">
+                    {ip}
+                  </span>
+                ))}
+                {endpoints.notReady.slice(0, 40).map((ip) => (
+                  <span key={`notready-${ip}`} className="badge-sm status-degraded font-mono">
+                    {ip}
+                  </span>
+                ))}
+              </div>
+              {endpoints.ready.length + endpoints.notReady.length > 80 ? (
+                <div className="text-[11px] text-theme-text-tertiary">Showing the first 80 addresses.</div>
+              ) : null}
+            </div>
+          )}
+        </DetailSection>
+      ) : null}
     </div>
   );
 }
@@ -868,6 +1047,62 @@ function IngressOverview({ object }: OverviewProps) {
   );
 }
 
+/** Radar's Certificate Info for TLS Secrets: subject, issuer and expiry. */
+function CertificateSection({ object }: { object: AnyObject }) {
+  const crt = (object.data as Record<string, string> | undefined)?.["tls.crt"];
+  const info = crt ? parseCertificate(crt) : null;
+  if (!info?.notAfter) return null;
+  const days = daysUntil(info.notAfter) ?? 0;
+  const expired = days < 0;
+  const soon = !expired && days <= 30;
+  return (
+    <>
+      {expired || soon ? (
+        <div
+          className={cn(
+            "rounded-lg border px-3 py-2 text-[12px]",
+            expired
+              ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+          )}
+        >
+          <div className="font-medium">
+            {expired ? `Certificate expired ${Math.abs(days)}d ago` : `Certificate expires in ${days}d`}
+          </div>
+        </div>
+      ) : null}
+      <DetailSection title="Certificate" icon={<ShieldCheck />}>
+        <PropertyList>
+          <Property label="Subject" value={info.subjectCn} mono />
+          <Property label="Issuer" value={info.issuerCn} mono />
+          <Property
+            label="Not before"
+            value={info.notBefore ? formatTimestamp(info.notBefore.toISOString()) : "–"}
+            mono
+          />
+          <Property
+            label="Expires"
+            value={
+              <span
+                className={cn(
+                  expired
+                    ? "text-red-600 dark:text-red-400"
+                    : soon
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {formatTimestamp(info.notAfter.toISOString())} ({days}d)
+              </span>
+            }
+            mono
+          />
+        </PropertyList>
+      </DetailSection>
+    </>
+  );
+}
+
 function DataOverview({ object, onEditData }: OverviewProps) {
   const isSecret = object.kind === "Secret";
   const data = isSecret ? (object.data ?? {}) : { ...(object.data ?? {}), ...(object.binaryData ?? {}) };
@@ -889,6 +1124,15 @@ function DataOverview({ object, onEditData }: OverviewProps) {
   );
   return (
     <div className="space-y-4">
+      {isSecret ? <CertificateSection object={object} /> : null}
+      {object.immutable ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+          <div className="font-medium">Immutable {isSecret ? "Secret" : "ConfigMap"}</div>
+          <div className="mt-1 text-xs">
+            Kubernetes rejects changes to its keys — edit requires deleting and recreating the object.
+          </div>
+        </div>
+      ) : null}
       <DetailSection title={isSecret ? "Secret" : "ConfigMap"} icon={<FileSliders />}>
         <PropertyList>
           {isSecret ? <Property label="Type" value={object.type} /> : null}
@@ -1308,6 +1552,14 @@ function readJsonPath(value: unknown, path: string): unknown {
   }, value);
 }
 
+/** "observedGeneration" → "Observed Generation" for the flat status rows. */
+function statusFieldLabel(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
   const status = (object.status ?? {}) as Record<string, unknown>;
   const spec = (object.spec ?? {}) as Record<string, unknown>;
@@ -1317,9 +1569,54 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
     jsonPath?: string;
     type?: string;
   }>;
+  const statusBadge = resourceStatus(object, resource.kind);
+  // Radar reads a status in a fixed order so the answer lands in the same
+  // place on every custom resource; everything else follows alphabetically.
+  const priority = [
+    "phase",
+    "state",
+    "ready",
+    "available",
+    "replicas",
+    "currentReplicas",
+    "readyReplicas",
+    "availableReplicas",
+    "updatedReplicas",
+    "observedGeneration",
+    "message",
+    "reason",
+  ];
+  const flatStatus = Object.entries(status)
+    .filter(([, value]) => value === null || typeof value !== "object")
+    .sort(([left], [right]) => {
+      const leftIndex = priority.indexOf(left);
+      const rightIndex = priority.indexOf(right);
+      if (leftIndex >= 0 || rightIndex >= 0) {
+        return (leftIndex >= 0 ? leftIndex : priority.length) - (rightIndex >= 0 ? rightIndex : priority.length);
+      }
+      return left.localeCompare(right);
+    });
+  const nestedStatus = Object.fromEntries(
+    Object.entries(status).filter(([, value]) => value !== null && typeof value === "object"),
+  );
 
   return (
     <div className="space-y-4">
+      {statusBadge.text && statusBadge.text !== "—" ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn("badge", toneClass(statusBadge.tone))} title={statusBadge.detail}>
+            {statusBadge.text}
+          </span>
+          <span className="font-mono text-[11px] text-theme-text-tertiary">
+            {resource.apiVersion} · {resource.kind}
+          </span>
+        </div>
+      ) : (
+        <div className="font-mono text-[11px] text-theme-text-tertiary">
+          {resource.apiVersion} · {resource.kind}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
         {[
           { label: "Kind", value: resource.kind },
@@ -1392,13 +1689,38 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Status" icon={<Info />}>
-        {Object.keys(status).length ? (
+      <DetailSection title="Status" icon={<Info />} count={flatStatus.length}>
+        {Object.keys(status).length === 0 ? (
+          <div className="text-xs text-theme-text-tertiary">This resource has no status fields.</div>
+        ) : flatStatus.length === 0 ? (
           <NestedObject value={status} />
         ) : (
-          <div className="text-xs text-theme-text-tertiary">This resource has no status fields.</div>
+          <PropertyList>
+            {flatStatus.map(([key, value]) => (
+              <Property
+                key={key}
+                label={statusFieldLabel(key)}
+                value={
+                  typeof value === "boolean"
+                    ? value
+                      ? "Yes"
+                      : "No"
+                    : Array.isArray(value)
+                      ? value.map((entry) => (typeof entry === "object" ? JSON.stringify(entry) : String(entry))).join(", ")
+                      : String(value)
+                }
+                mono
+              />
+            ))}
+          </PropertyList>
         )}
       </DetailSection>
+
+      {Object.keys(nestedStatus).length ? (
+        <DetailSection title="Status details" icon={<Layers />} defaultOpen={false}>
+          <NestedObject value={nestedStatus} />
+        </DetailSection>
+      ) : null}
 
       <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
         {Object.keys(spec).length ? (

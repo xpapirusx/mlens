@@ -2,6 +2,8 @@ import type {
   RbacBindingRules,
   RbacInheritedGroup,
   RbacPolicyRule,
+  RbacRoleRequest,
+  RbacRoleResponse,
   RbacSubjectRequest,
   RbacSubjectResponse,
 } from "@shared/types";
@@ -255,5 +257,49 @@ export async function rbacSubject(
     inheritedFromGroups,
     flat,
     truncated,
+  };
+}
+
+/**
+ * Reverse lookup by role: the bindings that reference one Role/ClusterRole
+ * (with their subjects) plus the role's own rules. One call answers both the
+ * Role detail ("who is bound to this") and the RoleBinding detail ("what does
+ * the referenced role actually grant").
+ */
+export async function rbacRole(
+  connection: ClusterConnection,
+  request: RbacRoleRequest,
+): Promise<RbacRoleResponse> {
+  const { rulesByRole, refs } = await loadSnapshot(connection);
+  const namespace = request.kind === "Role" ? request.namespace : undefined;
+  const key = roleKey(request.kind, namespace, request.name);
+  const rules = rulesByRole.get(key);
+
+  const bindings: RbacRoleResponse["bindings"] = refs
+    .filter(
+      ({ ref }) =>
+        ref.roleRef.kind === request.kind &&
+        ref.roleRef.name === request.name &&
+        (request.kind === "ClusterRole" || (ref.roleRef.namespace ?? "") === (namespace ?? "")),
+    )
+    .map(({ ref, raw }) => ({
+      binding: {
+        kind: ref.kind,
+        namespace: ref.namespace,
+        name: ref.name,
+        roleRef: ref.roleRef,
+      },
+      subjects: (raw.subjects ?? []).map((subject) => ({
+        kind: subject.kind ?? "",
+        namespace: subject.namespace,
+        name: subject.name ?? "",
+      })),
+    }));
+
+  return {
+    role: { kind: request.kind, namespace, name: request.name },
+    rules: rules ?? [],
+    bindings,
+    ...(rules === undefined ? { roleMissing: true } : {}),
   };
 }

@@ -27,6 +27,8 @@ export type TerminalTarget =
       shell?: string;
       /** `attach` connects to the running process; otherwise a shell is exec'd. */
       mode?: "exec" | "attach";
+      /** Node debug shell: mLens created this pod, so closing the tab deletes it. */
+      managedPod?: boolean;
     };
 
 export interface TerminalTab {
@@ -537,6 +539,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   closeTerminal: (id, tabId) => {
+    const closed = get().sessions[id]?.dock.tabs.find((tab) => tab.id === tabId);
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
@@ -555,6 +558,23 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         },
       };
     });
+    // A node debug shell owns the pod it created: closing the console deletes
+    // it, so repeated debugging does not leave privileged pods behind.
+    if (closed?.target.type === "pod" && closed.target.managedPod) {
+      const target = closed.target;
+      void call(
+        api.resources.delete({
+          clusterId: id,
+          apiVersion: "v1",
+          kind: "Pod",
+          namespace: target.namespace,
+          name: target.pod,
+          propagationPolicy: "Background",
+        }),
+      )
+        .then(() => toast.success("Debug pod deleted", `${target.namespace}/${target.pod}`))
+        .catch((error) => toast.error("Cannot delete debug pod", errorText(error)));
+    }
   },
 
   selectTerminal: (id, tabId) => {

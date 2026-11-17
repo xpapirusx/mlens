@@ -1,5 +1,10 @@
 import * as monaco from "monaco-editor/editor/editor.api";
 import "monaco-editor/languages/definitions/yaml/register.js";
+// Monaco's stock find widget: Ctrl/Cmd+F with match case, whole word, regex,
+// the n-of-m counter and replace. `editor.api` alone registers none of the
+// contributions, so this import is what makes the shortcut work (Radar
+// registers the same file).
+import "monaco-editor/features/find/register.js";
 import EditorWorker from "monaco-editor/editor/editor.worker?worker";
 
 // Monaco runs its language services in a worker. YAML highlighting is token

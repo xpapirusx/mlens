@@ -91,6 +91,8 @@ configuration).
 | Init containers | **Done** | Table: separator before main containers, `init ·` in the square tooltip; Pod Overview: numbered Init containers section |
 | Container squares (Radar) | **Done** | Containers column: centred 10px tiles coloured by state, orange restart ring, init separator, rich tooltip (state, reason, message, exit code, uptime, last termination) |
 | Node table (Radar) | **Done** | CPU/Memory usage÷allocatable bars, Conditions and Taints columns; Node kind now fetches metrics.k8s.io |
+| Radar columns for Service / Config / Access Control | **Done** | Endpoints column from the live `Endpoints` object, Service Type badge + External, ConfigMap Size, Secret Type badge + TLS Expires (DER parse), ServiceAccount Automount, Role `R`/`CR` badge + `sa:`/`grp:` subjects preview, CRD Kind + Status |
+| Statuses like Radar | **Done** | Service status is its type (violet LB/NodePort), CRD Established/Terminating/Not established, generic CR phase→tone + replicas + negative conditions |
 | Details workload actions | **Done** | Right-aligned labelled actions under the name (Scale/Restart/Pause/Suspend/Cordon/Drain/Set image/Trigger) plus Radar-style Scale/Pause buttons in Overview; Delete/Reload/Close in the header |
 | Set image | **Done** | Container + init-container image editor patches the pod template for Deployment/STS/DS/RS/Job/CronJob |
 | CronJob trigger | **Done** | Creates a one-off Job from `jobTemplate` via apply |
@@ -143,6 +145,15 @@ configuration).
 | Node overview (Radar) | **Done** | Issues/Cordoned banners, Node info, Capacity with In use, Resource usage bars, Addresses, Platform labels, Taints, Conditions |
 | Pods on node | **Done** | Live `spec.nodeName` list with status badges, first 30 + “Show all”, click opens the Pod, count in the header |
 | Permissions via ServiceAccount | **Done** | Pod + workload Overview: `N direct bindings · N inherited via groups · N distinct rules`, top-5 rules as chips, blast radius banner, link to the ServiceAccount; `kube:rbac-subject` IPC with a 10s per-cluster snapshot |
+| Service overview (Radar) | **Done** | Load-balancer-pending and no-selector banners, full Service properties, NodePort in the ports table, live ready/not-ready Endpoints section |
+| Access Control overviews (Radar) | **Done** | SA: permissive-grant banner, direct/inherited/effective permissions, used-by pods, workload identity, secrets; Role: wildcard banner, bindings reverse lookup (`kube:rbac-role`), rule cards, aggregation rule; RoleBinding: no-subjects/wide-grant banners, role reference, live rules with orphan/403 states, subject cards |
+| Policy section (Radar) | **Done** | Pod + workload Overviews read the cluster's PolicyReport/ClusterPolicyReport families; Fail/Warn/Error/Skipped findings + “N other checks passing”, honest not-installed / not-checked / denied states |
+| Secret certificate (Radar) | **Done** | Pure DER walk (`lib/certificate.ts`, verified against real certs): Certificate section with subject/issuer/expiry + expired banner; immutable banner for ConfigMap/Secret |
+| YAML search (Radar) | **Done** | Stock Monaco find widget: Ctrl/Cmd+F, regex, match case, whole word, n-of-m counter, replace (the contribution is registered in `lib/monaco.ts`) |
+| Node debug shell | **Done** | Editable privileged-pod manifest → apply → wait for Running → exec console in the dock; pod labelled `mlens.io/debug-node` and deleted when the tab closes |
+| Related filters | **Done** | Substring/regex search + kind chips, visible/total counts per group |
+| Volume links | **Done** | ConfigMap/Secret volumes (direct and projected) open their target from the Pod overview |
+| Cluster switch animation | **Done** | Opening a cluster activates its tab before the API answers; the connecting animation covers connect + discovery, failures land on the error screen |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
 | Env references | **Done** | Eye reveals referenced ConfigMap/Secret values inline without leaving the Pod |
@@ -286,6 +297,7 @@ configuration).
 | Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg`; packaged app launches, sees 98 contexts, connects, runs a PTY with the right kubectl context, and port-forwards a real pod (HTTP 200) |
 | Windows / Linux packaging | Configured (NSIS, AppImage, deb); not yet built on those OSes |
 | Radar container squares / Node table + details / RBAC permissions / hotbar pages | Pass — `pnpm typecheck` and `pnpm build`; real-cluster smoke test still pending |
+| Radar columns+statuses, Service/Access Control/Policy/Secret overviews, YAML find, debug shell, Related filters, cluster-switch animation | Pass — typecheck and `electron-vite build` (Monaco find widget confirmed in the bundle); certificate parser checked against real kubeconfig certs with Node's `X509Certificate` (10/10 dates and CNs match); real-cluster smoke test pending |
 
 ---
 

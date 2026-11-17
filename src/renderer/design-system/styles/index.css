@@ -226,8 +226,3 @@
 #root .overflow-x-auto {
   -webkit-app-region: no-drag;
 }
-
-/* Find matches inside the YAML editor. */
-.yaml-find-match {
-  background-color: rgba(245, 158, 11, 0.32);
-}

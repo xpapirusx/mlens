@@ -166,8 +166,31 @@ export function pvStatus(pv: AnyObject): ResourceStatus {
 }
 
 export function serviceStatus(service: AnyObject): ResourceStatus {
-  if (service.spec?.type === "ExternalName") return { text: "ExternalName", tone: "info" };
-  return { text: "Active", tone: "success" };
+  // Radar shows the type itself as the status: LoadBalancer/NodePort are the
+  // notable ones, ClusterIP the default. Endpoints carry the health signal.
+  const type = service.spec?.type ?? "ClusterIP";
+  if (type === "LoadBalancer" || type === "NodePort") return { text: type, tone: "violet" };
+  if (type === "ExternalName") return { text: "ExternalName", tone: "info" };
+  return { text: type, tone: "info" };
+}
+
+/** Radar's `getCRDStatus`: termination beats names, names beat establishment. */
+export function crdStatus(crd: AnyObject): ResourceStatus {
+  const conditions = (crd.status?.conditions ?? []) as Array<Record<string, any>>;
+  const isTrue = (type: string) => conditions.find((entry) => entry.type === type)?.status === "True";
+  const reasonOf = (type: string) => conditions.find((entry) => entry.type === type)?.reason;
+  if (crd.metadata?.deletionTimestamp || isTrue("Terminating")) {
+    return { text: "Terminating", tone: "warning" };
+  }
+  if (conditions.find((entry) => entry.type === "NamesAccepted")?.status === "False") {
+    return { text: reasonOf("NamesAccepted") ?? "Names not accepted", tone: "error" };
+  }
+  const established = conditions.find((entry) => entry.type === "Established");
+  if (established?.status === "False") {
+    return { text: established.reason ?? "Not established", tone: "error" };
+  }
+  if (established?.status === "True") return { text: "Established", tone: "success" };
+  return { text: "Unknown", tone: "neutral" };
 }
 
 export function ingressStatus(ingress: AnyObject): ResourceStatus {
@@ -199,30 +222,68 @@ export function eventStatus(event: AnyObject): ResourceStatus {
 export function genericStatus(object: AnyObject): ResourceStatus {
   if (object.metadata?.deletionTimestamp) return { text: "Terminating", tone: "warning" };
 
-  const ready = conditions(object).find((entry) => entry.type === "Ready" || entry.type === "Available");
+  const all = conditions(object);
+  // Negative conditions only carry meaning while they are True.
+  const negative = all.find(
+    (entry) => entry.status === "True" && ["Degraded", "Warning", "ScalingLimited"].includes(entry.type),
+  );
+  if (negative) return { text: negative.type, tone: "warning", detail: negative.reason };
+
+  const ready = all.find(
+    (entry) => entry.type === "Ready" || entry.type === "Available" || entry.type === "Healthy",
+  );
   if (ready) {
-    if (ready.status === "True") return { text: "Ready", tone: "success" };
-    if (ready.status === "False") {
-      return { text: ready.reason ?? "Not ready", tone: "error" };
-    }
+    if (ready.status === "True") return { text: ready.type, tone: "success" };
+    if (ready.status === "False") return { text: ready.reason ?? `Not ${ready.type}`, tone: "error" };
+    if (ready.status === "Unknown") return { text: ready.reason ?? ready.type, tone: "neutral" };
   }
+
   const phase = object.status?.phase;
-  if (typeof phase === "string") {
+  if (typeof phase === "string" && phase) {
     const lower = phase.toLowerCase();
-    if (["running", "active", "ready", "available", "bound", "succeeded", "healthy"].includes(lower)) {
+    if (
+      ["running", "active", "ready", "available", "bound", "succeeded", "healthy", "complete", "completed"].includes(
+        lower,
+      )
+    ) {
       return { text: phase, tone: "success" };
     }
-    if (["failed", "error", "unhealthy", "lost"].includes(lower)) return { text: phase, tone: "error" };
-    if (["pending", "warning", "terminating", "suspended"].includes(lower)) {
+    if (
+      ["failed", "error", "unhealthy", "lost", "rejected", "crashloopbackoff", "imagepullbackoff", "errimagepull"].includes(
+        lower,
+      )
+    ) {
+      return { text: phase, tone: "error" };
+    }
+    if (
+      ["pending", "warning", "terminating", "suspended", "waiting", "provisioning", "reconciling", "progressing", "unknown"].includes(
+        lower,
+      )
+    ) {
       return { text: phase, tone: "warning" };
     }
     return { text: phase, tone: "info" };
   }
+
+  const replicas = object.status;
+  if (replicas && typeof replicas.readyReplicas === "number" && typeof replicas.replicas === "number") {
+    const readyCount = replicas.readyReplicas;
+    const desired = replicas.replicas;
+    const text = `${readyCount}/${desired} Ready`;
+    if (desired > 0 && readyCount === desired) return { text, tone: "success" };
+    if (readyCount === 0) return { text, tone: "error" };
+    return { text, tone: "warning" };
+  }
+
   if (typeof object.status?.ready === "boolean") {
     return object.status.ready
       ? { text: "Ready", tone: "success" }
       : { text: "Not ready", tone: "warning" };
   }
+
+  const state = object.status?.state ?? object.status?.status;
+  if (typeof state === "string" && state) return { text: state, tone: "neutral" };
+
   return { text: "—", tone: "neutral" };
 }
 
@@ -271,6 +332,9 @@ export function resourceStatus(object: AnyObject, kind?: string): ResourceStatus
     case "event":
     case "events":
       return eventStatus(object);
+    case "customresourcedefinition":
+    case "customresourcedefinitions":
+      return crdStatus(object);
     default:
       return genericStatus(object);
   }

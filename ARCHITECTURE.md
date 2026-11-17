@@ -119,7 +119,8 @@ string literals scattered across the code.
 | `clusters` | list kubeconfigs + contexts, import file dialog, import path, import pasted YAML, remove source, connect, disconnect, health, namespaces |
 | `resources` | discover, list (filters/paging), get, watch/unwatch, counts, delete, apply YAML, scale, restart, watch events |
 | `pods` | container list |
-| `rbac` | effective ServiceAccount permissions: direct + group-inherited bindings and the flattened rule set |
+| `rbac` | effective ServiceAccount permissions (direct + group-inherited bindings, flattened rules) and the reverse lookup by Role/ClusterRole (bindings + rules) |
+| `policy` | per-resource policy findings read from the cluster's PolicyReport / ClusterPolicyReport families |
 | `logs` | start/stop stream, chunk/end events |
 | `exec` | start, input, resize, close, data/exit events |
 | `terminal` | create, input, resize, close, data/exit events |
@@ -319,7 +320,24 @@ REST path; RBAC failures are reported as warnings instead of inventing links.
 No kubectl process and no SPDY implementation are involved. Limits: TCP only,
 one port per forward, loopback bind.
 
-### 4.14 RBAC reverse lookup
+### 4.14 Policy reports
+
+`policyResource(connection, { kind, namespace, name })` answers "what does this
+cluster's policy engine say about this resource". Discovery decides which
+families exist (`PolicyReport` and `ClusterPolicyReport` in any group, so both
+`wgpolicyk8s.io` and the newer `reports.k8s.io` are covered); namespaced
+reports are read in the resource's namespace, cluster reports cluster-wide.
+Results whose `subject` matches kind/name/namespace are counted per result
+value and the notable ones (everything except `pass`) are returned as findings.
+
+States are explicit, because an empty answer means several unrelated things:
+no report kinds discovered → `not_installed` (the section renders nothing);
+every family denied → `deferred` + `rbac_denied` (a calm note); a genuine list
+fault → thrown, so the section shows the error; zero matches → "no policy
+applies". A family that could not be read while others could is reported in
+`deniedGroups`, which suppresses the word "All" from the passing claim.
+
+### 4.15 RBAC reverse lookup
 
 `rbacSubject(connection, { namespace, name })` answers "what can this
 ServiceAccount actually do": it lists Roles, ClusterRoles, RoleBindings and

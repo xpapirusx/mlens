@@ -44,12 +44,14 @@ import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
 import { SetImageDialog } from "../resource-details/SetImageDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
+import { NodeDebugDialog } from "../resource-details/NodeDebugDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
 import { useClaimPods } from "./useClaimPods";
+import { useServiceEndpoints } from "./useServiceEndpoints";
 import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
-  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain";
+  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain" | "debug";
   object?: KubeObject;
   force?: boolean;
 }
@@ -147,9 +149,16 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     active,
     refreshSeconds,
   });
+  const serviceEndpoints = useServiceEndpoints({
+    clusterId,
+    resource,
+    namespaces: selectedNamespaces,
+    active,
+    refreshSeconds,
+  });
   const cellContext = useMemo<CellContext>(
-    () => ({ showNamespace, claimPods }),
-    [showNamespace, claimPods],
+    () => ({ showNamespace, claimPods, serviceEndpoints }),
+    [showNamespace, claimPods, serviceEndpoints],
   );
   const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
     const lower = target.kind.toLowerCase();
@@ -859,6 +868,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           }
           onOpenRef={openRef}
           claimPods={claimPods}
+          serviceEndpoints={serviceEndpoints}
           selectionMode
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}
@@ -1088,6 +1098,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             Drain node…
           </MenuItem>
         ) : null}
+        {isNode ? (
+          <MenuItem
+            icon={<SquareTerminal className="h-3.5 w-3.5" />}
+            onClick={() => {
+              setDialog({ type: "debug", object: contextObject });
+              setMenu(null);
+            }}
+          >
+            Debug shell…
+          </MenuItem>
+        ) : null}
         <MenuSeparator />
         <MenuItem
           icon={<Copy className="h-3.5 w-3.5" />}
@@ -1142,6 +1163,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         clusterId={clusterId}
         node={dialog?.object?.metadata?.name ?? ""}
         onDone={() => void list.refresh(true)}
+      />
+
+      <NodeDebugDialog
+        open={dialog?.type === "debug"}
+        onClose={() => setDialog(null)}
+        clusterId={clusterId}
+        nodeName={dialog?.object?.metadata?.name ?? ""}
       />
 
       <CreateResourceDialog

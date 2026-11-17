@@ -427,3 +427,68 @@ export interface RbacSubjectResponse {
   flat: RbacPolicyRule[];
   truncated: boolean;
 }
+
+export interface RbacRoleRequest {
+  clusterId: ClusterId;
+  kind: "Role" | "ClusterRole";
+  /** Required for Role; ignored for ClusterRole. */
+  namespace?: string;
+  name: string;
+}
+
+export interface RbacSubjectEntry {
+  kind: string;
+  namespace?: string;
+  name: string;
+}
+
+export interface RbacRoleResponse {
+  role: { kind: string; namespace?: string; name: string };
+  /** Empty when the referenced role does not exist (orphan binding). */
+  rules: RbacPolicyRule[];
+  bindings: Array<{ binding: RbacBindingRef; subjects: RbacSubjectEntry[] }>;
+  /** True when the role itself could not be found in the cluster. */
+  roleMissing?: boolean;
+}
+
+// ── Policy reports (what the cluster's policy engine says about one resource) ─
+
+export interface PolicyResourceRequest {
+  clusterId: ClusterId;
+  /** Singular kind of the subject, e.g. "Deployment" or "Pod". */
+  kind: string;
+  namespace?: string;
+  name: string;
+}
+
+export interface PolicyResourceFinding {
+  policy: string;
+  rule?: string;
+  /** pass | fail | warn | error | skip (engines may add their own). */
+  result: string;
+  severity?: string;
+  category?: string;
+  message?: string;
+  engine?: string;
+}
+
+export interface PolicyResourceCounts {
+  pass: number;
+  fail: number;
+  warn: number;
+  error: number;
+  skip: number;
+}
+
+export interface PolicyResourceResponse {
+  /** False whenever the answer is "we could not check" — never read an empty
+   *  findings array as clean without consulting this first. */
+  evaluated: boolean;
+  status: string;
+  reasonCode?: string;
+  /** Report families this identity may not read; counts exclude them. */
+  deniedGroups?: string[];
+  liveUpdates: boolean;
+  counts: PolicyResourceCounts;
+  findings: PolicyResourceFinding[];
+}

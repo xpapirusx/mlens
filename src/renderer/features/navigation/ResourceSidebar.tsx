@@ -386,6 +386,7 @@ export function ResourceSidebar({
             </>
           )}
         </Menu>
+
       </div>
 
       <div className="shrink-0 px-2 py-2">

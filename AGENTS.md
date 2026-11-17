@@ -168,8 +168,9 @@ Important:
   Related / Logs (Pods only) / Metrics. Kind actions are labelled buttons in a
   right-aligned row under the resource name (Logs/Exec/Forward for Pods; Scale/Restart/Set image for
   workloads; Pause/Resume for Deployments; Suspend/Resume and Trigger for
-  Jobs/CronJobs; Cordon/Uncordon and Drain for Nodes). Delete, Reload, Expand
-  and Close stay in the header; Delete sits next to Close. Reload (clockwise
+  Jobs/CronJobs; Cordon/Uncordon, Drain and Debug shell for Nodes). Delete,
+  Reload, Expand, Minimize and Close stay in the header; Delete sits next to
+  Close and Expand sits before Minimize. Reload (clockwise
   arrow) only refetches data — Restart uses the counter-clockwise arrow. YAML
   and Related are tabs. Workload Scale also appears in the Overview Status
   section, as in Radar.

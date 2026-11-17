@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Blocks, Check, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
@@ -44,6 +45,71 @@ function padPage(page: Array<ClusterSummary | null>): Array<ClusterSummary | nul
   const padded = [...page.slice(0, SLOT_COUNT)];
   while (padded.length < SLOT_COUNT) padded.push(null);
   return padded;
+}
+
+/**
+ * Тултип для хотбара — как в Freelens: рендерится через портал в document.body,
+ * поэтому `overflow-y-auto` / `overflow-x-hidden` у `.hotbar-scroll` его не режет,
+ * а `flip` из floating-ui не может увести его наверх.
+ *
+ * Реф висит на обычном inline-flex контейнере (а НЕ на `display: contents` —
+ * у такого элемента нет бокса, и `getBoundingClientRect()` возвращает нули).
+ */
+function HotbarTooltip({
+  children,
+  content,
+  side = "right",
+}: {
+  children: React.ReactNode;
+  content: React.ReactNode;
+  side?: "right" | "bottom";
+}) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const anchorRef = useRef<HTMLDivElement>(null);
+
+  const show = () => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const offset = 8;
+    if (side === "right") {
+      // Справа от кнопки, по центру её вертикали.
+      setCoords({ x: rect.right + offset, y: rect.top + rect.height / 2 });
+    } else {
+      // Снизу от кнопки, выровнено по левому краю.
+      setCoords({ x: rect.left, y: rect.bottom + offset });
+    }
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <div
+        ref={anchorRef}
+        onPointerEnter={show}
+        onPointerLeave={() => setOpen(false)}
+        onPointerDown={() => setOpen(false)}
+        className="inline-flex"
+      >
+        {children}
+      </div>
+
+      {open &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-50 max-w-[240px] rounded-md border border-theme-border bg-theme-surface px-3 py-2 text-[11px] shadow-lg"
+            style={{
+              left: coords.x,
+              top: coords.y,
+              transform: side === "right" ? "translateY(-50%)" : undefined,
+            }}
+          >
+            {content}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) {
@@ -214,7 +280,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         <button
           type="button"
           className={cn(
-            "flex h-[40px] w-[40px] items-center justify-center rounded-[6px] border border-theme-border bg-theme-surface text-theme-text-secondary transition-shadow hover:shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--border-default)] hover:text-theme-text-primary",
+            "flex h-[35px] w-[40px] items-center justify-center rounded-[6px] border border-theme-border bg-theme-surface text-theme-text-secondary transition-shadow hover:shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--border-default)] hover:text-theme-text-primary",
             activeClusterId === null && "shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--accent)]",
           )}
           onClick={() => setActiveCluster(null)}
@@ -222,10 +288,9 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
           <Blocks className="h-4 w-4" />
         </button>
       </Tooltip>
-
       <div className="my-1 h-px w-90 bg-theme-border" />
 
-    <div className="hotbar-scroll flex min-h-0 flex-1 flex-col items-center gap-[12px] overflow-y-auto overflow-x-hidden px-[12px] pt-2">
+      <div className="hotbar-scroll flex min-h-0 flex-1 flex-col items-center gap-[12px] overflow-y-auto overflow-x-hidden px-[12px] pt-2">
         {slots.map((cluster, slotIndex) => {
           const active = cluster?.id === activeClusterId;
           const session = cluster ? sessions[cluster.id] : undefined;
@@ -264,12 +329,12 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
               )}
             >
               {cluster ? (
-                <Tooltip
-                  side="bottom"
+                <HotbarTooltip
+                  side="right"
                   content={
                     <div>
                       <div className="font-medium text-theme-text-primary">{cluster.name}</div>
-                      <div className="mt-0.5 text-[10px] text-theme-text-tertiary">{cluster.context}</div>
+                      {/* <div className="mt-0.5 text-[10px] text-theme-text-tertiary">{cluster.context}</div> */}
                       <div className="mt-0.5 text-[10px] text-theme-text-disabled">
                         {state === "connected" ? "Connected" : state === "error" ? "Connection error" : "Not connected"}
                         {" · drag to reposition"}
@@ -323,11 +388,11 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                       )}
                     />
                   </button>
-                </Tooltip>
+                </HotbarTooltip>
               ) : (
-                <Tooltip
+                <HotbarTooltip
+                  side="right"
                   content={`Empty hotbar slot ${pageIndex + 1}:${slotIndex + 1} — drag a favourite here`}
-                  side="bottom"
                 >
                   <button
                     type="button"
@@ -342,7 +407,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   >
                     <Plus className="h-4 w-4" />
                   </button>
-                </Tooltip>
+                </HotbarTooltip>
               )}
             </div>
           );
@@ -432,12 +497,12 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
       </div>
 
       <div className="mt-1 flex flex-col items-center gap-1.5 pt-1">
-        <Tooltip content="Import kubeconfig" side="bottom">
+        <Tooltip content="Import kubeconfig" side="right">
           <button type="button" className="shell-icon-button h-9 w-9" onClick={() => void importViaDialog()}>
             <Plus className="h-4 w-4" />
           </button>
         </Tooltip>
-        <Tooltip content="Settings" side="bottom">
+        <Tooltip content="Settings" side="right">
           <button type="button" className="shell-icon-button h-9 w-9" onClick={() => openSettings(true)}>
             <Settings className="h-4 w-4" />
           </button>
@@ -464,7 +529,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move left
+                Move up
               </MenuItem>
               <MenuItem
                 disabled={from < 0 || from >= SLOT_COUNT - 1}
@@ -473,7 +538,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   setMenu(null);
                 }}
               >
-                Move right
+                Move down
               </MenuItem>
               <MenuSeparator />
               {Array.from({ length: SLOT_COUNT }, (_, index) => (

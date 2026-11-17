@@ -6,6 +6,7 @@ import { resourceStatus, toneClass } from "./status";
 import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
 import { Tooltip } from "../design-system/components/Tooltip";
+import { daysUntil, parseCertificate } from "./certificate";
 import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
 
 export type AnyObject = any;
@@ -41,6 +42,8 @@ export interface CellContext {
   onOpenRef?: (target: RefTarget) => void;
   /** `${namespace}/${claimName}` → pod names that mount the claim. */
   claimPods?: Map<string, string[]>;
+  /** `${namespace}/${service}` → ready address count from the Endpoints object. */
+  serviceEndpoints?: Map<string, number>;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -450,6 +453,177 @@ function statusColumn(kind: string, width = 168): ColumnDef {
   };
 }
 
+const utf8 = new TextEncoder();
+
+/** Radar's `getConfigMapSize`: UTF-8 data plus decoded binaryData (≈ 0.75×). */
+function configMapBytes(object: AnyObject): number {
+  const data = (object.data ?? {}) as Record<string, string>;
+  const binary = (object.binaryData ?? {}) as Record<string, string>;
+  let total = 0;
+  for (const value of Object.values(data)) total += utf8.encode(value).length;
+  for (const value of Object.values(binary)) total += Math.floor(value.length * 0.75);
+  return total;
+}
+
+/** TLS certificate inside a Secret, when there is a parseable one. */
+function secretCertificate(object: AnyObject): { days: number | null; expires?: Date; failed?: boolean } | null {
+  const crt = (object.data as Record<string, string> | undefined)?.["tls.crt"];
+  if (!crt) return null;
+  const info = parseCertificate(crt);
+  if (!info?.notAfter) return { days: null, failed: true };
+  return { days: daysUntil(info.notAfter), expires: info.notAfter };
+}
+
+const SECRET_TYPE_TONES: Record<string, string> = {
+  "kubernetes.io/tls": "status-neutral",
+  "kubernetes.io/dockercfg": "status-purple",
+  "kubernetes.io/dockerconfigjson": "status-purple",
+  "kubernetes.io/basic-auth": "status-orange",
+  "kubernetes.io/ssh-auth": "status-violet",
+  "kubernetes.io/service-account-token": "status-healthy",
+  "bootstrap.kubernetes.io/token": "status-healthy",
+};
+
+function secretTypeLabel(type: string | undefined): string {
+  const value = type ?? "Opaque";
+  if (value === "Opaque") return "Opaque";
+  if (value.includes("dockercfg") || value.includes("dockerconfigjson")) return "Docker";
+  if (value === "kubernetes.io/basic-auth") return "Basic Auth";
+  if (value === "kubernetes.io/ssh-auth") return "SSH";
+  if (value === "kubernetes.io/service-account-token") return "SA Token";
+  if (value === "kubernetes.io/tls") return "TLS";
+  if (value === "bootstrap.kubernetes.io/token") return "Bootstrap";
+  const tail = value.split("/").pop();
+  return tail ?? value;
+}
+
+function SecretTypeCell({ object }: { object: AnyObject }) {
+  const type = (object.type as string | undefined) ?? "Opaque";
+  return (
+    <span className={cn("badge-sm", SECRET_TYPE_TONES[type] ?? "status-unknown")} title={type}>
+      {secretTypeLabel(type)}
+    </span>
+  );
+}
+
+function SecretExpiresCell({ object }: { object: AnyObject }) {
+  const cert = secretCertificate(object);
+  if (!cert) return <span className="text-sm text-theme-text-tertiary">–</span>;
+  if (cert.failed || cert.days === null) {
+    return (
+      <span
+        className="text-sm text-amber-600 dark:text-amber-400"
+        title="The certificate in this Secret could not be parsed"
+      >
+        !
+      </span>
+    );
+  }
+  const days = cert.days;
+  const tone =
+    days < 30
+      ? "text-red-600 dark:text-red-400"
+      : days < 90
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-emerald-600 dark:text-emerald-400";
+  return (
+    <span
+      className={cn("mono-nums text-sm", tone)}
+      title={`Certificate expires ${formatTimestamp(cert.expires?.toISOString())}`}
+    >
+      {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days}d`}
+    </span>
+  );
+}
+
+function ServiceTypeCell({ object }: { object: AnyObject }) {
+  const type = (object.spec?.type as string | undefined) ?? "ClusterIP";
+  const tone =
+    type === "LoadBalancer" || type === "NodePort"
+      ? "status-violet"
+      : type === "ExternalName"
+        ? "status-alert"
+        : "status-neutral";
+  return <span className={cn("badge-sm", tone)}>{type}</span>;
+}
+
+function externalAddresses(object: AnyObject): string[] {
+  return ((object.status?.loadBalancer?.ingress ?? []) as Array<{ ip?: string; hostname?: string }>)
+    .map((entry) => entry.ip ?? entry.hostname ?? "")
+    .filter(Boolean);
+}
+
+interface EndpointsValue {
+  label: string;
+  count?: number;
+}
+
+/** Radar's endpoints cell value: External / None / Active / No endpoints. */
+function serviceEndpointsValue(object: AnyObject, context?: CellContext): EndpointsValue {
+  if (object.spec?.type === "ExternalName") return { label: "External" };
+  const selector = (object.spec?.selector ?? {}) as Record<string, string>;
+  if (Object.keys(selector).length === 0) return { label: "None" };
+  const count = context?.serviceEndpoints?.get(`${object.metadata?.namespace}/${object.metadata?.name}`);
+  // Undefined means the Endpoints list was not fetched, not "no addresses".
+  if (count === undefined) return { label: "" };
+  return count > 0 ? { label: "Active", count } : { label: "No endpoints", count: 0 };
+}
+
+function ServiceEndpointsCell({ object, context }: { object: AnyObject; context?: CellContext }) {
+  const value = serviceEndpointsValue(object, context);
+  if (!value.label) return <span className="text-sm text-theme-text-tertiary">–</span>;
+  if (value.label === "External") return <span className="badge-sm status-violet">External</span>;
+  if (value.label === "None") return <span className="badge-sm status-unknown">None</span>;
+  if (value.label === "No endpoints") {
+    return (
+      <span className="badge-sm status-degraded" title="The Endpoints object has no addresses">
+        No endpoints
+      </span>
+    );
+  }
+  return (
+    <span
+      className="badge-sm status-healthy"
+      title={`${value.count ?? 0} address${value.count === 1 ? "" : "es"}`}
+    >
+      Active
+    </span>
+  );
+}
+
+/** `sa:`/`grp:` preview of a binding's subjects, Radar's RoleBinding cell. */
+function SubjectsCell({ object }: { object: AnyObject }) {
+  const subjects = (object.subjects ?? []) as Array<{ kind?: string; name?: string; namespace?: string }>;
+  if (subjects.length === 0) return <span className="text-sm text-theme-text-secondary">0</span>;
+  const prefix = (kind: string | undefined) =>
+    kind === "ServiceAccount" ? "sa:" : kind === "Group" ? "grp:" : kind === "User" ? "usr:" : "";
+  const title = subjects
+    .map((subject) => `${subject.kind}:${subject.namespace ? `${subject.namespace}/` : ""}${subject.name}`)
+    .join("\n");
+  return (
+    <span className="block truncate text-sm text-theme-text-secondary" title={title}>
+      {subjects.slice(0, 2).map((subject) => `${prefix(subject.kind)}${subject.name}`).join(", ")}
+      {subjects.length > 2 ? <span className="text-theme-text-tertiary"> +{subjects.length - 2}</span> : null}
+    </span>
+  );
+}
+
+function RoleRefCell({ object }: { object: AnyObject }) {
+  const role = object.roleRef as { kind?: string; name?: string } | undefined;
+  if (!role?.name) return <TextCell>–</TextCell>;
+  const cluster = role.kind === "ClusterRole";
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className={cn("badge-sm shrink-0", cluster ? "status-violet" : "status-neutral")}>
+        {cluster ? "CR" : "R"}
+      </span>
+      <span className="truncate text-sm text-theme-text-secondary" title={`${role.kind}/${role.name}`}>
+        {role.name}
+      </span>
+    </span>
+  );
+}
+
 export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: boolean): ColumnDef[] {
   const kind = resource.kind;
   const lower = kind.toLowerCase();
@@ -827,24 +1001,43 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "type",
           label: "Type",
-          width: 116,
+          width: 132,
           sortable: true,
           value: (object) => object.spec?.type ?? "ClusterIP",
-          cell: (object) => <TextCell>{object.spec?.type ?? "ClusterIP"}</TextCell>,
+          cell: (object) => <ServiceTypeCell object={object} />,
           filterValue: (object) => object.spec?.type ?? "ClusterIP",
         },
         {
-          key: "clusterIP",
-          label: "Cluster IP",
+          key: "selector",
+          label: "Selector",
+          width: 230,
+          value: (object) =>
+            Object.entries((object.spec?.selector ?? {}) as Record<string, string>)
+              .map(([key, value]) => `${key}=${value}`)
+              .join(","),
+          cell: (object) => {
+            const entries = Object.entries((object.spec?.selector ?? {}) as Record<string, string>);
+            return <TextCell title={entries.map(([key, value]) => `${key}=${value}`).join("\n")}>{entries.map(([key, value]) => `${key}=${value}`).join(", ") || "–"}</TextCell>;
+          },
+          filterValue: (object) =>
+            Object.entries((object.spec?.selector ?? {}) as Record<string, string>)
+              .map(([key, value]) => `${key}=${value}`)
+              .join(","),
+        },
+        {
+          key: "endpoints",
+          label: "Endpoints",
           width: 140,
-          value: (object) => object.spec?.clusterIP ?? "",
-          cell: (object) => <Mono>{object.spec?.clusterIP ?? "–"}</Mono>,
+          tooltip: "Addresses behind this Service, from its Endpoints object (Active / None / External)",
+          sortable: true,
+          value: (object, context) => serviceEndpointsValue(object, context)?.label ?? "",
+          cell: (object, context) => <ServiceEndpointsCell object={object} context={context} />,
+          filterValue: (object, context) => serviceEndpointsValue(object, context)?.label,
         },
         {
           key: "ports",
           label: "Ports",
           width: 140,
-          
           value: (object) =>
             ((object.spec?.ports ?? []) as Array<{ port: number; protocol?: string; nodePort?: number }>)
               .map((port) => `${port.port}${port.nodePort ? `:${port.nodePort}` : ""}/${port.protocol ?? "TCP"}`)
@@ -859,20 +1052,28 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           },
         },
         {
-          key: "selector",
-          label: "Selector",
-          width: 230,
-          // defaultHidden: true,
-          value: (object) =>
-            Object.entries((object.spec?.selector ?? {}) as Record<string, string>)
-              .map(([key, value]) => `${key}=${value}`)
-              .join(","),
+          key: "external",
+          label: "External",
+          width: 190,
+          tooltip: "Load balancer IPs or hostnames assigned to this Service",
+          value: (object) => externalAddresses(object).join(", "),
           cell: (object) => {
-            const entries = Object.entries((object.spec?.selector ?? {}) as Record<string, string>);
-            return <TextCell title={entries.map(([key, value]) => `${key}=${value}`).join("\n")}>{entries.map(([key, value]) => `${key}=${value}`).join(", ") || "–"}</TextCell>;
+            const entries = externalAddresses(object);
+            return entries.length ? (
+              <Mono>{entries.join(", ")}</Mono>
+            ) : (
+              <span className="text-sm text-theme-text-tertiary">–</span>
+            );
           },
         },
-        statusColumn(kind, 100),
+        {
+          key: "clusterIP",
+          label: "Cluster IP",
+          width: 140,
+          defaultHidden: true,
+          value: (object) => object.spec?.clusterIP ?? "",
+          cell: (object) => <Mono>{object.spec?.clusterIP ?? "–"}</Mono>,
+        },
       );
       break;
     }
@@ -955,6 +1156,17 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           ),
         },
         {
+          key: "size",
+          label: "Size",
+          width: 104,
+          align: "right",
+          sortable: true,
+          tooltip:
+            "Estimated size of data values, including decoded binary data. Kubernetes rejects ConfigMaps whose combined data exceeds 1 MiB.",
+          value: (object) => configMapBytes(object),
+          cell: (object) => <Mono>{formatBytes(configMapBytes(object))}</Mono>,
+        },
+        {
           key: "immutable",
           label: "Immutable",
           width: 100,
@@ -970,11 +1182,11 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "type",
           label: "Type",
-          width: 220,
+          width: 132,
           sortable: true,
-          value: (object) => object.type ?? "",
-          cell: (object) => <TextCell>{object.type ?? "–"}</TextCell>,
-          filterValue: (object) => object.type,
+          value: (object) => object.type ?? "Opaque",
+          cell: (object) => <SecretTypeCell object={object} />,
+          filterValue: (object) => object.type ?? "Opaque",
         },
         {
           key: "keys",
@@ -984,6 +1196,21 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           sortable: true,
           value: (object) => Object.keys(object.data ?? {}).length,
           cell: (object) => <Mono>{Object.keys(object.data ?? {}).length}</Mono>,
+        },
+        {
+          key: "expires",
+          label: "Expires",
+          width: 132,
+          tooltip:
+            "Days until the certificate in a TLS Secret expires. Blank for Secrets carrying no readable TLS certificate; ! means the expiry lookup itself failed.",
+          sortable: true,
+          value: (object) => secretCertificate(object)?.expires?.getTime(),
+          cell: (object) => <SecretExpiresCell object={object} />,
+          filterValue: (object) => {
+            const cert = secretCertificate(object);
+            if (!cert || cert.days === null || cert.failed) return undefined;
+            return cert.days < 0 ? "expired" : cert.days < 30 ? "expiring" : "valid";
+          },
         },
       );
       break;
@@ -1375,6 +1602,23 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
     case "serviceaccount": {
       base.push(
         {
+          key: "automount",
+          label: "Automount",
+          width: 124,
+          tooltip:
+            "Default automatic API-token mounting for pods using this ServiceAccount. A pod can override this setting.",
+          value: (object) => (object.automountServiceAccountToken === false ? "No" : "Yes"),
+          cell: (object) => {
+            const off = object.automountServiceAccountToken === false;
+            return (
+              <span className={cn("badge-sm", off ? "status-healthy" : "status-degraded")}>
+                {off ? "No" : "Yes"}
+              </span>
+            );
+          },
+          filterValue: (object) => (object.automountServiceAccountToken === false ? "No" : "Yes"),
+        },
+        {
           key: "secrets",
           label: "Secrets",
           width: 88,
@@ -1382,14 +1626,6 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           sortable: true,
           value: (object) => Number(object.secrets?.length ?? 0),
           cell: (object) => <Mono>{object.secrets?.length ?? 0}</Mono>,
-        },
-        {
-          key: "automount",
-          label: "Automount",
-          width: 110,
-          defaultHidden: true,
-          value: (object) => (object.automountServiceAccountToken === false ? "No" : "Yes"),
-          cell: (object) => <TextCell>{object.automountServiceAccountToken === false ? "No" : "Yes"}</TextCell>,
         },
       );
       break;
@@ -1410,6 +1646,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "resources",
           label: "Resources",
           width: 320,
+          defaultHidden: true,
           value: (object) =>
             [...new Set((object.rules ?? []).flatMap((rule: any) => rule.resources ?? []))].join(", "),
           cell: (object) => (
@@ -1427,18 +1664,18 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "role",
           label: "Role",
-          width: 220,
+          width: 240,
           value: (object) => object.roleRef?.name ?? "",
-          cell: (object) => <TextCell>{object.roleRef?.name ?? "–"}</TextCell>,
+          cell: (object) => <RoleRefCell object={object} />,
+          filterValue: (object) => object.roleRef?.name,
         },
         {
           key: "subjects",
           label: "Subjects",
-          width: 320,
+          width: 260,
           value: (object) => (object.subjects ?? []).map((subject: any) => subject.name).join(", "),
-          cell: (object) => (
-            <TextCell>{(object.subjects ?? []).map((subject: any) => subject.name).join(", ") || "–"}</TextCell>
-          ),
+          cell: (object) => <SubjectsCell object={object} />,
+          filterValue: (object) => (object.subjects ?? []).map((subject: any) => subject.name).join(", "),
         },
       );
       break;
@@ -1531,6 +1768,16 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
     case "customresourcedefinition": {
       base.push(
         {
+          key: "kind",
+          label: "Kind",
+          width: 190,
+          sortable: true,
+          tooltip: "The kind this definition creates",
+          value: (object) => object.spec?.names?.kind ?? "",
+          cell: (object) => <TextCell>{object.spec?.names?.kind ?? "–"}</TextCell>,
+          filterValue: (object) => object.spec?.names?.kind,
+        },
+        {
           key: "group",
           label: "Group",
           width: 220,
@@ -1558,6 +1805,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
             </TextCell>
           ),
         },
+        statusColumn("CustomResourceDefinition", 168),
       );
       break;
     }

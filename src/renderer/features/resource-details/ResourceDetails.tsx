@@ -40,6 +40,7 @@ import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
 import { EditDataDialog } from "./EditDataDialog";
 import { SetImageDialog } from "./SetImageDialog";
 import { NodeDrainDialog } from "./NodeDrainDialog";
+import { NodeDebugDialog } from "./NodeDebugDialog";
 import { Tabs } from "../../design-system/components/Tabs";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
@@ -105,6 +106,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [restartConfirm, setRestartConfirm] = useState(false);
   const [setImageOpen, setSetImageOpen] = useState(false);
   const [drainOpen, setDrainOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -401,18 +403,18 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
-              onClick={() => minimizeDetails(clusterId)}
-              title="Minimize details (open resource tabs stay)"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
               onClick={() => setExpanded((value) => !value)}
               title={expanded ? "Restore drawer" : "Expand drawer"}
             >
               {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              className="shell-icon-button h-6 w-6"
+              onClick={() => minimizeDetails(clusterId)}
+              title="Minimize details (open resource tabs stay)"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
@@ -528,6 +530,14 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               label="Drain"
               busy={actionBusy === "drain"}
               onClick={() => setDrainOpen(true)}
+            />
+          ) : null}
+
+          {isNode ? (
+            <DetailAction
+              icon={<SquareTerminal />}
+              label="Debug shell"
+              onClick={() => setDebugOpen(true)}
             />
           ) : null}
         </div>
@@ -701,6 +711,15 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           clusterId={clusterId}
           node={details.ref.name}
           onDone={() => void data.refresh()}
+        />
+      ) : null}
+
+      {isNode ? (
+        <NodeDebugDialog
+          open={debugOpen}
+          onClose={() => setDebugOpen(false)}
+          clusterId={clusterId}
+          nodeName={details.ref.name}
         />
       ) : null}
 

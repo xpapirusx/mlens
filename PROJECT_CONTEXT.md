@@ -193,6 +193,9 @@ Freelens gets isolation from iframes. mLens instead:
   sources; favourites; recent; removed/restore; catalog multi-select.
 - Per-cluster connection, version, namespaces, health.
 - Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
+  Opening a cluster activates its tab before the API answers, so the workspace
+  plays the connecting animation for the whole connect + discovery and failures
+  land on its error screen with Retry.
 - Catalog: open clusters rise to the top, Status reads Connected (version is a
   separate column), with status/name/recent/source sorting.
 - Hotbar is a reorderable favourites rail on a 75px Freelens-style rail
@@ -217,6 +220,12 @@ Freelens gets isolation from iframes. mLens instead:
   diagnostic tooltip; the Nodes table carries usage÷allocatable CPU/Memory bars
   plus Conditions and Taints columns (node metrics are fetched for the Node
   kind).
+- Service/Config/Access Control columns follow Radar: live Endpoints from the
+  core `Endpoints` object, Type and External columns, ConfigMap Size, coloured
+  Secret Type plus TLS Expires (pure DER parser in `lib/certificate.ts`),
+  ServiceAccount Automount, role badges with an `sa:`/`grp:` subjects preview,
+  CRD Kind + Status; Service status is its own type, CRD status is
+  Established/Terminating.
 - Search (`/`, regex), sort, per-column filters, multi-namespace scope, counts
   for visible groups, auto-refresh/watch, column resize + horizontal scroll,
   column visibility and order, always-visible selection + bulk delete,
@@ -230,7 +239,8 @@ Freelens gets isolation from iframes. mLens instead:
 - Kind actions are right-aligned icon buttons in the drawer header:
   Logs/Exec/Forward (Pods), Scale/Restart (Deployments, StatefulSets), Scale
   (ReplicaSets), Restart (DaemonSets), Pause/Resume rollout (Deployments),
-  Suspend/Resume (Jobs/CronJobs), Cordon/Uncordon (Nodes), Delete next to Close.
+  Suspend/Resume (Jobs/CronJobs), Cordon/Uncordon, Drain and Debug shell
+  (Nodes), Delete next to Close; Expand sits before Minimize.
   Reload (clockwise) refetches data; Restart uses the counter-clockwise icon.
   Workload Scale also sits in the Overview Status section, matching Radar.
 - Manual scaling is refused when an HPA owns the replica count; the check runs
@@ -247,8 +257,31 @@ Freelens gets isolation from iframes. mLens instead:
   (`kube:rbac-subject` IPC over the four RBAC kinds): direct vs group-inherited
   bindings, distinct rules, top-five permissive rules and a blast-radius
   banner; a forbidden read is shown as a calm note.
+- Pod and workload Overviews also carry a **Policy** section
+  (`kube:policy-resource`): the cluster's PolicyReport/ClusterPolicyReport
+  findings for that subject, with explicit not-installed / not-checked /
+  denied states.
+- Service Overview: load-balancer-pending and no-selector banners, full
+  Service properties, NodePort in the ports table and a live **Endpoints**
+  section (ready / not-ready addresses).
+- Access Control overviews: ServiceAccount (permissive-grant banner, direct /
+  inherited / effective permissions, used-by pods, workload identity),
+  Role/ClusterRole (wildcard banner, bindings reverse lookup via
+  `kube:rbac-role`, rule cards, aggregation rule) and RoleBinding
+  (no-subjects / wide-grant banners, role reference, live rules with
+  orphan-binding and 403 states, subject cards).
+- Secrets show a **Certificate** section (subject, issuer, coloured expiry)
+  parsed from `tls.crt`; ConfigMap/Secret show an Immutable banner.
+- YAML search is Monaco's stock find widget (contribution registered in
+  `lib/monaco.ts`): Ctrl/Cmd+F with regex, match case, whole word, counter and
+  replace.
+- The **Node debug shell** (drawer action row + row menu) shows an editable
+  privileged-pod manifest, applies it, waits for Running and attaches an exec
+  console; closing that tab deletes the pod.
 - Related tab restored for every kind; the resolver lists owners, selectors,
-  services, mounted config, node pods and bound volumes using Freelens-style rows.
+  services, mounted config, node pods and bound volumes using Freelens-style
+  rows, with a sticky substring/regex filter and kind chips.
+- Pod Volumes link straight to their ConfigMap/Secret (direct and projected).
 - Metrics tab shows real metrics-server values or an explicit “not installed”.
 
 **Terminal/logs/ports**

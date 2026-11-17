@@ -23,10 +23,14 @@ import type {
   LogRequest,
   NamespaceInfo,
   PodContainerInfo,
+  PolicyResourceRequest,
+  PolicyResourceResponse,
   PortForwardInfo,
   PortForwardRequest,
   RbacSubjectRequest,
   RbacSubjectResponse,
+  RbacRoleRequest,
+  RbacRoleResponse,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -73,6 +77,8 @@ export const IPC = {
   resourcesWatchEvent: "kube:resources-watch-event",
   podContainers: "kube:pod-containers",
   rbacSubject: "kube:rbac-subject",
+  rbacRole: "kube:rbac-role",
+  policyResource: "kube:policy-resource",
 
   portForwardStart: "kube:portforward-start",
   portForwardStop: "kube:portforward-stop",
@@ -146,6 +152,12 @@ export interface MlensApi {
   rbac: {
     /** Effective permissions of a ServiceAccount (direct + group-inherited). */
     subject(request: RbacSubjectRequest): Promise<RbacSubjectResponse>;
+    /** Bindings that reference one Role/ClusterRole, plus its rules. */
+    role(request: RbacRoleRequest): Promise<RbacRoleResponse>;
+  };
+  policy: {
+    /** Policy-report findings for one resource; `not_installed` when no engine exists. */
+    resource(request: PolicyResourceRequest): Promise<PolicyResourceResponse>;
   };
   portForward: {
     start(request: PortForwardRequest): Promise<PortForwardInfo>;

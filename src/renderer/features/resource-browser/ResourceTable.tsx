@@ -43,6 +43,7 @@ interface ResourceTableProps {
   onOpenNode?: (name: string) => void;
   onOpenRef?: (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => void;
   claimPods?: Map<string, string[]>;
+  serviceEndpoints?: Map<string, number>;
 }
 
 export function ResourceTable({
@@ -72,6 +73,7 @@ export function ResourceTable({
   onOpenNode,
   onOpenRef,
   claimPods,
+  serviceEndpoints,
   onRowMenu,
   onBackgroundClick,
   pinnedKeys = EMPTY_PINNED,
@@ -345,7 +347,7 @@ export function ResourceTable({
                         stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints })}</div>
                     </div>
                   ))}
                   <div

@@ -101,6 +101,83 @@ export function useEvents(
   return { events, loading, error };
 }
 
+export interface ServiceEndpointsState {
+  ready: string[];
+  notReady: string[];
+  loading: boolean;
+  error: string | null;
+  /** False when the Service has no Endpoints object at all. */
+  exists: boolean;
+}
+
+/**
+ * Addresses behind one Service, read from the core `Endpoints` object (the
+ * same source the table's Endpoints column uses). Absent object = no backends,
+ * which is a fact worth showing, not an error.
+ */
+export function useServiceEndpointsDetail(
+  clusterId: string,
+  namespace: string | undefined,
+  name: string | undefined,
+  refreshSeconds = 60,
+): ServiceEndpointsState {
+  const [state, setState] = useState<ServiceEndpointsState>({
+    ready: [],
+    notReady: [],
+    loading: false,
+    error: null,
+    exists: false,
+  });
+
+  useEffect(() => {
+    if (!namespace || !name) return;
+    let disposed = false;
+    const load = async () => {
+      setState((current) => ({ ...current, loading: true }));
+      try {
+        const result = await call(
+          api.resources.list({
+            clusterId,
+            apiVersion: "v1",
+            kind: "Endpoints",
+            namespace,
+            fieldSelector: `metadata.name=${name}`,
+            limit: 1,
+          }),
+        );
+        if (disposed) return;
+        const object = result.items[0];
+        const subsets = ((object?.subsets ?? []) as Array<{
+          addresses?: Array<{ ip?: string }>;
+          notReadyAddresses?: Array<{ ip?: string }>;
+        }>);
+        const ready: string[] = [];
+        const notReady: string[] = [];
+        for (const subset of subsets) {
+          for (const address of subset.addresses ?? []) if (address.ip) ready.push(address.ip);
+          for (const address of subset.notReadyAddresses ?? []) if (address.ip) notReady.push(address.ip);
+        }
+        setState({ ready, notReady, loading: false, error: null, exists: Boolean(object) });
+      } catch (fetchError) {
+        if (!disposed) {
+          setState({ ready: [], notReady: [], loading: false, error: errorText(fetchError), exists: false });
+        }
+      }
+    };
+    void load();
+    if (!refreshSeconds) return () => { disposed = true; };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, Math.max(30, refreshSeconds) * 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [clusterId, namespace, name, refreshSeconds]);
+
+  return state;
+}
+
 export interface RelatedItem {
   kind: string;
   apiVersion: string;

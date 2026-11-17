@@ -18,7 +18,7 @@ interface PermissionsSectionProps {
   onNavigate: (kind: string, name: string, namespace?: string) => void;
 }
 
-function RulePreviewLine({ rule }: { rule: RbacPolicyRule }) {
+export function RulePreviewLine({ rule }: { rule: RbacPolicyRule }) {
   const verbs = rule.verbs ?? [];
   const resources = rule.resources ?? [];
   const groups = rule.apiGroups ?? [];

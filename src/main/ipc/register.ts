@@ -10,6 +10,8 @@ import type {
   ListResourcesRequest,
   LocalTerminalRequest,
   LogRequest,
+  PolicyResourceRequest,
+  RbacRoleRequest,
   RbacSubjectRequest,
   ResourceCountRequest,
   ResourceKey,
@@ -200,6 +202,14 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
 
   ipcMain.handle(IPC.rbacSubject, (_event, raw: unknown) =>
     clusters.rbacSubject(assertObject<RbacSubjectRequest>(raw, "request")),
+  );
+
+  ipcMain.handle(IPC.rbacRole, (_event, raw: unknown) =>
+    clusters.rbacRole(assertObject<RbacRoleRequest>(raw, "request")),
+  );
+
+  ipcMain.handle(IPC.policyResource, (_event, raw: unknown) =>
+    clusters.policyResource(assertObject<PolicyResourceRequest>(raw, "request")),
   );
 
   // ── Logs ──────────────────────────────────────────────────────

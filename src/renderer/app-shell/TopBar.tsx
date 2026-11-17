@@ -38,7 +38,6 @@ export function TopBar({
     return api.app.onWindowState(setMaximized);
   }, []);
 
-
   const toggleTheme = () => {
     if (!settings) return;
     if ((settings.colorTheme ?? "radar") !== "radar") {
@@ -61,11 +60,13 @@ export function TopBar({
         if (!isMac) void api.app.maximize();
       }}
     >
-      <div className="app-no-drag flex min-w-0 flex-1 justify-center px-2">
+      {/* Обёртка больше НЕ app-no-drag — пустое место вокруг кнопки
+          теперь часть drag-региона header'а. */}
+      <div className="flex min-w-0 flex-1 justify-center px-2">
         <button
           type="button"
           onClick={onOpenPalette}
-          className="flex h-7 w-full max-w-md items-center gap-2 rounded-lg border border-theme-border bg-theme-surface px-2.5 text-left text-[11px] text-theme-text-tertiary transition-colors hover:border-theme-border-light hover:bg-theme-elevated"
+          className="app-no-drag flex h-7 w-full max-w-md items-center gap-2 rounded-lg border border-theme-border bg-theme-surface px-2.5 text-left text-[11px] text-theme-text-tertiary transition-colors hover:border-theme-border-light hover:bg-theme-elevated"
         >
           <Command className="h-3.5 w-3.5" />
           <span className="flex-1 truncate">Search clusters, resources and actions…</span>
@@ -74,7 +75,7 @@ export function TopBar({
       </div>
 
       <div className="app-no-drag flex shrink-0 items-center gap-0.5">
-        {activeClusterId ? (
+        {/* {activeClusterId ? (
           <Tooltip content="Port forwards">
             <button
               type="button"
@@ -86,7 +87,7 @@ export function TopBar({
               <Plug className="h-4 w-4" />
             </button>
           </Tooltip>
-        ) : null}
+        ) : null} */}
         {activeClusterId ? (
           <Tooltip content="New terminal">
             <button

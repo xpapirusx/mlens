@@ -55,7 +55,7 @@ export function YamlTab({
           <Button
             size="xs"
             variant="ghost"
-            title="Find in YAML"
+            title="Find in YAML (Ctrl+F · regex toggle inside)"
             onClick={() => editorRef.current?.openFind()}
           >
             <Search className="h-3 w-3" />

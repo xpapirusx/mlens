@@ -41,7 +41,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   catalog (non-destructive — kubeconfig files are untouched) and restore them
   from the Removed view.
 - Cluster tabs at the top; open-resource tabs inside a cluster.
-- Concurrent cluster sessions; switching clusters preserves namespace scope,
+- Concurrent cluster sessions; opening a cluster switches to its tab
+  immediately and plays the connecting animation while discovery runs.
+  Switching clusters preserves namespace scope,
   selected kind, search/sort/filters, sidebar state, open resource tabs and live
   terminal PTYs.
 - Multiple namespace selection per cluster (all, one, or several).
@@ -69,6 +71,11 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Radar container squares in the Pods table (state colours, orange restart ring,
   init separator, tooltip with reason/exit code/uptime/last termination) and
   Radar Node columns (CPU/Memory usage bars, Conditions, Taints).
+- Config / Access Control / Service columns follow Radar: a live **Endpoints**
+  column for Services (Active / No endpoints / None / External), Type and
+  External columns, ConfigMap **Size**, coloured Secret **Type** and TLS
+  **Expires**, ServiceAccount **Automount**, Role/RoleBinding badges with an
+  `sa:`/`grp:` subjects preview, and CRD **Kind** + **Status**.
 - Multi-select mode with bulk delete and confirmation.
 - Sticky row-actions menu on the right of every row (same as right-click):
   details, edit YAML, logs, attach, exec shell (Pods), scale
@@ -106,10 +113,15 @@ Secret/ConfigMap peeks; ConfigMaps and Secrets are editable from the UI (Secret
 values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
 data, storage, HPA, CRD and generic CRD renderers; Node Overview uses Radar-style
 capacity cards with an **In use** row, live usage, addresses, platform labels and
-a live **Pods on this node** list. Pod and workload Overviews end with
-**Permissions via ServiceAccount** — direct and group-inherited bindings, the
-distinct-rule count and a blast-radius warning, straight from the API. Related
-resources are resolved from the live API for every kind.
+a live **Pods on this node** list, plus **Debug shell** (editable privileged-pod
+manifest → apply → exec console, pod removed with the tab). Pod and workload
+Overviews end with **Permissions via ServiceAccount** — direct and group-inherited
+bindings, the distinct-rule count and a blast-radius warning — and with a
+**Policy** section reading the cluster's PolicyReport families. Services get
+load-balancer/no-selector banners and a live **Endpoints** section; Access
+Control overviews show bindings, rule cards, subjects and used-by pods; TLS
+Secrets show their certificate and expiry. Related resources can be filtered
+(search + regex + kind chips). Related resources are resolved from the live API for every kind.
 Secrets reveal only on request.
 
 ### Terminal

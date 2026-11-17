@@ -23,10 +23,14 @@ import type {
   LogRequest,
   NamespaceInfo,
   PodContainerInfo,
+  PolicyResourceRequest,
+  PolicyResourceResponse,
   PortForwardInfo,
   PortForwardRequest,
   RbacSubjectRequest,
   RbacSubjectResponse,
+  RbacRoleRequest,
+  RbacRoleResponse,
   ResourceCountRequest,
   ResourceCountResult,
   ResourceKey,
@@ -99,6 +103,11 @@ const api: MlensApi = {
   rbac: {
     subject: (request: RbacSubjectRequest) =>
       ipcRenderer.invoke(IPC.rbacSubject, request) as Promise<RbacSubjectResponse>,
+    role: (request: RbacRoleRequest) => ipcRenderer.invoke(IPC.rbacRole, request) as Promise<RbacRoleResponse>,
+  },
+  policy: {
+    resource: (request: PolicyResourceRequest) =>
+      ipcRenderer.invoke(IPC.policyResource, request) as Promise<PolicyResourceResponse>,
   },
   portForward: {
     start: (request: PortForwardRequest) =>
