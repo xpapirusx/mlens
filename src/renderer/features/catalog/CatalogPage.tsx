@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ArrowUpDown,
   Blocks,
   ChevronRight,
   Clock,
@@ -58,6 +59,7 @@ export function CatalogPage() {
   const [busy, setBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [sortBy, setSortBy] = useState<"status" | "name" | "recent" | "source">("status");
 
   const favorites = settings?.favorites ?? [];
 
@@ -85,15 +87,35 @@ export function CatalogPage() {
       );
     }
     if (view !== "removed") {
-      // Connected clusters float to the top; the rest keep their catalog order.
-      const rank = (id: string) => {
-        const status = sessions[id]?.status;
-        return status === "connected" ? 0 : status === "connecting" ? 1 : 2;
-      };
-      list = [...list].sort((left, right) => rank(left.id) - rank(right.id));
+      const recentOrder = new Map((settings?.recentClusters ?? []).map((entry, index) => [entry.id, index]));
+      if (sortBy === "name") {
+        list = [...list].sort((left, right) => left.name.localeCompare(right.name));
+      } else if (sortBy === "recent") {
+        list = [...list].sort(
+          (left, right) => (recentOrder.get(left.id) ?? 9999) - (recentOrder.get(right.id) ?? 9999),
+        );
+      } else if (sortBy === "source") {
+        list = [...list].sort(
+          (left, right) =>
+            left.kubeconfigPath.localeCompare(right.kubeconfigPath) || left.name.localeCompare(right.name),
+        );
+      } else {
+        // Open clusters (a live session exists) float to the top; connected
+        // first, then connecting/error, then everything else by name.
+        const rank = (id: string) => {
+          const status = sessions[id]?.status;
+          if (status === "connected") return 0;
+          if (status === "connecting") return 1;
+          if (sessions[id]) return 2;
+          return 3;
+        };
+        list = [...list].sort(
+          (left, right) => rank(left.id) - rank(right.id) || left.name.localeCompare(right.name),
+        );
+      }
     }
     return list;
-  }, [clusters, removedClusters, favorites, view, search, settings?.recentClusters, sessions]);
+  }, [clusters, removedClusters, favorites, view, search, settings?.recentClusters, sessions, sortBy]);
 
   const connectedCount = clusters.filter((cluster) => sessions[cluster.id]?.status === "connected").length;
 
@@ -121,7 +143,7 @@ export function CatalogPage() {
   const statusOf = (cluster: ClusterSummary) => {
     if (hiddenSet.has(cluster.id)) return { text: "Removed", tone: "idle" as const };
     const session = sessions[cluster.id];
-    if (session?.status === "connected") return { text: session.info ? `v${session.info.version}` : "Connected", tone: "connected" as const };
+    if (session?.status === "connected") return { text: "Connected", tone: "connected" as const };
     if (session?.status === "connecting") return { text: "Connecting…", tone: "connecting" as const };
     if (session?.status === "error" || health[cluster.id]?.status === "error") return { text: "Error", tone: "error" as const };
     if (health[cluster.id]?.status === "disconnected") return { text: "Disconnected", tone: "idle" as const };
@@ -297,8 +319,54 @@ export function CatalogPage() {
               clear
             </button>
           ) : null}
-          <div className="ml-auto flex w-72 items-center gap-2">
-            <SearchInput value={search} onChange={setSearch} placeholder="Search clusters…" shortcut="" />
+          <div className="ml-auto flex w-auto items-center gap-2">
+            <Menu
+              width={200}
+              align="end"
+              trigger={({ open, toggle }) => (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 rounded-lg border border-theme-border bg-theme-surface px-2 text-[11px] text-theme-text-secondary hover:bg-theme-hover",
+                    open && "bg-theme-hover text-theme-text-primary",
+                  )}
+                  title="Sort clusters"
+                >
+                  <ArrowUpDown className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sort: {sortBy === "status" ? "Status" : sortBy === "name" ? "Name" : sortBy === "recent" ? "Recent" : "Source"}</span>
+                </button>
+              )}
+            >
+              {({ close }) => (
+                <>
+                  <MenuLabel>Sort clusters</MenuLabel>
+                  {(
+                    [
+                      ["status", "Open / status first"],
+                      ["name", "Name A–Z"],
+                      ["recent", "Recently opened"],
+                      ["source", "Kubeconfig source"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <MenuItem
+                      key={value}
+                      onClick={() => {
+                        setSortBy(value);
+                        close();
+                      }}
+                      icon={<ArrowUpDown className="h-3 w-3" />}
+                      shortcut={sortBy === value ? "✓" : undefined}
+                    >
+                      {label}
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+            </Menu>
+            <div className="w-64">
+              <SearchInput value={search} onChange={setSearch} placeholder="Search clusters…" shortcut="" />
+            </div>
             <button
               type="button"
               className="shell-icon-button"

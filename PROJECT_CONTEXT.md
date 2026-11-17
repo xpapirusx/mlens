@@ -193,6 +193,8 @@ Freelens gets isolation from iframes. mLens instead:
   sources; favourites; recent; removed/restore; catalog multi-select.
 - Per-cluster connection, version, namespaces, health.
 - Cluster tabs (with home/back/forward controls) at the top; close = disconnect.
+- Catalog: open clusters rise to the top, Status reads Connected (version is a
+  separate column), with status/name/recent/source sorting.
 - Hotbar is a 10-slot reorderable favourites rail (drag or context-menu move);
   open clusters live in top tabs with the Home/Back/Forward controls.
 

@@ -156,9 +156,14 @@ Important:
   column visibility and order, filters/search/sort.
 - Status: semantic tone only (`success/warning/error/info/neutral`). Use
   `resourceStatus` and `StatusBadge`; do not invent status strings ad hoc.
+- Catalog: clusters with a live session (open) sort to the top; Status says
+  **Connected**, not the Kubernetes version (version has its own column). A sort
+  control offers open/status, name, recent and kubeconfig source.
 - Sidebar order (Freelens): Favorites, Nodes, Workloads, Config, Network, Storage,
   Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Custom Resources contains Definitions + one child per API group.
+- Custom resources and CRD definitions open on **Details** by default (Freelens
+  field order); their Overview is still one click away and uses Radar-style cards.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
   Related / Logs (Pods only) / Metrics. Kind actions are labelled buttons in a
   right-aligned row under the resource name (Logs/Exec/Forward for Pods; Scale/Restart/Set image for
@@ -169,7 +174,9 @@ Important:
   and Related are tabs. Workload Scale also appears in the Overview Status
   section, as in Radar.
 - Resource tabs (open resources) and cluster tabs (open clusters) are separate
-  rows. Do not turn the app into a browser-style single tab bar.
+  rows. Do not turn the app into a browser-style single tab bar. The open-resource
+  strip can collapse into a shadow tray above the terminal dock; the tabs stay
+  mounted and clickable so the strip can be restored at any time.
 - Hotbar: 10 slots, favourite clusters only, drag/context-menu repositioning,
   neutrally designed cluster tiles (never gradient avatars).
 - Terminal surface stays dark in every theme; Dracula/Freelens themes select the

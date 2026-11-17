@@ -96,8 +96,10 @@ configuration).
 | Letter navigation | **Done** | `g` then p/d/s/j/c/n/x/o |
 | Shortcut overlay | **Done** | `?` opens the full shortcut sheet |
 | Pin columns | **Done** | Column picker pin, sticky left freeze |
-| Collapse resource tabs | **Done** | Chevron collapses the open-resource strip to a count |
-| Connected clusters first | **Done** | Catalog sorts connected/connecting clusters ahead of the rest |
+| Collapse resource tabs | **Done** | Chevron collapses the strip into a bottom shadow tray with all tabs still clickable |
+| Connected clusters first | **Done** | Open sessions (connected/connecting/error) sort first; Status says Connected; sort by status/name/recent/source |
+| CR/CRD details | **Done** | Custom kinds open on Details (Freelens order); CRD Overview has Radar cards, versions, printer columns and conditions |
+| Collapsible resource tabs | **Done** | Collapse to a bottom shadow tray; every tab stays clickable and restorable |
 | Scale safety | **Done** | HPA ownership is checked on pressing Scale (lazy, one namespaced HPA list) and blocks manual scaling |
 | Namespace cell click | **Done** | Clicking a namespace scopes the table to it |
 | Node cell click | **Done** | Pod Node cells open the Node details drawer |
@@ -251,6 +253,9 @@ configuration).
 | Set image | Pass — dialog lists containers and init containers with the template path |
 | CronJob actions | Pass — Suspend / Set image / Trigger present |
 | Global search / shortcuts | Pass — palette returns live resource hits; `?` overlay renders |
+| Catalog sorting/status | Pass — connected cluster first, Status `Connected`, Version in its own column, Sort: Status/Name/Recent/Source |
+| CR/CRD details | Pass — CiliumEndpoint opens on Details; Overview shows cards + 7 printer columns + status |
+| Bottom tab tray | Pass — 4 open tabs collapse into a bottom shadow tray, tabs clickable, chevron restores the strip |
 | Attach | Pass — pods/attach WebSocket started against a live pod without errors |
 | Workload actions in table | Pass — context menu shows Scale/Restart/Pause rollout for Deployments, Scale for ReplicaSets, Suspend for Jobs |
 | Column order | Pass — up/down in the column picker, persisted per kind |

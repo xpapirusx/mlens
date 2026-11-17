@@ -306,6 +306,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         session.details.ref.name === ref.name;
       const history = session.details && !same ? [session.details.ref, ...session.detailsHistory].slice(0, 25) : session.detailsHistory;
       const exists = session.resourceTabs.some((tab) => sameRef(tab, ref));
+      const targetResource = session.resources.find(
+        (entry) => entry.apiVersion === ref.apiVersion && entry.kind === ref.kind,
+      );
+      // Custom resources open on Details (Freelens field order) instead of a
+      // generic Overview; users can switch to Overview/YAML at any time.
+      const defaultTab: DetailTab = targetResource?.isCrd ? "details" : "overview";
       return {
         sessions: {
           ...state.sessions,
@@ -313,10 +319,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ...session,
             details: {
               ref,
-              tab:
-                ref.kind !== "Pod" && session.details?.tab === "logs"
+              tab: same
+                ? (session.details?.tab ?? defaultTab)
+                : ref.kind !== "Pod" && session.details?.tab === "logs"
                   ? "overview"
-                  : (session.details?.tab ?? "overview"),
+                  : defaultTab,
             },
             detailsHistory: history,
             resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],

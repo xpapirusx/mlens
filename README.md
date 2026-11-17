@@ -34,7 +34,9 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 
 - Discovers contexts from `~/.kube/config` and `KUBECONFIG`.
 - Imports additional kubeconfig files (file picker) or pasted YAML.
-- Multiple kubeconfig sources, favourites and recent clusters.
+- Multiple kubeconfig sources, favourites and recent clusters. Open clusters sort
+  to the top; Status reads **Connected** (version has its own column), with
+  sorting by status, name, recent or kubeconfig source.
 - Multi-select in the catalog: add to favourites, remove clusters from the mLens
   catalog (non-destructive — kubeconfig files are untouched) and restore them
   from the Removed view.
@@ -72,11 +74,14 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   suspend/resume (Jobs/CronJobs), set image (workloads, including init
   containers), trigger (CronJobs), cordon/uncordon and drain (Nodes), copy
   kubectl command, delete and force delete (`gracePeriodSeconds: 0`).
-- Columns can be pinned to the left edge; open-resource tabs can be collapsed.
+- Columns can be pinned to the left edge; open-resource tabs can be collapsed
+  into a shadow tray above the terminal dock with every tab still clickable.
 - Init containers are marked in the Containers column (outlined square,
   separator, `+N init`) and listed in their own Pod Overview section.
 - Custom resources and CRDs show their kind name in the sidebar (apiVersion in
-  the tooltip); built-in kinds win over same-named CRDs.
+  the tooltip); built-in kinds win over same-named CRDs. Opening a CR defaults the
+  drawer to Details (Freelens field order); its Overview uses Radar-style cards
+  with versions, printer columns and conditions.
 - Create any discovered kind from YAML with server-side dry-run.
 
 ### Resource details

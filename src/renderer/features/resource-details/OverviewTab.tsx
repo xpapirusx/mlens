@@ -1090,31 +1090,120 @@ function StorageOverview({ object, onNavigate }: OverviewProps) {
 }
 
 function CrdOverview({ object }: OverviewProps) {
-  const spec = object.spec ?? {};
+  const spec = (object.spec ?? {}) as Record<string, any>;
+  const status = (object.status ?? {}) as Record<string, any>;
+  const names = (spec.names ?? {}) as Record<string, any>;
+  const versions = (spec.versions ?? []) as Array<Record<string, any>>;
+  const stored = versions.find((version) => version.storage);
+  const primary = stored ?? versions[0];
+  const conditions = (status.conditions ?? []) as Array<Record<string, any>>;
+
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Group", value: spec.group ?? "–" },
+          { label: "Kind", value: names.kind ?? "–" },
+          { label: "Scope", value: spec.scope ?? "–" },
+          { label: "Versions", value: String(versions.length) },
+        ].map((card) => (
+          <div key={card.label} className="card-inner">
+            <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
+            <div className="mt-0.5 truncate font-mono text-[13px] font-semibold text-theme-text-primary" title={card.value}>
+              {card.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
       <DetailSection title="Definition" icon={<Settings2 />}>
         <PropertyList>
-          <Property label="Group" value={spec.group} mono copyable />
-          <Property label="Scope" value={spec.scope} />
-          <Property label="Kind" value={spec.names?.kind} />
-          <Property label="Plural" value={spec.names?.plural} mono />
-          <Property label="Short names" value={(spec.names?.shortNames ?? []).join(", ") || "–"} />
-          <Property label="Categories" value={(spec.names?.categories ?? []).join(", ") || "–"} />
+          <Property label="Group / version" value={`${spec.group ?? "–"}/${primary?.name ?? "–"}`} mono copyable />
+          <Property label="Scope" value={spec.scope === "Namespaced" ? "Namespaced" : "Cluster-scoped"} />
+          <Property label="Plural" value={names.plural} mono />
+          <Property label="Singular" value={names.singular} mono />
+          <Property label="Short names" value={(names.shortNames ?? []).join(", ") || "–"} />
+          <Property label="Categories" value={(names.categories ?? []).join(", ") || "–"} />
+          <Property label="Conversion" value={spec.conversion?.strategy ?? "None"} />
+          <Property label="Preserve unknown fields" value={spec.preserveUnknownFields ? "Yes" : "No"} />
+          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
       </DetailSection>
-      <DetailSection title="Versions" icon={<Database />} count={spec.versions?.length ?? 0}>
+
+      <DetailSection title="Versions" icon={<Database />} count={versions.length}>
         <div className="space-y-1.5">
-          {(spec.versions ?? []).map((version: any) => (
-            <div key={version.name} className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5 text-[12px]">
-              <span className="font-mono text-theme-text-primary">{version.name}</span>
-              {version.storage ? <span className="badge-sm status-neutral">storage</span> : null}
-              {version.served ? <span className="badge-sm status-healthy">served</span> : <span className="badge-sm status-unknown">not served</span>}
-              <span className="ml-auto text-[10px] text-theme-text-tertiary">
-                {version.schema ? "schema" : "no schema"} · {version.additionalPrinterColumns?.length ?? 0} printer columns
-              </span>
+          {versions.map((version) => (
+            <div key={version.name} className="rounded-md border border-theme-border-subtle bg-theme-base p-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-[12px] font-medium text-theme-text-primary">{version.name}</span>
+                {version.storage ? <span className="badge-sm status-neutral">storage</span> : null}
+                {version.served ? (
+                  <span className="badge-sm status-healthy">served</span>
+                ) : (
+                  <span className="badge-sm status-unknown">not served</span>
+                )}
+                <span className="ml-auto text-[10px] text-theme-text-tertiary">
+                  {version.schema ? "OpenAPI schema" : "no schema"} ·{" "}
+                  {version.additionalPrinterColumns?.length ?? 0} printer columns
+                </span>
+              </div>
+              {version.additionalPrinterColumns?.length ? (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {version.additionalPrinterColumns.map((column: any) => (
+                    <span key={column.name} className="badge-sm status-unknown font-mono" title={column.jsonPath}>
+                      {column.name}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ))}
+        </div>
+      </DetailSection>
+
+      <DetailSection title="Conditions" icon={<ShieldCheck />} count={conditions.length} defaultOpen={false}>
+        {conditions.length ? (
+          <ConditionsList conditions={conditions} />
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">No conditions reported by the API.</div>
+        )}
+      </DetailSection>
+
+      <DetailSection
+        title="Printer columns"
+        icon={<FileSliders />}
+        count={versions.reduce((sum, version) => sum + (version.additionalPrinterColumns?.length ?? 0), 0)}
+        defaultOpen={false}
+      >
+        <div className="space-y-2">
+          {versions.map((version) =>
+            version.additionalPrinterColumns?.length ? (
+              <div key={version.name}>
+                <div className="mb-1 font-mono text-[10px] text-theme-text-tertiary">{version.name}</div>
+                <div className="overflow-hidden rounded-md border border-theme-border">
+                  <div className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] border-b border-theme-border bg-theme-base px-2 py-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                    <span>Name</span>
+                    <span>Type</span>
+                    <span>JSON path</span>
+                    <span className="text-right">Priority</span>
+                  </div>
+                  {version.additionalPrinterColumns.map((column: any) => (
+                    <div
+                      key={column.name}
+                      className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] items-center border-b-subtle px-2 py-1 text-[10px] last:border-0"
+                    >
+                      <span className="truncate text-theme-text-primary">{column.name}</span>
+                      <span className="text-theme-text-tertiary">{column.type}</span>
+                      <span className="truncate font-mono text-theme-text-secondary" title={column.jsonPath}>
+                        {column.jsonPath}
+                      </span>
+                      <span className="text-right font-mono text-theme-text-tertiary">{column.priority ?? 0}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null,
+          )}
         </div>
       </DetailSection>
     </div>
@@ -1275,41 +1364,55 @@ function AffinityView({ affinity }: { affinity: any }) {
   );
 }
 
+function readJsonPath(value: unknown, path: string): unknown {
+  const clean = path.replace(/^\./, "");
+  return clean.split(".").reduce<unknown>((current, key) => {
+    if (current === null || current === undefined) return undefined;
+    if (key.includes("[")) {
+      const [name, indexPart] = key.split("[");
+      const index = Number(indexPart?.replace("]", ""));
+      const container = (current as Record<string, unknown>)[name] as unknown[] | undefined;
+      return container?.[index];
+    }
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
 function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
   const status = (object.status ?? {}) as Record<string, unknown>;
   const spec = (object.spec ?? {}) as Record<string, unknown>;
   const metadata = object.metadata ?? {};
+  const printerColumns = (resource.printerColumns ?? []) as Array<{
+    name: string;
+    jsonPath?: string;
+    type?: string;
+  }>;
 
   return (
     <div className="space-y-4">
-      <DetailSection title="Status" icon={<Info />}>
-        {Object.keys(status).length ? (
-          <NestedObject value={status} />
-        ) : (
-          <div className="text-xs text-theme-text-tertiary">This resource has no status fields.</div>
-        )}
-      </DetailSection>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Kind", value: resource.kind },
+          { label: "API version", value: resource.apiVersion },
+          { label: "Namespace", value: metadata.namespace ?? "cluster-scoped" },
+          { label: "Age", value: formatAge(metadata.creationTimestamp) },
+        ].map((card) => (
+          <div key={card.label} className="card-inner">
+            <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
+            <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary" title={card.value}>
+              {card.value}
+            </div>
+          </div>
+        ))}
+      </div>
 
-      {object.status?.conditions ? (
-        <DetailSection title="Conditions" icon={<ShieldCheck />} count={object.status.conditions.length}>
-          <ConditionsList conditions={object.status.conditions} />
-        </DetailSection>
-      ) : null}
-
-      <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
-        {Object.keys(spec).length ? (
-          <NestedObject value={spec} />
-        ) : (
-          <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>
-        )}
-      </DetailSection>
-
-      <DetailSection title="Metadata" icon={<FileSliders />} defaultOpen={false}>
+      <DetailSection title="Details" icon={<FileSliders />}>
         <PropertyList>
-          <Property label="Kind" value={resource.kind} />
-          <Property label="API version" value={resource.apiVersion} mono />
-          <Property label="UID" value={metadata.uid} mono copyable />
+          <Property label="Name" value={metadata.name} copyable mono />
+          <Property label="Namespace" value={metadata.namespace ?? "cluster-scoped"} copyable />
           <Property label="Created" value={formatTimestamp(metadata.creationTimestamp)} />
+          <Property label="Labels" value={Object.keys(metadata.labels ?? {}).length} />
+          <Property label="Annotations" value={Object.keys(metadata.annotations ?? {}).length} />
           <Property
             label="Owner"
             value={
@@ -1326,6 +1429,53 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
             }
           />
         </PropertyList>
+      </DetailSection>
+
+      {printerColumns.length ? (
+        <DetailSection title="Printer columns" icon={<Settings2 />} count={printerColumns.length}>
+          <div className="overflow-hidden rounded-md border border-theme-border">
+            {printerColumns.map((column) => {
+              const value = column.jsonPath ? readJsonPath(object, column.jsonPath) : undefined;
+              return (
+                <div
+                  key={column.name}
+                  className="grid grid-cols-[140px_1fr] items-center border-b-subtle px-2 py-1 text-[11px] last:border-0"
+                >
+                  <span className="truncate text-theme-text-tertiary">{column.name}</span>
+                  <span className="truncate font-mono text-theme-text-primary" title={String(value ?? "")}>
+                    {value === undefined || value === null || value === ""
+                      ? "–"
+                      : typeof value === "object"
+                        ? JSON.stringify(value)
+                        : String(value)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </DetailSection>
+      ) : null}
+
+      {status.conditions ? (
+        <DetailSection title="Conditions" icon={<ShieldCheck />} count={(status.conditions as unknown[]).length}>
+          <ConditionsList conditions={status.conditions as Array<Record<string, any>>} />
+        </DetailSection>
+      ) : null}
+
+      <DetailSection title="Status" icon={<Info />}>
+        {Object.keys(status).length ? (
+          <NestedObject value={status} />
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">This resource has no status fields.</div>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
+        {Object.keys(spec).length ? (
+          <NestedObject value={spec} />
+        ) : (
+          <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>
+        )}
       </DetailSection>
     </div>
   );

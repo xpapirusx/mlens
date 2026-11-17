@@ -12,6 +12,8 @@ notes, версия **2026.11.91422-latest** (ноябрь 2026), продукт
 (подписка) и **14-дневный trial**.
 Часть функций помечена в документации как premium.
 
+Историю появления фич и момент перехода в premium см. в **§19**.
+
 Обозначения: ✅ есть · 🟡 частично · ❌ нет · 💰 только на платном плане ·
 — не применимо. Пометка **(в работе)** — есть только в незакоммиченных
 изменениях mLens (`git status`), хотя `AGENTS.md` уже описывает это как
@@ -477,3 +479,84 @@ Workspace, Dock, Status Bar.
 6. **Не копировать premium-функции ради галочки.** Ask AI, MCP, Teamwork,
    cloud discovery и Security Center — это отдельные подсистемы; их место — в
    Radar-style roadmap, а не в первом релизе mLens.
+
+---
+
+## 19. Таймлайн фич Lens (2023–2026)
+
+Составлено по 53 release notes с `docs.lenshq.io/release-notes/lens-k8s-ide`.
+Даты — релизные, версии — как в документации. 💰 — на момент появления фича
+была или стала платной.
+
+### 2023 — база и первые premium-фичи
+
+| Когда | Что появилось | Статус |
+|---|---|---|
+| 2023.03 | **Lens Security Center**: поиск уязвимостей и мисконфигураций в images/resources/roles, автоматическое сканирование через оператор | 💰 (сейчас premium) |
+| 2023.04 | Security Center: overview с графиком и CSV-экспортом; native terminal для docker CLI в Lens Desktop Kube | 💰 |
+| 2023.06 | Отдельные виды Mutating/ValidatingWebhookConfiguration; Eviction API с учётом PDB; удаление subNamespaces; welcome в hotbar | free |
+| 2023.08 | **Resizable columns**; **log aggregation** по подам и деплойментам; ускорение Workload Overview | free |
+| 2023.09 | **Applications view** на Recommended Labels (`app.kubernetes.io/*`) | free |
+| 2023.12–2024.01 | **Metrics 2.0**: события на графиках, зум, произвольный диапазон; **shareable links** на кластер/раздел; pinnable search bar; kubectl on-demand | free |
+
+### 2024 — редизайн и EKS
+
+| Когда | Что появилось | Статус |
+|---|---|---|
+| 2024.07 | Автоматическое переподключение port-forward после VPN/сети | free |
+| 2024.09–10 | **Большой редизайн**: новый UI/UX, **Unified Navigator**, **Tabbed Navigation**, переработанная details panel, Advanced Metrics с event overlay | free |
+| 2024.09 | **Direct AWS EKS integration** (discovery + IAM) | 💰 Lens Pro |
+| 2024.09 | Обновлённый Teamwork / Spaces | 💰 |
+
+### 2025 — hotbar, Prism, EKS, OCI Helm
+
+| Когда | Что появилось | Статус |
+|---|---|---|
+| 2025.01 | Человекочитаемый deployment status; колонки DaemonSet; **TLS-сертификаты в Secret**; иконки в Navigator; поиск и переход к ресурсам из палитры; bypass internal proxy; переход к parent resource из логов; удаление контекстов; активный кластер в status bar | free |
+| 2025.03–04 | **Hotbar вернулся**; следующее выполнение CronJob; **persistent column visibility per cluster**; Prometheus HTTPS; баннеры node/pod shell; цвет кластера из иконки | 💰 Hotbar — Pro/Enterprise |
+| 2025.05 | Метки на hotbar; новые цвета тёмной темы; одинаковая ширина вкладок; события Pod start/terminate в метриках; подсветка выбранного объекта; hotbar cluster settings; шрифт 14px | free |
+| 2025.06 | **Binary integrity checks**; Prometheus path prefix; кастомизация внешнего вида кластера; история навигации с details; высота строк таблиц | free |
+| 2025.06–07 | **Lens Prism** — AI-ассистент в десктопе (natural language, kubeconfig, RBAC, OpenAI-совместимые модели); управление AWS-профилями из UI; «Add to Hotbar» из навигатора | 💰 Prism — Premium |
+| 2025.08 | Prism: HTTPS proxy, автоскролл; EKS: предупреждения об истечении профиля, авто-раскрытие узлов; стабильность node shell | 💰 Prism |
+| 2025.09 | EKS Assume Role и Access Key; **OCI Helm registries**; shortcut терминала; визуализация tool calls Prism; календарь логов; единый формат дат | OCI/free; Prism 💰 |
+| 2025.10 | Prism **Agent mode** (многошаговые задачи), «Ask Prism» в details и у warning-иконок, контекст списка/namespace/ресурса, подтверждение skills, web search; автоподбор ширины колонки | 💰 Prism |
+
+### 2026 — MCP, GitOps, cost, Studio, расширения
+
+| Когда | Что появилось | Статус |
+|---|---|---|
+| 2026.01 | **Azure AKS integration**; Prism: ссылки на ресурсы, выбор модели/режима; улучшенная клавиатурная навигация по таблицам | AKS 💰; Prism 💰 |
+| 2026.02 | «Ask Prism» в таблицах; **Prism UI-control skill**; группировка AKS по ResourceGroup; PV kinds; фиксы колонок и графиков | 💰 Prism |
+| 2026.03 | **MCP Server** (Kubernetes и Prometheus tools); Prism terminal skill, Anthropic BYOK, несколько AI-конфигураций, cloud context; Integrations preferences; onboarding; **EndpointSlice** | MCP/Prism 💰 |
+| 2026.04 | Редизайн onboarding; обновлённые диалоги; light theme; recovery после миграции | free |
+| 2026.05 | **Gateway API group** (Gateway/HTTPRoute/GRPCRoute/TCP/TLS/UDP/ReferenceGrant/BackendTLS/ListenerSet); **Validating/MutatingAdmissionPolicy** с CEL-подсветкой; webhook match conditions | free |
+| 2026.06 | **Flux CD** dashboard + все Flux kinds; **Ask AI** с выбором CLI (Claude Code, Copilot, Gemini, Codex, custom); Premium Features dashboard и trial | 💰 Flux и Ask AI |
+| 2026.08 | **Lens Turbo** (ускорение до 20×); **Argo CD** dashboard/виды/sync/refresh; Electron 43; поиск cordoned nodes; сортировка Node Conditions; кэш Helm-репозиториев | Argo CD 💰; Turbo free |
+| 2026.08 | **Advanced editor**: side-by-side diff и revert | 💰 |
+| 2026.09 | **Cost Monitoring** (день/неделя/месяц, idle, efficiency, OpenCost/Kubecost или оценка); VictoriaMetrics auto-detect; Azure Gov/China; PriorityClass pods | Cost 💰; остальное free |
+| 2026.10 | **Extensions revamp**: раздел в Navigator, создание расширения через AI, Marketplace, install/update/publish | установка 💰 |
+| 2026.10 | **Ask AI видит экран и управляет Lens** (с согласием), pointer/ring, скорость, «забрать управление» | 💰 |
+| 2026.10 | **Lens Studio**: split screen, вкладки в отдельных окнах, Cascade Windows, Ask AI раскладывает вкладки | 💰 Plus/Pro/Enterprise |
+| 2026.11 | Быстрый старт (2×); **saved searches** (recent/favorite, общие для кластеров); **Argo Rollouts** (promote/pause/retry); больше AI-действий; аудит версий расширений; EKS MFA; группировка уведомлений | Saved searches free; Argo Rollouts 💰; AI 💰 |
+
+### Когда Lens «стал платным»
+
+Единой даты нет: подписки и Teamwork существовали раньше, но в этом окне
+виден постепенный сдвиг:
+
+1. **2023** — Security Center появляется как встроенная, затем становится
+   premium-функцией.
+2. **2024.09** — EKS-интеграция прямо помечена «Lens Pro feature»; редизайн и
+   вкладки остаются бесплатными.
+3. **2025.04** — Hotbar возвращается как **Pro/Enterprise**.
+4. **2025.06** — Lens Prism (AI) — только Premium.
+5. **2026.06–2026.11** — premium-волна: Flux, Ask AI, Argo CD, Advanced editor,
+   Cost Monitoring, Lens Studio (split/окна), установка расширений, Argo
+   Rollouts.
+6. Параллельно **2026.10** — расширения переезжают в Navigator и получают
+   AI-создание/маркетплейс, но установка остаётся платной.
+
+Итог: бесплатный Lens 2026 — это крепкий Kubernetes-клиент (виды, Helm,
+метрики, логи, терминал, поиск, DRA/Gateway, Applications). Всё, что делает
+его «платформой» (AI, MCP, GitOps, cost, security, cloud discovery, Teamwork,
+Studio, hotbar), — подписка.

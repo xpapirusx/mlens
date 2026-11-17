@@ -155,8 +155,16 @@ The bar is the window drag region; every control is `no-drag`.
   stack, and close with X (closing the active tab selects its neighbour).
 - Inactive cluster workspaces stay mounted (CSS-hidden), exactly like Freelens'
   hidden cluster frames, so scroll, drawer state and live PTYs survive switching.
+- The open-resource strip can be collapsed into a slim shadow tray directly above
+  the terminal dock. The tray keeps every tab rendered and clickable and offers a
+  chevron to restore the strip to the top.
 
 ### 2.3b Cluster catalog selection
+
+Open clusters (a live session exists) sort to the top of the catalog; the Status
+column reads **Connected** and the Kubernetes version lives in the Version column.
+A sort control switches between open/status, name, recently opened and kubeconfig
+source.
 
 Catalog rows have an always-visible checkbox. A selection bar can add the
 selected contexts to favourites or remove them from the catalog. Removal is
@@ -409,6 +417,11 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 
 ### 3.6 Resource details content
 
+- **Custom resources / CRDs** — the drawer opens on **Details** (Freelens field
+  order: name, namespace, created, labels, annotations, owner). The Overview tab
+  uses Radar-style cards: CRD definitions show Group, Kind, Scope and version
+  count plus versions/printer columns/conditions; CR instances show kind, API
+  version, namespace, age, printer-column values, conditions, status and spec.
 - **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
   account, containers (image, readiness, restarts, requests/limits, ports),
   a **Ports** table where clicking the port number starts an automatic local
