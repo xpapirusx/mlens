@@ -430,19 +430,19 @@ export function ResourceSidebar({
             <button
               type="button"
               onClick={() => toggleGroup(clusterId, "__favorites", favoritesExpanded)}
-              className="group flex h-7 w-full items-center gap-1.5 rounded-md pl-1.5 pr-2 text-[11px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-theme-hover/60 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+              className="group flex h-8 w-full items-center gap-2 rounded-md pl-2 pr-2 text-[11px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-theme-hover/60 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
               title={favoritesExpanded ? "Collapse favorites" : "Expand favorites"}
             >
+              <Star className="h-4 w-4 shrink-0 fill-current" />
+              <span className="truncate">Favorites</span>
+              <span className="ml-auto shrink-0 font-mono text-[9px] font-normal text-theme-text-disabled">
+                {favoriteResources.length}
+              </span>
               {favoritesExpanded ? (
                 <ChevronDown className="h-3 w-3 shrink-0" />
               ) : (
                 <ChevronRight className="h-3 w-3 shrink-0" />
               )}
-              <Star className="h-3 w-3 fill-current" />
-              <span className="truncate">Favorites</span>
-              <span className="ml-auto shrink-0 font-mono text-[9px] font-normal text-theme-text-disabled">
-                {favoriteResources.length}
-              </span>
             </button>
             {favoritesExpanded ? (
               <div className="space-y-0.5">

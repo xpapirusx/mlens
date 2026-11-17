@@ -215,6 +215,12 @@ palette and settings only see visible clusters.
   top and are stored globally.
 - Group rows are collapsible and show the number of kinds; kind rows show icon,
   display name and a server count.
+- **Level-1 alignment**: every top-level header — Favorites, Nodes, Workloads,
+  Config, Control, Network, Storage, Namespaces, Events, User Management, Helm,
+  Custom Resources — lays out `16px icon + name` from `pl-2`, so all names start
+  at the same x as a kind row (32px). The count, the disclosure chevron and the
+  drag grip sit on the **right**, so revealing the grip on hover never nudges
+  the label. Child groups (depth > 0) keep the indented `chevron + name` form.
 - Counts are lower-bound-aware and never invented: unavailable counts are blank;
   the sidebar reports when counts cannot be read.
 - Bottom strip: namespace count + API server host.
