@@ -15,6 +15,7 @@ import type {
   RbacSubjectRequest,
   HelmReleaseRequest,
   HelmReleasesRequest,
+  HelmRollbackRequest,
   ResourceCountRequest,
   ResourceKey,
   RestartRequest,
@@ -220,6 +221,10 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
 
   ipcMain.handle(IPC.helmGet, (_event, raw: unknown) =>
     clusters.helmRelease(assertObject<HelmReleaseRequest>(raw, "request")),
+  );
+
+  ipcMain.handle(IPC.helmRollback, (_event, raw: unknown) =>
+    clusters.helmRollback(assertObject<HelmRollbackRequest>(raw, "request")),
   );
 
   // ── Logs ──────────────────────────────────────────────────────

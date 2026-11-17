@@ -160,7 +160,10 @@ configuration).
 | Owner chain in Details | **Done** | Owner → owner's owner up to 8 levels, clickable rows with live status badges, missing/unreadable owners marked, scrollable column |
 | Labels / annotations editor | **Done** | Edit from Details (Labels/Annotations) and the row menu; `key=value` lines, `-key` removes, confirm step shows `+N set / −N removed` before the merge patch |
 | Bulk annotate | **Done** | Annotate button next to Delete selected: presets from `settings.annotationPresets` (editable dialog), confirm, merge patch per selected row |
-| Create from YAML (dock tab) | **Done** | `FileCode` button in the dock header/empty state; multi-document editor (`---` separated), Dry run / Apply, document counter |
+| Create from YAML (dock tab) | **Done** | `FileCode` button in the dock header/empty state; multi-document editor (`---` separated), Dry run / Apply, document counter; the browse Create button opens the same tab (primary path) and tables refetch on `mlens:resources-applied` |
+| Logs match navigation | **Done** | `N / M` counter + ↑/↓ buttons, Enter/Shift+Enter, scroll-into-centre, auto-follow pauses |
+| Labels button + Copy names | **Done** | Bulk Labels with its own preset list (`labelPresets`); Copy names dialog with line-break/comma/semicolon separators and an optional `namespace/name` form |
+| Helm revisions, rollback, resources | **Done** | Revision timeline (View/Rollback like Radar), rollback = re-apply stored manifest + append-only new record (`…v<N>` naming verified live), manifest objects as clickable drawer rows |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
 | Env references | **Done** | Eye reveals referenced ConfigMap/Secret values inline without leaving the Pod |
@@ -308,6 +311,7 @@ configuration).
 | Radar columns+statuses, Service/Access Control/Policy/Secret overviews, YAML find, debug shell, Related filters, cluster-switch animation | Pass — typecheck and `electron-vite build` (Monaco find widget confirmed in the bundle); certificate parser checked against real kubeconfig certs with Node's `X509Certificate` (10/10 dates and CNs match); real-cluster smoke test pending |
 | CRD printer columns (predicate/`$.`/braced JSONPath) + sidebar drag order | Pass — `readJsonPath` 11/11 on a CAPI-style CR (`Ready → True`, `envoyHosts[0]`, numeric predicate); `mergeGroupOrder` keeps the saved drag order and inserts new categories at their default slot |
 | Helm releases end-to-end, logs search/tint, Favorites collapse, owner chain, labels/annotations + bulk annotate, YAML dock tab | Pass — typecheck + `electron-vite build`; `listHelmReleases`/`getHelmRelease` run against a live cluster (63 releases, values 988 chars / manifest 44184 chars, revision dedupe correct, double-base64 decode confirmed); real-cluster smoke test for the UI parts pending |
+| Log match arrows, Helm revisions/rollback payload, Labels + Copy names, +YAML→dock | Pass — typecheck + build; `getHelmRelease` on a live cluster returns 10 revisions and 44 manifest objects, viewing revision 9 loads its values/manifest; `prepareHelmRollback` produces `sh.helm.release.v1.cert-manager.v11` with Helm's labels and a JSON record that decodes back (no mutation performed); rollback itself not executed against a real cluster |
 
 ---
 

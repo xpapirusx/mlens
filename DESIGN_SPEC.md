@@ -241,8 +241,10 @@ contains a single kind.
   **Create from YAML** tab: a multi-document Monaco editor that accepts one
   manifest or several separated by `---`, counts the documents live, and applies
   through the same server-side-checked path as the Create dialog (Dry run /
-  Apply). It is deliberately *not* in the resource-browser toolbar — pasting a
-  manifest belongs at the bottom, next to the terminals.
+  Apply). This is the primary create flow: the **Create** button in the
+  resource-browser toolbar opens the same dock tab instead of a modal, and a
+  successful apply makes every mounted table refetch
+  (`mlens:resources-applied`).
 - All terminal tabs stay mounted; only the active one is visible, so scrollback
   and PTY state survive switching.
 - Local shells and pod exec share the same dock, visually identical to Radar's
@@ -410,11 +412,15 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   left edge while the rest scrolls horizontally.
 - Open-resource tabs can be collapsed to a one-line count and expanded again.
 - A checkbox column is always present: header selects all visible rows; the
-  selection bar with bulk delete sits at the bottom of the resource browser,
-  directly above the terminal dock. A second, always-visible leading column
-  opens the row action menu (open, edit YAML, logs, attach, exec shell, scale,
-  restart, pause, suspend, cordon, copy kubectl, delete, force delete) — the
-  same menu as right-click.
+  selection bar sits at the bottom of the resource browser, directly above the
+  terminal dock, and carries **Labels** and **Annotate** (menus of saved
+  `key=value` presets from settings, editable behind "Manage …", each applied
+  through a confirm), **Copy names** (dialog with line-break / comma /
+  semicolon separators and an optional `namespace/name` form) and bulk delete.
+  A second, always-visible leading column opens the row action menu (open, edit
+  YAML, labels/annotations, logs, attach, exec shell, scale, restart, pause,
+  suspend, cordon, copy kubectl, delete, force delete) — the same menu as
+  right-click.
 - Force delete sends `gracePeriodSeconds: 0` after an explicit confirmation.
 - Discovered custom kinds show the kind name as-is in the sidebar; the tooltip
   carries `<apiVersion> <Kind> (CRD)`. Built-in kinds win over same-named CRDs
@@ -576,6 +582,18 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   the owning Secret, then the deployed **Values** and rendered **Manifests** in
   scrollable blocks (capped at 200k characters). There is no API resource
   behind a release, so the other tabs, Create and Delete are not offered.
+  - **Revisions** — Radar's timeline: a numbered circle (current = green),
+    status badge, `Current` chip, deployed time/age and description, with
+    **View** (swaps values/manifests to that revision behind a "Viewing
+    revision N" banner) and an amber **Rollback** (non-current revisions only)
+    behind a confirm.
+  - **Resources** — every object the manifest creates, as clickable rows that
+    open in the drawer.
+  - **Rollback** re-applies the target revision's stored manifest and then
+    appends a new revision record (append-only history, Helm's own model); the
+    secret keeps Helm's `…<name>.v<N>` naming and labels.
+  - **No upgrade**: rendering a chart needs Helm's template engine, which mLens
+    does not ship — values are read-only here by design, not by omission.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
   The **Owner chain** walks owner references upward (owner → its owner → …,
   eight levels, cycle- and fetch-capped) and renders the whole path as one
@@ -606,7 +624,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
   timestamps, search, download, clear, line numbers. `Ctrl/Cmd+F` opens the
   search, matched text is highlighted in place (browser-find style) and matching
-  lines are kept; lines are tinted by level — crit/fatal/panic on red, error on
+  lines are kept; the bar shows an `N / M` counter with **↑/↓ buttons**
+  (Enter / Shift+Enter) that walk the matches, scroll the line into the centre
+  and pause auto-follow. Lines are tinted by level — crit/fatal/panic on red, error on
   a lighter red, warn on amber, all with a background tint so a scan down the
   column reads the severity without reading the words.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,

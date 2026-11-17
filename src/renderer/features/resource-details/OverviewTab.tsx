@@ -29,7 +29,7 @@ type AnyObject = any;
 export interface OverviewProps {
   object: AnyObject;
   resource: ApiResourceInfo;
-  onNavigate: (kind: string, name: string, namespace?: string) => void;
+  onNavigate: (kind: string, name: string, namespace?: string, apiVersion?: string) => void;
   onPortForward?: (port: number) => void;
   onQuickPortForward?: (port: number) => void;
   onEditData?: () => void;
@@ -37,6 +37,8 @@ export interface OverviewProps {
   onTogglePause?: () => void;
   onToggleSuspend?: () => void;
   onToggleCordon?: () => void;
+  /** Re-fetches the drawer's object (used after a Helm rollback). */
+  onRefresh?: () => void;
   clusterId: string;
 }
 
@@ -260,11 +262,8 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
           {status?.restartCount ? (
             <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
           ) : null}
-          <span className="ml-auto font-mono text-[10px] text-theme-text-disabled">
-            {container.image?.split("@")[0]}
-          </span>
         </div>
-        <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-tertiary">
+        <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-secondary">
           {container.image}
         </div>
         <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
@@ -712,9 +711,6 @@ function WorkloadOverview({ object, onNavigate, onScale, onTogglePause, clusterI
             <div key={container.name} className="card-inner-lg">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
-                <span className="ml-auto font-mono text-[10px] text-theme-text-tertiary">
-                  {container.image?.split("@")[0]}
-                </span>
               </div>
               <div className="mt-1 break-all font-mono text-[10px] text-theme-text-tertiary">{container.image}</div>
               <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-theme-text-tertiary">

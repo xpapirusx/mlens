@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
+  ChevronDown,
+  ChevronUp,
   Pause,
   Play,
   RefreshCw,
@@ -287,6 +289,50 @@ function LogsViewer({
     return lines.map((line) => line.toLowerCase().includes(lowered));
   }, [lines, query]);
   const matchCount = matches?.filter(Boolean).length ?? 0;
+  const matchIndices = useMemo(() => {
+    if (!matches) return [];
+    const indices: number[] = [];
+    matches.forEach((isMatch, index) => {
+      if (isMatch) indices.push(index);
+    });
+    return indices;
+  }, [matches]);
+  const [matchCursor, setMatchCursor] = useState(0);
+
+  const scrollToLine = (lineNumber: number) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const line = container.querySelector<HTMLElement>(`[data-line="${lineNumber}"]`);
+    line?.scrollIntoView({ block: "center" });
+  };
+
+  /** Enter / Shift+Enter and the arrows walk the matches, Radar-style. */
+  const goToMatch = (delta: number) => {
+    if (matchIndices.length === 0) return;
+    const next = (matchCursor + delta + matchIndices.length) % matchIndices.length;
+    setMatchCursor(next);
+    setStick(false); // stop following output while inspecting a match
+    scrollToLine(matchIndices[next]);
+  };
+
+  // A new query starts at its first match and scrolls there; new log lines
+  // arriving during follow only clamp the cursor instead of yanking the view.
+  const previousQuery = useRef(query);
+  useEffect(() => {
+    const queryChanged = previousQuery.current !== query;
+    previousQuery.current = query;
+    if (queryChanged) {
+      setMatchCursor(0);
+      if (matchIndices.length > 0) {
+        const timer = window.setTimeout(() => scrollToLine(matchIndices[0]), 40);
+        return () => window.clearTimeout(timer);
+      }
+      return undefined;
+    }
+    setMatchCursor((current) => Math.min(current, Math.max(0, matchIndices.length - 1)));
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, matchIndices]);
 
   /** Level of a log line for the CSS tint — crit beats error beats warn. */
   const levelOf = (line: string): "crit" | "error" | "warn" | null => {
@@ -420,10 +466,42 @@ function LogsViewer({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                goToMatch(event.shiftKey ? -1 : 1);
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setQuery("");
+                setSearchOpen(false);
+              }
+            }}
             placeholder="Find in logs…"
             className="h-5 min-w-0 flex-1 bg-transparent text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none"
           />
-          {query ? <span className="shrink-0 text-[10px] text-slate-400">{matchCount} matches</span> : null}
+          {query ? (
+            <span className="shrink-0 font-mono text-[10px] text-slate-400">
+              {matchIndices.length > 0 ? `${matchCursor + 1} / ${matchIndices.length}` : "0 results"}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            title="Previous match (Shift+Enter)"
+            disabled={matchIndices.length === 0}
+            onClick={() => goToMatch(-1)}
+            className="rounded p-0.5 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+          >
+            <ChevronUp className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            title="Next match (Enter)"
+            disabled={matchIndices.length === 0}
+            onClick={() => goToMatch(1)}
+            className="rounded p-0.5 text-slate-400 hover:text-slate-200 disabled:opacity-30"
+          >
+            <ChevronDown className="h-3 w-3" />
+          </button>
           <button
             type="button"
             className="rounded p-0.5 text-slate-500 hover:text-slate-200"
@@ -495,6 +573,7 @@ function LogsViewer({
           return (
             <div
               key={index}
+              data-line={index}
               className={cn(
                 "flex whitespace-pre-wrap break-all rounded-sm hover:bg-white/5",
                 level && LEVEL_TINT[level],

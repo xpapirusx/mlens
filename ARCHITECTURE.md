@@ -378,6 +378,17 @@ selection work unchanged, and the drawer shows a dedicated Overview (status,
 chart, values, manifests) with the other tabs hidden — there is no API kind to
 query for events, apply YAML or counts, so Create/Delete are not offered.
 
+`helmRollback` is the one mutation: it re-applies the target revision's stored
+manifest through the normal multi-document apply path and only then appends a
+new release record — a copy of the target's JSON with `version = max + 1`,
+`status: deployed` and `last_deployed: now`, encoded the way Helm encodes it
+(`base64(base64(gzip(json)))`) and named `…<release>.v<N>`. History therefore
+stays append-only and nothing is deleted; a failed manifest apply means no new
+record. `getHelmRelease` additionally returns the revision list and the objects
+parsed out of the manifest, which back the Revisions and Resources sections.
+A true `upgrade` is deliberately absent: re-rendering a chart needs Helm's
+template engine.
+
 node-pty's prebuilt `spawn-helper` must be executable; `scripts/postinstall.cjs`
 enforces that because `pnpm --ignore-scripts` (used in some CI setups) skips
 node-pty's own postinstall.

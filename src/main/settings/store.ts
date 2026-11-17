@@ -52,6 +52,7 @@ export function defaultSettings(): AppSettings {
       iReallyWantDeleteThis: "true",
       "cluster.x-k8s.io/delete-machine": "true",
     },
+    labelPresets: {},
     sidebarGroupOrder: [],
     tableColumnWidths: {},
     tableColumnOrder: {},
@@ -118,12 +119,14 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   } else if (out.hotbarPageIndex !== undefined) {
     delete out.hotbarPageIndex;
   }
-  if (out.annotationPresets) {
-    out.annotationPresets = Object.fromEntries(
-      Object.entries(out.annotationPresets).filter(
-        ([key, value]) => typeof key === "string" && key.length > 0 && typeof value === "string",
-      ),
-    );
+  for (const field of ["annotationPresets", "labelPresets"] as const) {
+    if (out[field]) {
+      out[field] = Object.fromEntries(
+        Object.entries(out[field]).filter(
+          ([key, value]) => typeof key === "string" && key.length > 0 && typeof value === "string",
+        ),
+      );
+    }
   }
   if (out.sidebarGroupOrder) {
     out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");

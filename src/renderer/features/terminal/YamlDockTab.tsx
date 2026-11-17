@@ -46,6 +46,9 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
         setLastRun(`Applied ${results.length} object${results.length === 1 ? "" : "s"}`);
         toast.success(summary || "Applied");
         setYaml("");
+        // Tell any mounted resource tables to refetch — the dock does not know
+        // which browser is open, so the list listens for this instead.
+        window.dispatchEvent(new CustomEvent("mlens:resources-applied"));
       }
     } catch (error) {
       const message = errorText(error);

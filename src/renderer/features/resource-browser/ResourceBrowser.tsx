@@ -43,10 +43,11 @@ import { useResourceMetrics } from "./useResourceMetrics";
 import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
-import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
+import { ConfirmActionDialog, ScaleDialog } from "./ResourceDialogs";
 import { SetImageDialog } from "../resource-details/SetImageDialog";
 import { LabelsAnnotationsDialog } from "../resource-details/LabelsAnnotationsDialog";
-import { AnnotationPresetsDialog } from "./AnnotationPresetsDialog";
+import { PresetDialog } from "./PresetDialog";
+import { CopyNamesDialog } from "./CopyNamesDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { NodeDebugDialog } from "../resource-details/NodeDebugDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
@@ -56,12 +57,26 @@ import { useWarningEvents } from "./useWarningEvents";
 import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
-  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain" | "debug" | "labels" | "annotate";
+  type:
+    | "scale"
+    | "delete"
+    | "restart"
+    | "bulk-delete"
+    | "set-image"
+    | "drain"
+    | "debug"
+    | "labels"
+    | "bulk-apply"
+    | "presets"
+    | "copy-names";
   object?: KubeObject;
   force?: boolean;
-  /** Bulk annotate: the preset to write onto every selected resource. */
-  annotateKey?: string;
-  annotateValue?: string;
+  /** bulk-apply: which metadata field and which preset to write. */
+  applyField?: "labels" | "annotations";
+  applyKey?: string;
+  applyValue?: string;
+  /** presets: which saved list to edit. */
+  presetField?: "labels" | "annotations";
 }
 
 function rowKey(object: KubeObject): string {
@@ -75,6 +90,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const updateKindState = useSessionStore((state) => state.updateKindState);
   const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
   const openDetails = useSessionStore((state) => state.openDetails);
+  const openYamlTab = useSessionStore((state) => state.openYamlTab);
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const openTerminal = useSessionStore((state) => state.openTerminal);
@@ -307,7 +323,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
-  const [presetManagerOpen, setPresetManagerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
@@ -446,13 +461,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   const selectedObjects = list.items.filter((object) => selectedKeys.has(rowKey(object)));
 
-  const presetEntries = useMemo(
-    () => Object.entries(settings?.annotationPresets ?? {}).sort(([left], [right]) => left.localeCompare(right)),
-    [settings?.annotationPresets],
-  );
+  const presetEntries = (field: "labels" | "annotations"): Array<[string, string]> =>
+    Object.entries(
+      (field === "labels" ? settings?.labelPresets : settings?.annotationPresets) ?? {},
+    ).sort(([left], [right]) => left.localeCompare(right));
 
-  /** Writes one saved annotation onto every selected resource (merge patch). */
-  const annotateSelected = async (key: string, value: string) => {
+  /** Writes one saved label/annotation onto every selected resource (merge patch). */
+  const applyMetadataField = async (field: "labels" | "annotations", key: string, value: string) => {
     if (!resource || selectedObjects.length === 0) return;
     setBusy(true);
     let updated = 0;
@@ -466,7 +481,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             kind: object.kind ?? resource.kind,
             namespace: object.metadata?.namespace,
             name: object.metadata?.name ?? "",
-            patch: { metadata: { annotations: { [key]: value } } },
+            patch: { metadata: { [field]: { [key]: value } } },
           }),
         );
         updated += 1;
@@ -478,11 +493,53 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     setDialog(null);
     await list.refresh(true);
     if (failures.length === 0) {
-      toast.success(`Annotation set on ${updated} resource${updated === 1 ? "" : "s"}`, `${key}=${value}`);
+      toast.success(`${field === "labels" ? "Label" : "Annotation"} set on ${updated} resource${updated === 1 ? "" : "s"}`, `${key}=${value}`);
       setSelectedKeys(new Set());
     } else {
-      toast.error(`Annotated ${updated}, failed ${failures.length}`, failures.slice(0, 4).join("\n"));
+      toast.error(`Updated ${updated}, failed ${failures.length}`, failures.slice(0, 4).join("\n"));
     }
+  };
+
+  /** The shared dropdown body for the Labels / Annotate buttons. */
+  const presetMenu = (field: "labels" | "annotations") => ({ close }: { close: () => void }) => {
+    const entries = presetEntries(field);
+    const noun = field === "labels" ? "label" : "annotation";
+    return (
+      <>
+        <MenuLabel>
+          {field === "labels" ? "Label" : "Annotate"} {selectedKeys.size} selected
+        </MenuLabel>
+        {entries.length === 0 ? (
+          <div className="px-2 py-1.5 text-[11px] text-theme-text-tertiary">
+            No saved {noun}s yet — add one below.
+          </div>
+        ) : null}
+        {entries.map(([key, value]) => (
+          <MenuItem
+            key={key}
+            icon={<Tags className="h-3.5 w-3.5" />}
+            onClick={() => {
+              setDialog({ type: "bulk-apply", applyField: field, applyKey: key, applyValue: value });
+              close();
+            }}
+          >
+            <span className="truncate font-mono" title={`${key}=${value}`}>
+              {key}={value}
+            </span>
+          </MenuItem>
+        ))}
+        <MenuSeparator />
+        <MenuItem
+          icon={<Pencil className="h-3.5 w-3.5" />}
+          onClick={() => {
+            setDialog({ type: "presets", presetField: field });
+            close();
+          }}
+        >
+          Manage {noun}s…
+        </MenuItem>
+      </>
+    );
   };
 
   const deleteSelected = async () => {
@@ -822,7 +879,12 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           </button>
 
           {resource?.kind === "HelmRelease" ? null : (
-            <Button variant="primary" size="sm" onClick={() => setDialog({ type: "create" })}>
+            <Button
+              variant="primary"
+              size="sm"
+              title="Create resources from YAML in the bottom dock"
+              onClick={() => openYamlTab(clusterId)}
+            >
               <Plus className="h-3.5 w-3.5" />
               <span className="hidden xl:inline">Create</span>
               <span className="xl:hidden">YAML</span>
@@ -977,6 +1039,20 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             Clear
           </button>
           <div className="ml-auto flex items-center gap-1.5">
+            <Menu width={280} trigger={({ toggle }) => (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={toggle}
+                  title="Apply a saved label to the selected resources"
+                >
+                  <Tags className="h-3 w-3" />
+                  Labels
+                </Button>
+              )}
+            >
+              {presetMenu("labels")}
+            </Menu>
             <Menu
               width={280}
               trigger={({ toggle }) => (
@@ -984,48 +1060,24 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
                   variant="secondary"
                   size="xs"
                   onClick={toggle}
-                  title="Annotate the selected resources with a saved annotation"
+                  title="Apply a saved annotation to the selected resources"
                 >
                   <Tags className="h-3 w-3" />
                   Annotate
                 </Button>
               )}
             >
-              {({ close }) => (
-                <>
-                  <MenuLabel>Annotate {selectedKeys.size} selected</MenuLabel>
-                  {presetEntries.length === 0 ? (
-                    <div className="px-2 py-1.5 text-[11px] text-theme-text-tertiary">
-                      No saved annotations yet — add one below.
-                    </div>
-                  ) : null}
-                  {presetEntries.map(([key, value]) => (
-                    <MenuItem
-                      key={key}
-                      icon={<Tags className="h-3.5 w-3.5" />}
-                      onClick={() => {
-                        setDialog({ type: "annotate", annotateKey: key, annotateValue: value });
-                        close();
-                      }}
-                    >
-                      <span className="truncate font-mono" title={`${key}=${value}`}>
-                        {key}={value}
-                      </span>
-                    </MenuItem>
-                  ))}
-                  <MenuSeparator />
-                  <MenuItem
-                    icon={<Pencil className="h-3.5 w-3.5" />}
-                    onClick={() => {
-                      setPresetManagerOpen(true);
-                      close();
-                    }}
-                  >
-                    Manage annotations…
-                  </MenuItem>
-                </>
-              )}
+              {presetMenu("annotations")}
             </Menu>
+            <Button
+              variant="secondary"
+              size="xs"
+              title="Copy the selected resource names"
+              onClick={() => setDialog({ type: "copy-names" })}
+            >
+              <Copy className="h-3 w-3" />
+              <span className="hidden xl:inline">Copy names</span>
+            </Button>
             <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
               <Trash2 className="h-3 w-3" />
               Delete selected
@@ -1320,15 +1372,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         nodeName={dialog?.object?.metadata?.name ?? ""}
       />
 
-      <CreateResourceDialog
-        open={dialog?.type === "create"}
-        onClose={() => setDialog(null)}
-        clusterId={clusterId}
-        resource={resource}
-        namespace={selectedNamespaces.length === 1 ? selectedNamespaces[0] : "default"}
-        onCreated={() => void list.refresh(true)}
-      />
-
       <ScaleDialog
         open={dialog?.type === "scale"}
         onClose={() => setDialog(null)}
@@ -1390,31 +1433,46 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       />
 
       <ConfirmActionDialog
-        open={dialog?.type === "annotate"}
+        open={dialog?.type === "bulk-apply"}
         onClose={() => setDialog(null)}
         onConfirm={() => {
-          const key = dialog?.annotateKey;
-          if (key) void annotateSelected(key, dialog?.annotateValue ?? "true");
+          const field = dialog?.applyField;
+          const key = dialog?.applyKey;
+          if (field && key) void applyMetadataField(field, key, dialog?.applyValue ?? "true");
         }}
-        title="Apply annotation"
+        title={dialog?.applyField === "labels" ? "Apply label" : "Apply annotation"}
         confirmLabel={`Apply to ${selectedObjects.length} ${resource.kind}${selectedObjects.length === 1 ? "" : "s"}`}
         busy={busy}
         description={
           <>
             <p>
-              Set <span className="inline-code font-mono">{dialog?.annotateKey}={dialog?.annotateValue}</span> on{" "}
+              Set <span className="inline-code font-mono">{dialog?.applyKey}={dialog?.applyValue}</span> on{" "}
               <span className="font-medium text-theme-text-primary">{selectedObjects.length}</span> selected{" "}
               {resource.kind}
-              {selectedObjects.length === 1 ? "" : "s"}?
+              {selectedObjects.length === 1 ? "" : "s"} as a{" "}
+              {dialog?.applyField === "labels" ? "label" : "annotation"}?
             </p>
             <p className="mt-2 text-xs text-theme-text-tertiary">
-              A merge patch adds this annotation; existing annotations stay untouched.
+              A merge patch adds this key; existing keys stay untouched.
             </p>
           </>
         }
       />
 
-      <AnnotationPresetsDialog open={presetManagerOpen} onClose={() => setPresetManagerOpen(false)} />
+      <PresetDialog
+        open={dialog?.type === "presets"}
+        field={dialog?.presetField ?? "annotations"}
+        onClose={() => setDialog(null)}
+      />
+
+      <CopyNamesDialog
+        open={dialog?.type === "copy-names"}
+        onClose={() => setDialog(null)}
+        items={selectedObjects.map((object) => ({
+          name: object.metadata?.name ?? "",
+          namespace: object.metadata?.namespace,
+        }))}
+      />
 
       <ConfirmActionDialog
         open={dialog?.type === "restart"}

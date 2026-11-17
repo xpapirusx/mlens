@@ -178,9 +178,18 @@ export function useResourceList(options: {
       return;
     }
     void refresh(false);
-    if (!refreshSeconds) return;
+    // A Create-from-YAML apply in the dock does not know which table is open:
+    // every mounted list refetches when this fires.
+    const onApplied = () => void refresh(true);
+    window.addEventListener("mlens:resources-applied", onApplied);
+    if (!refreshSeconds) {
+      return () => window.removeEventListener("mlens:resources-applied", onApplied);
+    }
     const timer = window.setInterval(() => void refresh(true), refreshSeconds * 1000);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.removeEventListener("mlens:resources-applied", onApplied);
+      window.clearInterval(timer);
+    };
   }, [resource, refresh, refreshSeconds]);
 
   // Live watches: one per scope so multi-namespace views stay live too.

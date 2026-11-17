@@ -79,7 +79,10 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - A **Warnings** column for Pods, workloads and Nodes shows the warning count
   with the latest Warning event in the tooltip (one event list per scope).
 - A **Helm** group lists releases parsed from the `owner=helm` Secrets —
-  status, chart, revision and app version — without a Helm binary.
+  status, chart, revision and app version — without a Helm binary. The release
+  drawer adds the **revision timeline** (View any revision, **Rollback** which
+  re-applies that revision's stored manifest and appends a new record) and the
+  **Resources** the manifest creates, each one clickable.
 - Multi-select mode with bulk delete and confirmation.
 - Sticky row-actions menu on the right of every row (same as right-click):
   details, edit YAML, logs, attach, exec shell (Pods), scale
@@ -258,6 +261,7 @@ mLens is MIT licensed (`LICENSE`).
 - Fonts (DM Sans, DM Mono) are OFL 1.1, loaded via `@fontsource` packages.
 - Build story and full context: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
 - Agent/contributor rules: [`AGENTS.md`](AGENTS.md).
+- Release history: [`CHANGELOG.md`](CHANGELOG.md).
 - Full third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 mLens is an independent project and is not affiliated with Freelens, Skyhook, or

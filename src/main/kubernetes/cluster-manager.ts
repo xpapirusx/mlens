@@ -16,6 +16,7 @@ import type {
   HelmReleaseRequest,
   HelmReleaseSummary,
   HelmReleasesRequest,
+  HelmRollbackRequest,
   PolicyResourceRequest,
   PolicyResourceResponse,
   RbacSubjectRequest,
@@ -36,7 +37,7 @@ import { ResourceWatcher } from "./resource-watcher";
 import { LogStreams } from "./log-streams";
 import { ExecSessions } from "./exec-sessions";
 import { policyResource } from "./policy";
-import { getHelmRelease, listHelmReleases } from "./helm";
+import { getHelmRelease, listHelmReleases, prepareHelmRollback, createReleaseSecret } from "./helm";
 import { rbacRole, rbacSubject } from "./rbac";
 import type { SettingsStore } from "../settings/store";
 
@@ -464,6 +465,29 @@ export class ClusterManager {
     if (!request.namespace) throw new Error("A release namespace is required.");
     if (!request.name) throw new Error("A release name is required.");
     return getHelmRelease(this.connection(request.clusterId), request);
+  }
+
+  /**
+   * Rollback without a Helm binary: re-apply the target revision's stored
+   * manifest, then append a new revision record (history is append-only, the
+   * same model Helm uses).
+   */
+  async helmRollback(request: HelmRollbackRequest): Promise<HelmReleaseDetail> {
+    if (!request.namespace || !request.name) throw new Error("A release namespace and name are required.");
+    if (!Number.isInteger(request.revision) || request.revision < 1) {
+      throw new Error("A revision number is required.");
+    }
+    const connection = this.connection(request.clusterId);
+    const prepared = await prepareHelmRollback(connection, request);
+    if (prepared.manifest.trim()) {
+      await this.apply({ clusterId: request.clusterId, yaml: prepared.manifest });
+    }
+    await createReleaseSecret(connection, prepared);
+    return getHelmRelease(connection, {
+      clusterId: request.clusterId,
+      namespace: request.namespace,
+      name: request.name,
+    });
   }
 
   /** Serialize an object for the YAML tab (server JSON -> YAML). */

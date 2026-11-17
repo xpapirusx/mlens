@@ -16,6 +16,7 @@ import type {
   HelmReleaseRequest,
   HelmReleaseSummary,
   HelmReleasesRequest,
+  HelmRollbackRequest,
   PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
@@ -85,6 +86,7 @@ export const IPC = {
   policyResource: "kube:policy-resource",
   helmList: "kube:helm-list",
   helmGet: "kube:helm-get",
+  helmRollback: "kube:helm-rollback",
 
   portForwardStart: "kube:portforward-start",
   portForwardStop: "kube:portforward-stop",
@@ -168,8 +170,10 @@ export interface MlensApi {
   helm: {
     /** Releases parsed from the `owner=helm` secrets (no Helm binary). */
     list(request: HelmReleasesRequest): Promise<HelmReleaseSummary[]>;
-    /** One release with its values and rendered manifests. */
-    get(request: HelmReleaseRequest): Promise<HelmReleaseDetail>;
+    /** One release with its values, manifests, revisions and created resources. */
+    get(request: HelmReleaseRequest & { revision?: number }): Promise<HelmReleaseDetail>;
+    /** Re-applies an older revision's manifest and records a new revision. */
+    rollback(request: HelmRollbackRequest): Promise<HelmReleaseDetail>;
   };
   portForward: {
     start(request: PortForwardRequest): Promise<PortForwardInfo>;

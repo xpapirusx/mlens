@@ -620,6 +620,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 onTogglePause={() => void togglePause()}
                 onToggleSuspend={() => void toggleSuspend()}
                 onToggleCordon={() => void toggleCordon()}
+                onRefresh={() => void data.refresh()}
                 clusterId={clusterId}
               />
             ) : null}

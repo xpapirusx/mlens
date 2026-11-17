@@ -326,6 +326,8 @@ export interface AppSettings {
    * browser. One `key=value` entry each; the list is editable in the UI.
    */
   annotationPresets: Record<string, string>;
+  /** Same idea for the bulk "Labels" action. */
+  labelPresets: Record<string, string>;
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;
@@ -532,6 +534,8 @@ export interface HelmReleaseRequest {
   namespace: string;
   /** Release name (not the secret name). */
   name: string;
+  /** View a specific revision instead of the current one. */
+  revision?: number;
 }
 
 export interface HelmReleaseDetail extends HelmReleaseSummary {
@@ -541,4 +545,34 @@ export interface HelmReleaseDetail extends HelmReleaseSummary {
   manifest: string;
   /** True when values/manifest were cut to keep the payload bounded. */
   truncated?: boolean;
+  /** Every revision of this release found in the cluster (newest first). */
+  revisions: HelmRevisionInfo[];
+  /** Objects the manifest creates — clickable in the drawer. */
+  resources: HelmManifestRef[];
+  /** The revision currently displayed (differs from `revision` when viewing history). */
+  viewedRevision: number;
+}
+
+export interface HelmRevisionInfo {
+  revision: number;
+  status: string;
+  deployedAt?: string;
+  description?: string;
+  chart: string;
+}
+
+/** One object referenced by a release manifest. */
+export interface HelmManifestRef {
+  apiVersion: string;
+  kind: string;
+  namespace?: string;
+  name: string;
+}
+
+export interface HelmRollbackRequest {
+  clusterId: ClusterId;
+  namespace: string;
+  name: string;
+  /** Revision to roll back to; a new revision is created on top of it. */
+  revision: number;
 }

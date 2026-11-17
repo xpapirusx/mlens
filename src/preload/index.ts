@@ -16,6 +16,7 @@ import type {
   HelmReleaseRequest,
   HelmReleaseSummary,
   HelmReleasesRequest,
+  HelmRollbackRequest,
   PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
@@ -116,6 +117,7 @@ const api: MlensApi = {
   helm: {
     list: (request: HelmReleasesRequest) => ipcRenderer.invoke(IPC.helmList, request) as Promise<HelmReleaseSummary[]>,
     get: (request: HelmReleaseRequest) => ipcRenderer.invoke(IPC.helmGet, request) as Promise<HelmReleaseDetail>,
+    rollback: (request: HelmRollbackRequest) => ipcRenderer.invoke(IPC.helmRollback, request) as Promise<HelmReleaseDetail>,
   },
   portForward: {
     start: (request: PortForwardRequest) =>
