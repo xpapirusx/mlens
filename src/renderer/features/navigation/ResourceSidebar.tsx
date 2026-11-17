@@ -6,6 +6,7 @@ import {
   DoorOpen,
   Download,
   LogOut,
+  Pin,
   RefreshCw,
   Settings,
   Star,
@@ -77,35 +78,71 @@ export function ResourceSidebar({
     return found ? total : null;
   };
 
+  const favoriteKeys = settings?.favoriteKinds ?? [];
+  const keyFor = (resource: (typeof resources)[number]) => `${resource.apiVersion}|${resource.kind}`;
+  const favoriteResources = favoriteKeys
+    .map((key) => {
+      const [apiVersion, kind] = key.split("|");
+      return resources.find((resource) => resource.apiVersion === apiVersion && resource.kind === kind);
+    })
+    .filter((resource): resource is (typeof resources)[number] => Boolean(resource));
+
   const renderKindRow = (resource: (typeof resources)[number], depth = 0) => {
     const Icon = getKindIcon(resource.kind, resource.group);
     const active = selected?.apiVersion === resource.apiVersion && selected?.kind === resource.kind;
     const count = countFor(counts.counts, resource);
+    const pinned = favoriteKeys.includes(keyFor(resource));
+    const indent = depth === 0 ? "pl-2" : depth === 1 ? "pl-6" : "pl-10";
     return (
-      <button
+      <div
         key={`${resource.apiVersion}/${resource.kind}`}
-        type="button"
-        onClick={() => selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind })}
-        title={`${resource.apiVersion} ${resource.kind}${resource.isCrd ? " (CRD)" : ""}`}
         className={cn(
-          "group flex w-full items-center gap-2 rounded-md py-[5px] pr-2 text-left text-[13px] transition-colors",
-          depth > 0 ? "pl-6" : "pl-2",
+          "group relative flex w-full items-center rounded-md pr-1.5 text-[13px] transition-colors",
+          indent,
           active
             ? "selection-strong selection-text"
             : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
         )}
       >
-        <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
-        <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
-        {count !== null ? <CountBadge active={active}>{count}</CountBadge> : null}
-      </button>
+        <button
+          type="button"
+          onClick={() => selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind })}
+          title={`${resource.apiVersion} ${resource.kind}${resource.isCrd ? " (CRD)" : ""}`}
+          className="flex min-w-0 flex-1 items-center gap-2 py-[5px] text-left"
+        >
+          <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
+          <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
+          {count !== null ? <CountBadge active={active}>{count}</CountBadge> : null}
+        </button>
+        <button
+          type="button"
+          title={pinned ? "Remove from sidebar favorites" : "Pin to sidebar favorites"}
+          className={cn(
+            "ml-1 shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-amber-500",
+            pinned ? "opacity-100 text-amber-500" : "opacity-0 group-hover:opacity-100",
+          )}
+          onClick={(event) => {
+            event.stopPropagation();
+            const key = keyFor(resource);
+            void updateSettings({
+              favoriteKinds: pinned
+                ? favoriteKeys.filter((entry) => entry !== key)
+                : [...favoriteKeys, key],
+            });
+          }}
+        >
+          <Pin className={cn("h-3 w-3", pinned && "fill-current")} />
+        </button>
+      </div>
     );
   };
 
   const renderGroup = (group: ResourceGroup, depth = 0) => {
-    const expanded = searching
-      ? true
-      : (session?.expandedGroups[group.id] ?? group.id !== "custom");
+    if (group.standalone) {
+      return <div key={group.id}>{renderKindRow(group.resources[0], 0)}</div>;
+    }
+    const defaultExpanded = searching ? true : !(settings?.collapseCatalogGroups ?? true);
+    const expanded = session?.expandedGroups[group.id] ?? defaultExpanded;
     const GroupIcon = group.icon;
     const kindCount = group.children
       ? group.children.reduce((sum, child) => sum + child.resources.length, 0)
@@ -118,7 +155,7 @@ export function ResourceSidebar({
       <div key={group.id} className={cn("mb-0.5", depth > 0 && "mt-0.5")}>
         <button
           type="button"
-          onClick={() => toggleGroup(clusterId, group.id)}
+          onClick={() => toggleGroup(clusterId, group.id, expanded)}
           className={cn(
             "flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
             depth > 0 ? "pl-4" : "pl-1.5",
@@ -135,7 +172,7 @@ export function ResourceSidebar({
           <div className="space-y-0.5">
             {group.children
               ? group.children.map((child) => renderGroup(child, depth + 1))
-              : group.resources.map((resource) => renderKindRow(resource, depth > 0 ? 1 : 0))}
+              : group.resources.map((resource) => renderKindRow(resource, depth + 1))}
           </div>
         ) : null}
       </div>
@@ -261,6 +298,18 @@ export function ResourceSidebar({
         {groups.length === 0 && session?.status === "connecting" ? (
           <div className="flex items-center gap-2 px-2 py-3">
             <Spinner label="Discovering API resources…" />
+          </div>
+        ) : null}
+
+        {!searching && favoriteResources.length > 0 ? (
+          <div className="mb-1">
+            <div className="flex items-center gap-1.5 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <Star className="h-3 w-3 fill-current" />
+              Favorites
+            </div>
+            <div className="space-y-0.5">
+              {favoriteResources.map((resource) => renderKindRow(resource, 0))}
+            </div>
           </div>
         ) : null}
 

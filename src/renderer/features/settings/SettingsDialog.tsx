@@ -134,6 +134,63 @@ export function SettingsDialog() {
               onChange={(checked) => void updateSettings({ showSystemNamespaces: checked })}
             />
           </Field>
+          <Field label="Table row height" hint="Compact fits more rows; comfortable matches Radar's default density.">
+            <select
+              value={settings.tableRowHeight}
+              onChange={(event) => void updateSettings({ tableRowHeight: Number(event.target.value) })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              <option value={36}>Compact · 36px</option>
+              <option value={40}>Normal · 40px</option>
+              <option value={44}>Comfortable · 44px</option>
+            </select>
+          </Field>
+          <Field
+            label="Collapse catalog groups by default"
+            hint="Freelens-style: start with groups folded, and remember what you expand."
+          >
+            <Switch
+              checked={settings.collapseCatalogGroups}
+              onChange={(checked) => void updateSettings({ collapseCatalogGroups: checked })}
+            />
+          </Field>
+        </Section>
+
+        <Section title="Sidebar favorites" icon={<Star />}>
+          {settings.favoriteKinds.length === 0 ? (
+            <p className="text-[11px] text-theme-text-tertiary">
+              Pin resource kinds from the sidebar (pin icon on hover) to keep them at the top of every cluster.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {settings.favoriteKinds.map((key) => {
+                const [apiVersion, kind] = key.split("|");
+                return (
+                  <div
+                    key={key}
+                    className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5 text-xs"
+                  >
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="min-w-0 flex-1 truncate font-mono">
+                      {kind} <span className="text-[10px] text-theme-text-disabled">{apiVersion}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded p-1 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500"
+                      title="Remove favorite"
+                      onClick={() =>
+                        void updateSettings({
+                          favoriteKinds: settings.favoriteKinds.filter((entry) => entry !== key),
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </Section>
 
         <Section title="Terminal" icon={<SquareTerminal />}>

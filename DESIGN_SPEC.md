@@ -155,16 +155,32 @@ The bar is the window drag region; every control is `no-drag`.
 - Inactive cluster workspaces stay mounted (CSS-hidden), exactly like Freelens'
   hidden cluster frames, so scroll, drawer state and live PTYs survive switching.
 
+### 2.3b Cluster catalog selection
+
+Catalog rows have an always-visible checkbox. A selection bar can add the
+selected contexts to favourites or remove them from the catalog. Removal is
+non-destructive: kubeconfig files are never modified. Removed clusters appear in
+a **Removed** catalog view and can be restored; the hotbar, cluster tabs, command
+palette and settings only see visible clusters.
+
 ### 2.4 Cluster sidebar
 
 - Cluster header: avatar + health dot, cluster name, Kubernetes version and
   context, overflow menu (favourite, copy context, refresh namespaces, settings,
   catalog, disconnect).
 - Resource filter input.
-- Groups follow Freelens order: **Cluster, Workloads, Config, Network, Storage,
-  Access Control, Scaling, Other**, then **Custom Resources**. Custom Resources
-  is a parent group whose children are CRD API groups; both levels collapse
-  independently.
+- Groups follow Freelens order: **Favorites, Nodes, Workloads, Config, Network,
+  Storage, Namespaces, Events, User Management, Custom Resources**. Nodes,
+  Namespaces and Events are direct rows without submenus. Config absorbs the
+  remaining cluster-scoped kinds (webhooks, API services, admission policies,
+  HPAs, PDBs, etc.).
+- Custom Resources is a parent group with a **Definitions** child and one child
+  per CRD API group; both levels collapse independently.
+- Groups start collapsed by default (settings toggle), and the expanded state is
+  remembered per cluster. Child rows are indented three spaces deeper than their
+  group header.
+- Hovering a kind shows a pin; pinned kinds appear in a Favorites section at the
+  top and are stored globally.
 - Group rows are collapsible and show the number of kinds; kind rows show icon,
   display name and a server count.
 - Counts are lower-bound-aware and never invented: unavailable counts are blank;
@@ -320,8 +336,18 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - Column widths are draggable from the header divider (minimum 72px, double-click
   resets). The table keeps a horizontal scroll range when the sum exceeds the
   viewport.
-- Selection mode adds a checkbox column, select-all-visible, a selection bar and
-  bulk delete with an explicit confirmation listing the selected objects.
+- A checkbox column is always present: header selects all visible rows, the
+  selection bar shows the count and offers bulk delete with an explicit
+  confirmation listing the selected objects.
+- The cluster catalog uses the same selection language: checkboxes, select all,
+  bulk favourite, remove-from-catalog and a Removed view with restore.
+- CPU and Memory columns use Radar's bullet-bar pattern: usage / limit, request
+  marker, percentage, and a per-container tooltip. Without metrics the cell shows
+  “–”; there are no synthetic values. Row height is configurable (36/40/44px).
+- Resource kind favorites are pinned in a Favorites section; the pin appears on
+  row hover and is stored in settings.
+- Groups start collapsed when the setting is enabled (on by default); the
+  expanded state is remembered per cluster.
 - Sorting cycles ascending → descending → none; default is name ascending.
 - Namespaces: all, one, or **several** at once. Multi-selection merges lists and
   watches per namespace, sums sidebar counts, and shows the Namespace column.
@@ -338,7 +364,8 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 
 - **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
   account, containers (image, readiness, restarts, requests/limits, ports),
-  a **Ports** table with per-port forwarding, conditions, volumes, scheduling
+  a **Ports** table where clicking the port number starts an automatic local
+  forward and the Forward button opens the custom-port dialog, conditions, volumes, scheduling
   (node selector, tolerations and affinity rendered as aligned rows, not raw
   overflowing JSON). Workloads: replicas, rollout state,
   conditions, container template. Node: capacity/allocatable bars, conditions,

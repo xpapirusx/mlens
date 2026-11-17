@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { Copy } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
-import { formatAge, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
+import { formatAge, formatCpu, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
 import { resourceStatus, toneClass } from "./status";
 import { cn } from "./cn";
+import { ResourceBar } from "../design-system/components/ResourceBar";
+import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
 
 export type AnyObject = any;
 
@@ -23,6 +25,8 @@ export interface ColumnDef {
 
 export interface CellContext {
   showNamespace: boolean;
+  podMetrics?: Map<string, PodUsage>;
+  nodeMetrics?: Map<string, NodeUsage>;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -128,6 +132,85 @@ function ContainersCell({ object }: { object: AnyObject }) {
   );
 }
 
+function sumContainerResources(object: AnyObject, kind: "cpu" | "memory", field: "requests" | "limits"): number {
+  const containers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
+  return containers.reduce((sum, container) => {
+    const value = container.resources?.[field]?.[kind];
+    const parsed = kind === "cpu" ? parseCpu(value) : parseMemory(value);
+    return sum + (parsed ?? 0);
+  }, 0);
+}
+
+function PodUsageCell({
+  object,
+  kind,
+  metrics,
+}: {
+  object: AnyObject;
+  kind: "cpu" | "memory";
+  metrics?: Map<string, PodUsage>;
+}) {
+  const key = `${object.metadata?.namespace}/${object.metadata?.name}`;
+  const sample = metrics?.get(key);
+  if (!sample) return <span className="text-sm text-theme-text-tertiary">–</span>;
+
+  const formats = kind === "cpu" ? formatCpu : formatBytes;
+  const usage = sample.containers.reduce((sum, container) => sum + container[kind], 0);
+  if (usage <= 0) return <span className="text-sm text-theme-text-tertiary">–</span>;
+
+  const requests = sumContainerResources(object, kind, "requests");
+  const limits = sumContainerResources(object, kind, "limits");
+  const containers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
+  const allLimited = containers.length > 0 && containers.every((container) => {
+    const value = container.resources?.limits?.[kind];
+    const parsed = kind === "cpu" ? parseCpu(value) : parseMemory(value);
+    return (parsed ?? 0) > 0;
+  });
+
+  const mode = limits > 0 ? "limit" : requests > 0 ? "request" : "none";
+  if (mode === "none") {
+    return <span className="font-mono text-[11px] text-theme-text-secondary">{formats(usage)}</span>;
+  }
+
+  const denom = mode === "limit" ? limits : requests;
+  const percent = denom > 0 ? (usage / denom) * 100 : 0;
+  const marker = mode === "limit" && requests > 0 && requests < limits ? (requests / limits) * 100 : undefined;
+
+  const tooltip = (
+    <div className="space-y-1">
+      {sample.containers.map((container) => {
+        const spec = containers.find((entry) => entry.name === container.name);
+        const req = kind === "cpu" ? parseCpu(spec?.resources?.requests?.cpu) : parseMemory(spec?.resources?.requests?.memory);
+        const lim = kind === "cpu" ? parseCpu(spec?.resources?.limits?.cpu) : parseMemory(spec?.resources?.limits?.memory);
+        return (
+          <div key={container.name} className="flex items-center gap-2 font-mono text-[10px]">
+            <span className="min-w-0 flex-1 truncate text-theme-text-primary">{container.name}</span>
+            <span>{formats(container[kind])}</span>
+            <span className="text-theme-text-disabled">
+              req {req ? formats(req) : "–"} · lim {lim ? formats(lim) : "–"}
+            </span>
+          </div>
+        );
+      })}
+      <div className="text-[10px] text-theme-text-tertiary">
+        {mode === "limit" ? "Usage against the summed container limit" : "Usage against the summed request (no limit set)"}
+        {!allLimited && mode === "limit" ? " · some containers unbounded" : ""}
+      </div>
+    </div>
+  );
+
+  return (
+    <ResourceBar
+      used={formats(usage)}
+      total={formats(denom)}
+      percent={percent}
+      scheme={mode === "limit" ? "utilization" : "quiet"}
+      markerPercent={marker}
+      tooltip={tooltip}
+    />
+  );
+}
+
 const namespaceColumn: ColumnDef = {
   key: "namespace",
   label: "Namespace",
@@ -186,6 +269,28 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           value: (object) => podContainers(object).filter((container) => container.ready).length,
         },
         statusColumn("Pod"),
+        {
+          key: "cpu",
+          label: "CPU",
+          width: 196,
+          tooltip: "CPU usage / limit (marker = request)",
+          sortable: true,
+          value: (object) => sumContainerResources(object, "cpu", "requests"),
+          cell: (object, context) => (
+            <PodUsageCell object={object} kind="cpu" metrics={context.podMetrics} />
+          ),
+        },
+        {
+          key: "memory",
+          label: "Memory",
+          width: 196,
+          tooltip: "Memory usage / limit (marker = request)",
+          sortable: true,
+          value: (object) => sumContainerResources(object, "memory", "requests"),
+          cell: (object, context) => (
+            <PodUsageCell object={object} kind="memory" metrics={context.podMetrics} />
+          ),
+        },
         {
           key: "restarts",
           label: "Restarts",
@@ -640,20 +745,48 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "cpu",
           label: "CPU",
-          width: 88,
-          align: "right",
+          width: 196,
+          tooltip: "CPU usage / limit (marker = request)",
           sortable: true,
           value: (object) => parseCpu(object.status?.capacity?.cpu) ?? 0,
-          cell: (object) => <Mono>{object.status?.capacity?.cpu ?? "–"}</Mono>,
+          cell: (object, context) => {
+            const usage = context.nodeMetrics?.get(object.metadata?.name ?? "");
+            const allocatable = parseCpu(object.status?.allocatable?.cpu) ?? 0;
+            if (!usage || allocatable <= 0) {
+              return <Mono>{object.status?.capacity?.cpu ?? "–"}</Mono>;
+            }
+            return (
+              <ResourceBar
+                used={formatCpu(usage.cpu)}
+                total={formatCpu(allocatable)}
+                percent={(usage.cpu / allocatable) * 100}
+                tooltip={`Node CPU usage / allocatable · ${formatCpu(usage.cpu)} / ${formatCpu(allocatable)}`}
+              />
+            );
+          },
         },
         {
           key: "memory",
           label: "Memory",
-          width: 104,
-          align: "right",
+          width: 196,
+          tooltip: "Memory usage / limit (marker = request)",
           sortable: true,
           value: (object) => parseMemory(object.status?.capacity?.memory) ?? 0,
-          cell: (object) => <Mono>{object.status?.capacity?.memory ?? "–"}</Mono>,
+          cell: (object, context) => {
+            const usage = context.nodeMetrics?.get(object.metadata?.name ?? "");
+            const allocatable = parseMemory(object.status?.allocatable?.memory) ?? 0;
+            if (!usage || allocatable <= 0) {
+              return <Mono>{object.status?.capacity?.memory ?? "–"}</Mono>;
+            }
+            return (
+              <ResourceBar
+                used={formatBytes(usage.memory)}
+                total={formatBytes(allocatable)}
+                percent={(usage.memory / allocatable) * 100}
+                tooltip={`Node memory usage / allocatable · ${formatBytes(usage.memory)} / ${formatBytes(allocatable)}`}
+              />
+            );
+          },
         },
         {
           key: "pods",

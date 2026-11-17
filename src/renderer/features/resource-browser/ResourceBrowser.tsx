@@ -31,6 +31,7 @@ import { ContextMenu } from "../../design-system/components/ContextMenu";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
 import { useResourceList } from "./useResourceList";
+import { useResourceMetrics } from "./useResourceMetrics";
 import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
@@ -64,6 +65,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const selectedNamespaces = session?.selectedNamespaces ?? [];
   const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
   const list = useResourceList({ clusterId, resource, namespaces: selectedNamespaces, refreshSeconds });
+  const metrics = useResourceMetrics({
+    clusterId,
+    resource,
+    resources: session?.resources ?? [],
+    namespaces: selectedNamespaces,
+    refreshSeconds,
+    active,
+  });
 
   const kindState: KindState = session && resource
     ? (session.kindStates[`${resource.apiVersion}|${resource.kind}`] ?? {
@@ -165,7 +174,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [busy, setBusy] = useState(false);
-  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -306,7 +314,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     setBusy(false);
     setDialog(null);
     setSelectedKeys(new Set());
-    setSelectionMode(false);
     await list.refresh(true);
     if (failures.length === 0) {
       toast.success(`${deleted} ${resource.kind}${deleted === 1 ? "" : "s"} deleted`);
@@ -484,12 +491,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
           <button
             type="button"
-            onClick={() => {
-              setSelectionMode((value) => !value);
-              setSelectedKeys(new Set());
-            }}
-            className={cn("shell-icon-button", selectionMode && "is-active")}
-            title={selectionMode ? "Exit selection mode" : "Select multiple resources"}
+            onClick={toggleAllSelection}
+            className={cn("shell-icon-button", selectedKeys.size > 0 && "is-active")}
+            title="Select all visible resources"
           >
             <ListChecks className="h-4 w-4" />
           </button>
@@ -512,7 +516,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         </div>
       </div>
 
-      {selectionMode ? (
+      {selectedKeys.size > 0 ? (
         <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
           <span className="font-medium text-accent-text">{selectedKeys.size} selected</span>
           <button
@@ -530,25 +534,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             Clear
           </button>
           <div className="ml-auto flex items-center gap-1.5">
-            <Button
-              variant="danger"
-              size="xs"
-              disabled={selectedKeys.size === 0}
-              onClick={() => setDialog({ type: "bulk-delete" })}
-            >
+            <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
               <Trash2 className="h-3 w-3" />
               Delete selected
             </Button>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-theme-text-tertiary hover:text-theme-text-primary"
-              onClick={() => {
-                setSelectionMode(false);
-                setSelectedKeys(new Set());
-              }}
-            >
-              Done
-            </button>
           </div>
         </div>
       ) : null}
@@ -619,7 +608,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             setKindPatch({ columnWidths: next });
           }}
           filterableKeys={new Set(filterData.keys())}
-          selectionMode={selectionMode}
+          rowHeight={settings?.tableRowHeight ?? 44}
+          podMetrics={metrics.pods}
+          nodeMetrics={metrics.nodes}
+          selectionMode
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}
           onToggleAll={toggleAllSelection}

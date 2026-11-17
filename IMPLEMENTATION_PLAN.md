@@ -46,6 +46,7 @@ configuration).
 | Custom top bar, drag region, window controls | **Done** | Native traffic lights on macOS; custom controls on Win/Linux |
 | Hotbar cluster rail | **Done** | Favourites → recent → active; catalog button |
 | Welcome + cluster catalog | **Done** | Hero, stats, category rail, search, favourites, recents, kubeconfig sources |
+| Catalog multi-select / removal | **Done** | Checkboxes, bulk favourites, remove-from-catalog (non-destructive), Removed view + restore |
 | Kubeconfig import (file dialog) | **Done** | Multi-select; validated; source list |
 | Kubeconfig import (paste) | **Done** | Validated, written 0600 under userData |
 | Context discovery | **Done** | 98 real contexts detected from `~/.kube/config` |
@@ -77,15 +78,18 @@ configuration).
 | Namespace scope | **Done** | All / one / several namespaces; merged rows, per-namespace watches, summed counts; system namespace toggle |
 | Sorting | **Done** | asc → desc → none, per kind |
 | Column visibility | **Done** | Per kind; default-hidden columns |
+| Always-visible selection | **Done** | Checkbox column, select-all-visible, bulk delete confirmation |
 | Column resizing + horizontal scroll | **Done** | Drag header divider; double-click resets; table scrolls when wider than viewport |
-| Multi-select + bulk delete | **Done** | Checkbox mode, select-visible, confirmation listing selected objects |
 | Status indicators | **Done** | Kind-aware status mapping, Radar status badges |
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
 | Context menu actions | **Done** | Details, YAML, logs, exec, scale, restart, copy kubectl, delete |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
 | Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
-| Metrics columns (CPU/memory in table) | **Not started** | Metrics API is used in details; table columns are not wired yet |
+| CPU/Memory table columns | **Done** | Radar-style bullet bars, request markers, per-container tooltips; Node usage/allocatable bars; “–” without metrics |
+| Configurable row height | **Done** | Settings: 36 / 40 / 44px |
+| Sidebar kind favorites | **Done** | Pinned kinds section + settings list, stored globally |
+| Groups collapsed by default | **Done** | Settings toggle, on by default; expanded state kept per cluster |
 
 ### Resource details
 
@@ -107,7 +111,7 @@ configuration).
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
 | Metrics tab | **Partial** | Real metrics-server values for Pod/Node; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
-| Port forwarding | **Done** | Loopback TCP forward over Kubernetes WebSocket; verified HTTP 200 from a real pod; active forwards panel |
+| Port forwarding | **Done** | Loopback TCP forward over Kubernetes WebSocket; one-click from the Ports table; verified HTTP 200 from a real pod; active forwards panel |
 
 ### Terminal
 
@@ -182,7 +186,11 @@ configuration).
 | Port forward | Pass — localhost tunnel returned HTTP 200 from a real pod |
 | Multi-namespace | Pass — 2 namespaces merged; Namespace column shown; no per-request errors |
 | Column resize | Pass — Name column changed 240→360px; horizontal overflow scrolls |
-| Multi-select | Pass — 2 rows selected, bulk bar + delete confirmation |
+| Multi-select | Pass — checkboxes, 2 rows selected, bulk bar + delete confirmation |
+| Catalog selection/removal | Pass — cluster removed from catalog, Removed view, restored; kubeconfig untouched |
+| CPU / Memory bars | Pass — live metrics-server samples with limit bars, % and request markers |
+| Quick port forward | Pass — clicking port 8080 started a loopback forward |
+| Sidebar favorites / collapsed groups | Pass — pinned kinds appear at top; groups start folded |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |
 | Pod exec (WebSocket + resize) | Pass (`MLENS_EXEC_OK`) |
 | Packaging (macOS arm64) | Pass — `mLens.app` + `MLens-0.1.0-arm64.dmg`; packaged app launches, sees 98 contexts, connects, runs a PTY with the right kubectl context, and port-forwards a real pod (HTTP 200) |
@@ -195,7 +203,7 @@ configuration).
 1. **Packaging run per OS** (`dist:mac`, `dist:win`, `dist:linux`) in CI, verify
    node-pty asar unpacking and notarization.
 2. **Capability-aware write actions** using SelfSubjectAccessReview.
-3. **Metrics columns** and optional Prometheus history.
+3. **Prometheus history** on top of the live metrics columns.
 4. **Helm** (release secrets parsed in TypeScript, no Helm binary).
 5. **Topology/Timeline**, reusing Related + watch data.
 6. **Automated tests**: unit tests for status/format/columns, integration tests

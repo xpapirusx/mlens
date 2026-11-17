@@ -13,6 +13,7 @@ export interface OverviewProps {
   resource: ApiResourceInfo;
   onNavigate: (kind: string, name: string, namespace?: string) => void;
   onPortForward?: (port: number) => void;
+  onQuickPortForward?: (port: number) => void;
 }
 
 function ResourceLink({
@@ -82,7 +83,7 @@ export function OverviewTab(props: OverviewProps) {
   }
 }
 
-function PodOverview({ object, onNavigate, onPortForward }: OverviewProps) {
+function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward }: OverviewProps) {
   const containerStatuses = [
     ...(object.status?.initContainerStatuses ?? []),
     ...(object.status?.containerStatuses ?? []),
@@ -235,7 +236,14 @@ function PodOverview({ object, onNavigate, onPortForward }: OverviewProps) {
                 >
                   <span className="truncate font-mono text-theme-text-secondary">{port.container}</span>
                   <span className="truncate text-theme-text-secondary">{port.name ?? "—"}</span>
-                  <span className="font-mono text-theme-text-primary">{port.port}</span>
+                  <button
+                    type="button"
+                    className="justify-self-start font-mono text-accent-text hover:underline"
+                    title="Start an automatic local port forward"
+                    onClick={() => onQuickPortForward?.(port.port)}
+                  >
+                    {port.port}
+                  </button>
                   <span className="text-theme-text-secondary">{port.protocol}</span>
                   <Button size="xs" variant="ghost" onClick={() => onPortForward?.(port.port)}>
                     <Plug className="h-3 w-3" />

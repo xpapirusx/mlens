@@ -39,6 +39,10 @@ export function defaultSettings(): AppSettings {
     showSystemNamespaces: false,
     sidebarWidth: 236,
     dockHeight: 340,
+    tableRowHeight: 44,
+    collapseCatalogGroups: true,
+    favoriteKinds: [],
+    hiddenClusters: [],
   };
 }
 
@@ -69,6 +73,17 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (typeof out.dockHeight === "number") {
     out.dockHeight = clamp(Math.round(out.dockHeight), 160, 900);
+  }
+  if (typeof out.tableRowHeight === "number") {
+    out.tableRowHeight = [36, 40, 44].includes(Math.round(out.tableRowHeight))
+      ? Math.round(out.tableRowHeight)
+      : 44;
+  }
+  if (out.favoriteKinds) {
+    out.favoriteKinds = [...new Set(out.favoriteKinds.filter((entry) => typeof entry === "string"))];
+  }
+  if (out.hiddenClusters) {
+    out.hiddenClusters = [...new Set(out.hiddenClusters.filter((entry) => typeof entry === "string"))] as ClusterId[];
   }
   return out;
 }

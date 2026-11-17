@@ -1,10 +1,12 @@
 import {
+  Activity,
   Boxes,
+  Braces,
   Cpu,
+  FolderOpen,
   HardDrive,
   Network,
   Puzzle,
-  Scaling,
   ShieldCheck,
   SlidersHorizontal,
   type LucideIcon,
@@ -18,19 +20,16 @@ export interface CategoryMeta {
   order: number;
 }
 
-/**
- * Freelens-style top-level order. Custom Resources live under one parent group
- * with each CRD API group nested inside it.
- */
+/** Top-level order of the Freelens sidebar (overview omitted). */
 export const CATEGORIES: CategoryMeta[] = [
-  { id: "cluster", title: "Cluster", icon: Cpu, order: 10 },
+  { id: "nodes", title: "Nodes", icon: Cpu, order: 10 },
   { id: "workloads", title: "Workloads", icon: Boxes, order: 20 },
   { id: "config", title: "Config", icon: SlidersHorizontal, order: 30 },
-  { id: "networking", title: "Network", icon: Network, order: 40 },
+  { id: "network", title: "Network", icon: Network, order: 40 },
   { id: "storage", title: "Storage", icon: HardDrive, order: 50 },
-  { id: "access-control", title: "Access Control", icon: ShieldCheck, order: 60 },
-  { id: "scaling", title: "Scaling", icon: Scaling, order: 70 },
-  { id: "other", title: "Other", icon: Puzzle, order: 80 },
+  { id: "namespaces", title: "Namespaces", icon: FolderOpen, order: 60 },
+  { id: "events", title: "Events", icon: Activity, order: 70 },
+  { id: "access-control", title: "User Management", icon: ShieldCheck, order: 80 },
 ];
 
 const HIDDEN_KINDS = new Set([
@@ -45,38 +44,109 @@ const HIDDEN_KINDS = new Set([
   "SelfSubjectReview",
 ]);
 
+const WORKLOAD_KINDS = new Set([
+  "Pod",
+  "Deployment",
+  "DaemonSet",
+  "StatefulSet",
+  "ReplicaSet",
+  "ReplicationController",
+  "Job",
+  "CronJob",
+]);
+
+const CONFIG_KINDS = new Set([
+  "ConfigMap",
+  "Secret",
+  "ResourceQuota",
+  "LimitRange",
+  "PodTemplate",
+  "HorizontalPodAutoscaler",
+  "VerticalPodAutoscaler",
+  "PodDisruptionBudget",
+  "RuntimeClass",
+  "Lease",
+  "PriorityClass",
+  "APIService",
+  "ControllerRevision",
+  "CertificateSigningRequest",
+  "FlowSchema",
+  "PriorityLevelConfiguration",
+  "MutatingWebhookConfiguration",
+  "ValidatingWebhookConfiguration",
+  "ValidatingAdmissionPolicy",
+  "ValidatingAdmissionPolicyBinding",
+  "MutatingAdmissionPolicy",
+  "MutatingAdmissionPolicyBinding",
+]);
+
+const NETWORK_KINDS = new Set([
+  "Service",
+  "EndpointSlice",
+  "Endpoints",
+  "Ingress",
+  "IngressClass",
+  "NetworkPolicy",
+]);
+
+const STORAGE_KINDS = new Set([
+  "PersistentVolumeClaim",
+  "PersistentVolume",
+  "StorageClass",
+  "CSIDriver",
+  "CSINode",
+  "VolumeAttachment",
+  "CSIStorageCapacity",
+]);
+
+const ACCESS_KINDS = new Set([
+  "ServiceAccount",
+  "ClusterRole",
+  "Role",
+  "ClusterRoleBinding",
+  "RoleBinding",
+]);
+
 const KIND_ORDER: Record<string, number> = {
-  Node: 10,
-  Namespace: 20,
-  Event: 30,
-  Lease: 40,
-  PriorityClass: 50,
-  RuntimeClass: 60,
-  APIService: 70,
-  CustomResourceDefinition: 80,
-  MutatingWebhookConfiguration: 90,
-  ValidatingWebhookConfiguration: 100,
-  Pod: 10,
-  Deployment: 20,
-  StatefulSet: 30,
+  Pod: 20,
+  Deployment: 30,
   DaemonSet: 40,
-  ReplicaSet: 50,
-  ReplicationController: 55,
-  Job: 60,
-  CronJob: 70,
-  Service: 10,
-  Ingress: 20,
-  IngressClass: 25,
-  NetworkPolicy: 30,
-  Endpoints: 40,
-  EndpointSlice: 50,
-  Gateway: 60,
-  HTTPRoute: 70,
+  StatefulSet: 50,
+  ReplicaSet: 60,
+  ReplicationController: 61,
+  Job: 70,
+  CronJob: 80,
+
   ConfigMap: 10,
   Secret: 20,
   ResourceQuota: 30,
   LimitRange: 40,
-  PodTemplate: 50,
+  HorizontalPodAutoscaler: 50,
+  VerticalPodAutoscaler: 50,
+  PodDisruptionBudget: 60,
+  RuntimeClass: 70,
+  Lease: 80,
+  PriorityClass: 85,
+  APIService: 90,
+  CertificateSigningRequest: 90,
+  FlowSchema: 95,
+  PriorityLevelConfiguration: 96,
+  MutatingWebhookConfiguration: 100,
+  ValidatingWebhookConfiguration: 100,
+  ValidatingAdmissionPolicy: 110,
+  ValidatingAdmissionPolicyBinding: 120,
+  MutatingAdmissionPolicy: 130,
+  MutatingAdmissionPolicyBinding: 140,
+  ControllerRevision: 105,
+  PodTemplate: 45,
+
+  Service: 10,
+  EndpointSlice: 20,
+  Endpoints: 21,
+  Ingress: 30,
+  IngressClass: 31,
+  NetworkPolicy: 40,
+
   PersistentVolumeClaim: 10,
   PersistentVolume: 20,
   StorageClass: 30,
@@ -84,14 +154,12 @@ const KIND_ORDER: Record<string, number> = {
   CSINode: 50,
   VolumeAttachment: 60,
   CSIStorageCapacity: 70,
+
   ServiceAccount: 10,
-  Role: 20,
-  RoleBinding: 30,
-  ClusterRole: 40,
-  ClusterRoleBinding: 50,
-  HorizontalPodAutoscaler: 10,
-  VerticalPodAutoscaler: 20,
-  PodDisruptionBudget: 30,
+  ClusterRole: 20,
+  Role: 30,
+  ClusterRoleBinding: 40,
+  RoleBinding: 50,
 };
 
 export function formatGroupName(group: string): string {
@@ -133,7 +201,8 @@ export interface ResourceGroup {
   order: number;
   resources: ApiResourceInfo[];
   children?: ResourceGroup[];
-  /** Count of all resources below this group (leaf or tree). */
+  /** A single top-level resource rendered as a direct clickable row (Nodes). */
+  standalone?: boolean;
   total: number;
 }
 
@@ -156,12 +225,32 @@ function sortResources(resources: ApiResourceInfo[]): ApiResourceInfo[] {
   });
 }
 
+function makeGroup(meta: CategoryMeta): ResourceGroup {
+  return { id: meta.id, title: meta.title, icon: meta.icon, order: meta.order, resources: [], total: 0 };
+}
+
 export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup[] {
-  const builtIn = new Map<string, ResourceGroup>();
+  const byId = new Map<string, ResourceGroup>();
+  for (const meta of CATEGORIES) {
+    if (meta.id !== "nodes" && meta.id !== "namespaces" && meta.id !== "events") {
+      byId.set(meta.id, makeGroup(meta));
+    }
+  }
+
   const customGroups = new Map<string, ResourceGroup>();
+  let node: ApiResourceInfo | undefined;
+  let namespace: ApiResourceInfo | undefined;
+  let event: ApiResourceInfo | undefined;
+  let crd: ApiResourceInfo | undefined;
 
   for (const resource of resources) {
     if (!isListable(resource)) continue;
+    const kind = resource.kind;
+
+    if (kind === "Node") { node = resource; continue; }
+    if (kind === "Namespace") { namespace = resource; continue; }
+    if (kind === "Event" && resource.apiVersion === "v1") { event = resource; continue; }
+    if (kind === "CustomResourceDefinition") { crd = resource; continue; }
 
     if (resource.isCrd) {
       const groupName = resource.group || "core";
@@ -181,26 +270,72 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
     }
 
     const meta = CATEGORIES.find((category) => category.id === resource.catalogGroup) ??
-      CATEGORIES.find((category) => category.id === "other")!;
-    if (!builtIn.has(meta.id)) {
-      builtIn.set(meta.id, {
-        id: meta.id,
-        title: meta.title,
-        icon: meta.icon,
-        order: meta.order,
-        resources: [],
-        total: 0,
-      });
-    }
-    builtIn.get(meta.id)!.resources.push(resource);
+      CATEGORIES.find((category) => category.id === "config")!;
+    const id = WORKLOAD_KINDS.has(kind)
+      ? "workloads"
+      : CONFIG_KINDS.has(kind)
+        ? "config"
+        : NETWORK_KINDS.has(kind)
+          ? "network"
+          : STORAGE_KINDS.has(kind)
+            ? "storage"
+            : ACCESS_KINDS.has(kind)
+              ? "access-control"
+              : meta.id === "nodes" || meta.id === "namespaces" || meta.id === "events"
+                ? "config"
+                : meta.id;
+    if (!byId.has(id)) byId.set(id, makeGroup(CATEGORIES.find((entry) => entry.id === id) ?? CATEGORIES[0]));
+    byId.get(id)!.resources.push(resource);
   }
 
-  for (const group of builtIn.values()) {
+  const result: ResourceGroup[] = [];
+
+  if (node) {
+    result.push({
+      id: "nodes",
+      title: "Nodes",
+      icon: Cpu,
+      order: 10,
+      resources: [node],
+      standalone: true,
+      total: 1,
+    });
+  }
+
+  for (const meta of CATEGORIES) {
+    if (meta.id === "nodes" || meta.id === "namespaces" || meta.id === "events") continue;
+    const group = byId.get(meta.id);
+    if (!group || group.resources.length === 0) continue;
     group.resources = sortResources(group.resources);
     group.total = group.resources.length;
+    result.push(group);
   }
 
-  const custom = [...customGroups.values()]
+  if (namespace) {
+    result.push({
+      id: "namespaces",
+      title: "Namespaces",
+      icon: FolderOpen,
+      order: 60,
+      resources: [namespace],
+      standalone: true,
+      total: 1,
+    });
+  }
+
+  if (event) {
+    result.push({
+      id: "events",
+      title: "Events",
+      icon: Activity,
+      order: 70,
+      resources: [event],
+      standalone: true,
+      total: 1,
+    });
+  }
+
+  const children = [...customGroups.values()]
     .map((group) => ({
       ...group,
       resources: sortResources(group.resources),
@@ -208,23 +343,30 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
     }))
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  const result = [...builtIn.values()]
-    .filter((group) => group.resources.length > 0)
-    .sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+  if (crd) {
+    children.unshift({
+      id: "custom:definitions",
+      title: "Definitions",
+      icon: Braces,
+      order: 0,
+      resources: [crd],
+      total: 1,
+    });
+  }
 
-  if (custom.length > 0) {
+  if (children.length > 0) {
     result.push({
       id: "custom",
       title: "Custom Resources",
       icon: Puzzle,
-      order: 110,
+      order: 90,
       resources: [],
-      children: custom,
-      total: custom.reduce((sum, group) => sum + group.total, 0),
+      children,
+      total: children.reduce((sum, group) => sum + group.total, 0),
     });
   }
 
-  return result;
+  return result.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
 }
 
 export function siblingResources(
@@ -262,6 +404,10 @@ export function findResource(
 export function filterGroups(groups: ResourceGroup[], search: string): ResourceGroup[] {
   const term = search.trim().toLowerCase();
   if (!term) return groups;
+  const matchesResource = (resource: ApiResourceInfo) =>
+    resource.kind.toLowerCase().includes(term) ||
+    resource.plural.toLowerCase().includes(term) ||
+    resource.shortNames.some((name) => name.toLowerCase().includes(term));
 
   return groups
     .map((group) => {
@@ -269,42 +415,19 @@ export function filterGroups(groups: ResourceGroup[], search: string): ResourceG
         const children = group.children
           .map((child) => ({
             ...child,
-            resources: child.resources.filter(
-              (resource) =>
-                resource.kind.toLowerCase().includes(term) ||
-                resource.plural.toLowerCase().includes(term) ||
-                resource.shortNames.some((name) => name.toLowerCase().includes(term)),
-            ),
+            resources: child.resources.filter(matchesResource),
           }))
           .filter((child) => child.resources.length > 0 || child.title.toLowerCase().includes(term));
-        const matchesParent = group.title.toLowerCase().includes(term);
         return {
           ...group,
           children,
-          resources: matchesParent ? group.resources : group.resources.filter(
-            (resource) =>
-              resource.kind.toLowerCase().includes(term) ||
-              resource.plural.toLowerCase().includes(term) ||
-              resource.shortNames.some((name) => name.toLowerCase().includes(term)),
-          ),
+          resources: group.resources.filter(matchesResource),
           total: children.reduce((sum, child) => sum + child.resources.length, 0) +
-            group.resources.filter((resource) =>
-              resource.kind.toLowerCase().includes(term) ||
-              resource.plural.toLowerCase().includes(term) ||
-              resource.shortNames.some((name) => name.toLowerCase().includes(term)),
-            ).length,
+            group.resources.filter(matchesResource).length,
         };
       }
-      return {
-        ...group,
-        resources: group.resources.filter(
-          (resource) =>
-            resource.kind.toLowerCase().includes(term) ||
-            resource.plural.toLowerCase().includes(term) ||
-            resource.shortNames.some((name) => name.toLowerCase().includes(term)),
-        ),
-        total: group.total,
-      };
+      const resources = group.resources.filter(matchesResource);
+      return { ...group, resources, total: resources.length };
     })
     .filter((group) =>
       group.resources.length > 0 ||

@@ -270,7 +270,17 @@ under `<userData>/terminal-kubeconfigs`, and injects `KUBECONFIG`,
 kubeconfig is never modified. This is the same user-visible behaviour as
 Freelens' per-cluster terminal, without a proxy binary.
 
-### 4.11 Port forwarding
+### 4.11 Metrics for tables
+
+`useResourceMetrics` reads `metrics.k8s.io/v1beta1` `PodMetrics`/`NodeMetrics`
+for the current namespace scope, maps samples by `namespace/name`, and refreshes
+at the table poll interval. CPU/memory cells aggregate container usage and
+compare it with summed requests/limits from the Pod spec (request marker), or
+node allocatable for Nodes. Missing metrics render `–`; there is no fallback to
+synthetic numbers. The whole metrics query is skipped when the metrics API is not
+discovered or the workspace is hidden.
+
+### 4.12 Port forwarding
 
 `PortForwardManager` implements the Kubernetes WebSocket port-forward protocol
 (`v4.channel.k8s.io`) directly:
@@ -319,6 +329,13 @@ expandedGroups, sidebarWidth,
 details { ref, tab } + detailsHistory,
 dock { open, height, tabs, activeTabId }
 ```
+
+Settings add `tableRowHeight` (36/40/44), `collapseCatalogGroups` (default true),
+`favoriteKinds` (pinned sidebar kinds) and `hiddenClusters` (catalog removal).
+Removing a cluster only drops it from the visible catalog: the kubeconfig file is
+never modified. Hidden sessions are disconnected and disposed, and the Removed
+view can restore contexts without touching Kubernetes. The cluster catalog uses
+the same always-visible checkbox selection as resource tables.
 
 This is the substitute for Freelens' per-cluster iframe heap. Everything the user
 perceives as “my place in this cluster” lives here. Network/data caches are

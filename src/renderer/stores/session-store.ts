@@ -76,7 +76,7 @@ interface SessionStore {
     kind: string,
     patch: Partial<KindState> | ((state: KindState) => KindState),
   ) => void;
-  toggleGroup: (id: ClusterId, group: string) => void;
+  toggleGroup: (id: ClusterId, group: string, currentExpanded?: boolean) => void;
   setSidebarWidth: (id: ClusterId, width: number) => void;
   openDetails: (id: ClusterId, ref: ResourceKey) => void;
   setDetailsTab: (id: ClusterId, tab: DetailTab) => void;
@@ -264,13 +264,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
   },
 
-  toggleGroup: (id, group) => {
+  toggleGroup: (id, group, currentExpanded) => {
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
       // Match the renderer default: only the Custom Resources parent starts
       // collapsed.
-      const expanded = session.expandedGroups[group] ?? group !== "custom";
+      const expanded = currentExpanded ?? session.expandedGroups[group] ?? true;
       return {
         sessions: {
           ...state.sessions,

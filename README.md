@@ -35,11 +35,16 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Discovers contexts from `~/.kube/config` and `KUBECONFIG`.
 - Imports additional kubeconfig files (file picker) or pasted YAML.
 - Multiple kubeconfig sources, favourites and recent clusters.
+- Multi-select in the catalog: add to favourites, remove clusters from the mLens
+  catalog (non-destructive — kubeconfig files are untouched) and restore them
+  from the Removed view.
 - Cluster tabs at the top; open-resource tabs inside a cluster.
 - Concurrent cluster sessions; switching clusters preserves namespace scope,
   selected kind, search/sort/filters, sidebar state, open resource tabs and live
   terminal PTYs.
 - Multiple namespace selection per cluster (all, one, or several).
+- Sidebar favorites (pinned resource kinds), collapsible groups starting folded
+  by default, and a configurable table row height (36/40/44px).
 - Health, latency, Kubernetes version, context and API server in the UI.
 - Per-cluster isolation: each cluster has its own Kubernetes client/auth context
   in the main process.
@@ -75,7 +80,8 @@ related-resource resolution. Secrets reveal only on request.
   selected namespace), so `kubectl` starts on the right context.
 - Real Kubernetes pod exec over the exec WebSocket (no kubectl), with TTY resize.
 - Port forwarding over the Kubernetes WebSocket protocol: loopback listener,
-  live forwards panel, start/stop, no kubectl process.
+  live forwards panel, start/stop, and one-click port forwarding from the Pod
+  Ports table, no kubectl process.
 - xterm.js search, copy/paste, Radar console theme.
 
 ### Design system

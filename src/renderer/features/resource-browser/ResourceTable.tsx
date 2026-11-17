@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUpDown, ChevronDown, ChevronUp, ListFilter } from "lucide-react";
 import type { KubeObject } from "@shared/types";
+import type { NodeUsage, PodUsage } from "./useResourceMetrics";
 import type { ColumnDef } from "../../lib/columns";
 import { formatColumnWidth } from "../../lib/columns";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
-
-const ROW_HEIGHT = 44;
 
 interface ResourceTableProps {
   rows: KubeObject[];
@@ -29,6 +28,9 @@ interface ResourceTableProps {
   selectedKeys?: Set<string>;
   onToggleRow?: (object: KubeObject) => void;
   onToggleAll?: () => void;
+  rowHeight?: number;
+  podMetrics?: Map<string, PodUsage>;
+  nodeMetrics?: Map<string, NodeUsage>;
 }
 
 export function ResourceTable({
@@ -47,10 +49,13 @@ export function ResourceTable({
   filterableKeys,
   loading,
   emptyState,
-  selectionMode = false,
+  selectionMode = true,
   selectedKeys = new Set<string>(),
   onToggleRow,
   onToggleAll,
+  rowHeight = 44,
+  podMetrics,
+  nodeMetrics,
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
@@ -58,7 +63,7 @@ export function ResourceTable({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: 16,
   });
 
@@ -235,13 +240,12 @@ export function ResourceTable({
                   )}
                   style={{
                     transform: `translateY(${virtualRow.start}px)`,
-                    height: ROW_HEIGHT,
+                    height: rowHeight,
                     gridTemplateColumns: gridTemplate,
                   }}
                   onClick={() => {
                     setHighlight(virtualRow.index);
-                    if (selectionMode) onToggleRow?.(object);
-                    else onOpen(object);
+                    onOpen(object);
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -275,7 +279,7 @@ export function ResourceTable({
                         column.align === "right" && "justify-end",
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics })}</div>
                     </div>
                   ))}
                 </div>
@@ -288,4 +292,3 @@ export function ResourceTable({
   );
 }
 
-export { ROW_HEIGHT };

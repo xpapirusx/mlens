@@ -293,6 +293,10 @@ export interface AppSettings {
   showSystemNamespaces: boolean;
   sidebarWidth: number;
   dockHeight: number;
+  tableRowHeight: number;
+  collapseCatalogGroups: boolean;
+  favoriteKinds: string[];
+  hiddenClusters: ClusterId[];
 }
 
 export interface AddKubeconfigResult {

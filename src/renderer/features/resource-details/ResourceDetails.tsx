@@ -136,6 +136,27 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     }
   };
 
+  const quickPortForward = async (port: number) => {
+    if (!details?.ref.namespace) return;
+    try {
+      const info = await call(
+        api.portForward.start({
+          clusterId,
+          namespace: details.ref.namespace,
+          pod: details.ref.name,
+          remotePort: port,
+          localPort: 0,
+        }),
+      );
+      toast.success(
+        `Forwarding localhost:${info.localPort} → ${details.ref.name}:${port}`,
+        "Manage it in the Port forwards panel (Plug in the top bar).",
+      );
+    } catch (error) {
+      toast.error("Cannot start port forward", errorText(error));
+    }
+  };
+
   const deleteResource = async () => {
     if (!object) return;
     setDeleting(true);
@@ -248,7 +269,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             </button>
             <button
               type="button"
-              className="shell-icon-button h-6 w-6 text-theme-text-tertiary hover:text-red-500"
+              className="shell-icon-button h-6 w-6 text-red-500/80 hover:text-red-500"
               onClick={() => setConfirmDelete(true)}
               title="Delete resource"
             >
@@ -350,6 +371,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 resource={resource ?? fallbackResource(details.ref)}
                 onNavigate={navigate}
                 onPortForward={(port) => setForwardPort(port)}
+                onQuickPortForward={(port) => void quickPortForward(port)}
               />
             ) : null}
             {tab === "details" ? <DetailsTab object={object} /> : null}

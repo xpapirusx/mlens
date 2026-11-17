@@ -25,15 +25,18 @@ import { Button } from "../../design-system/components/Button";
 import { SearchInput } from "../../design-system/components/SearchInput";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
 import { Modal } from "../../design-system/components/Modal";
+import { ConfirmActionDialog } from "../resource-browser/ResourceDialogs";
 import { EmptyState } from "../../design-system/components/EmptyState";
 import { Spinner } from "../../design-system/components/Spinner";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
 
-type CatalogView = "all" | "favorites" | "recent" | { source: string };
+type CatalogView = "all" | "favorites" | "recent" | "removed" | { source: string };
 
 export function CatalogPage() {
   const clusters = useCatalogStore((state) => state.clusters);
+  const allClusters = useCatalogStore((state) => state.allClusters);
+  const setHiddenClusters = useCatalogStore((state) => state.setHiddenClusters);
   const sources = useCatalogStore((state) => state.sources);
   const settings = useCatalogStore((state) => state.settings);
   const health = useCatalogStore((state) => state.health);
@@ -53,11 +56,17 @@ export function CatalogPage() {
   const [pasteYaml, setPasteYaml] = useState("");
   const [pasteName, setPasteName] = useState("pasted-kubeconfig");
   const [busy, setBusy] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   const favorites = settings?.favorites ?? [];
 
+  const hiddenIds = settings?.hiddenClusters ?? [];
+  const hiddenSet = new Set(hiddenIds);
+  const removedClusters = allClusters.filter((cluster) => hiddenSet.has(cluster.id));
+
   const filtered = useMemo(() => {
-    let list = clusters;
+    let list = view === "removed" ? removedClusters : clusters;
     if (view === "favorites") list = list.filter((cluster) => favorites.includes(cluster.id));
     else if (typeof view === "object") list = list.filter((cluster) => cluster.kubeconfigPath === view.source);
     else if (view === "recent") {
@@ -76,7 +85,7 @@ export function CatalogPage() {
       );
     }
     return list;
-  }, [clusters, favorites, view, search, settings?.recentClusters]);
+  }, [clusters, removedClusters, favorites, view, search, settings?.recentClusters]);
 
   const connectedCount = clusters.filter((cluster) => sessions[cluster.id]?.status === "connected").length;
 
@@ -102,6 +111,7 @@ export function CatalogPage() {
   };
 
   const statusOf = (cluster: ClusterSummary) => {
+    if (hiddenSet.has(cluster.id)) return { text: "Removed", tone: "idle" as const };
     const session = sessions[cluster.id];
     if (session?.status === "connected") return { text: session.info ? `v${session.info.version}` : "Connected", tone: "connected" as const };
     if (session?.status === "connecting") return { text: "Connecting…", tone: "connecting" as const };
@@ -139,6 +149,15 @@ export function CatalogPage() {
             active={view === "recent"}
             onClick={() => setView("recent")}
           />
+          {hiddenIds.length > 0 ? (
+            <NavRow
+              icon={<Trash2 className="h-3.5 w-3.5" />}
+              label="Removed"
+              count={hiddenIds.length}
+              active={view === "removed"}
+              onClick={() => setView("removed")}
+            />
+          ) : null}
         </div>
 
         <div className="mt-2 flex items-center justify-between px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
@@ -237,9 +256,30 @@ export function CatalogPage() {
                 ? "Favorite clusters"
                 : view === "recent"
                   ? "Recent clusters"
-                  : basename(view.source)}
+                  : view === "removed"
+                    ? "Removed from catalog"
+                    : basename(view.source)}
           </h2>
           <span className="font-mono text-[10px] text-theme-text-tertiary">{filtered.length}</span>
+          <label className="ml-1 flex cursor-pointer items-center gap-1 text-[10px] text-theme-text-tertiary">
+            <input
+              type="checkbox"
+              checked={filtered.length > 0 && filtered.every((cluster) => selectedIds.has(cluster.id))}
+              onChange={() => {
+                setSelectedIds((current) => {
+                  const all = filtered.every((cluster) => current.has(cluster.id));
+                  const next = new Set(current);
+                  for (const cluster of filtered) {
+                    if (all) next.delete(cluster.id);
+                    else next.add(cluster.id);
+                  }
+                  return next;
+                });
+              }}
+              className="h-3 w-3 rounded border-theme-border accent-skyhook-500"
+            />
+            Select all
+          </label>
           {typeof view === "object" ? (
             <button
               type="button"
@@ -276,20 +316,79 @@ export function CatalogPage() {
           </div>
         ) : null}
 
-        {clusters.length === 0 && !loading ? (
+        {selectedIds.size > 0 ? (
+          <div className="mx-4 mt-3 flex h-9 items-center gap-2 rounded-lg border border-skyhook-500/30 bg-skyhook-500/10 px-3 text-[11px]">
+            <span className="font-medium text-accent-text">{selectedIds.size} selected</span>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover"
+              onClick={() => {
+                void updateSettings({
+                  favorites: [...new Set([...favorites, ...selectedIds])],
+                });
+                toast.success("Added to favorites");
+                setSelectedIds(new Set());
+              }}
+            >
+              Add to favorites
+            </button>
+            <div className="ml-auto flex items-center gap-1.5">
+              {view === "removed" ? (
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  onClick={() => {
+                    void setHiddenClusters(hiddenIds.filter((id) => !selectedIds.has(id))).then(() => {
+                      toast.success("Restored to catalog");
+                      setSelectedIds(new Set());
+                    });
+                  }}
+                >
+                  Restore
+                </Button>
+              ) : (
+                <Button size="xs" variant="danger" onClick={() => setConfirmRemove(true)}>
+                  <Trash2 className="h-3 w-3" />
+                  Remove from catalog
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {clusters.length === 0 && !loading && view !== "removed" ? (
           <EmptyState
             icon={<Server />}
-            title="No Kubernetes contexts found"
-            description="mLens reads kubeconfig files from ~/.kube/config and the KUBECONFIG environment variable. Import a file or paste a kubeconfig to get started — kubectl and Node.js are not required."
+            title={allClusters.length > 0 ? "All clusters are removed from the catalog" : "No Kubernetes contexts found"}
+            description={
+              allClusters.length > 0
+                ? "Your kubeconfig files are untouched. Open the Removed view to restore clusters."
+                : "mLens reads kubeconfig files from ~/.kube/config and the KUBECONFIG environment variable. Import a file or paste a kubeconfig to get started — kubectl and Node.js are not required."
+            }
             action={
               <div className="flex gap-2">
-                <Button variant="primary" onClick={() => void importViaDialog()}>
-                  <Upload className="h-3.5 w-3.5" />
-                  Import kubeconfig
-                </Button>
-                <Button variant="secondary" onClick={() => setPasteOpen(true)}>
-                  Paste kubeconfig
-                </Button>
+                {allClusters.length > 0 ? (
+                  <Button variant="primary" onClick={() => setView("removed")}>
+                    Open Removed view
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="primary" onClick={() => void importViaDialog()}>
+                      <Upload className="h-3.5 w-3.5" />
+                      Import kubeconfig
+                    </Button>
+                    <Button variant="secondary" onClick={() => setPasteOpen(true)}>
+                      Paste kubeconfig
+                    </Button>
+                  </>
+                )}
               </div>
             }
           />
@@ -315,9 +414,25 @@ export function CatalogPage() {
                   <div
                     key={cluster.id}
                     className="group grid cursor-pointer grid-cols-[minmax(220px,1.4fr)_110px_90px_minmax(160px,1fr)_150px_130px_88px] items-center gap-2 border-b-subtle px-3 py-2 last:border-0 hover:bg-theme-hover/40"
-                    onClick={() => void openCluster(cluster.id)}
+                    onClick={() => {
+                      if (!hiddenSet.has(cluster.id)) void openCluster(cluster.id);
+                    }}
                   >
                     <div className="flex min-w-0 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(cluster.id)}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={() =>
+                          setSelectedIds((current) => {
+                            const next = new Set(current);
+                            if (next.has(cluster.id)) next.delete(cluster.id);
+                            else next.add(cluster.id);
+                            return next;
+                          })
+                        }
+                        className="h-3.5 w-3.5 shrink-0 rounded border-theme-border accent-skyhook-500"
+                      />
                       <div
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold text-white"
                         style={{
@@ -403,15 +518,29 @@ export function CatalogPage() {
                         {({ close }) => (
                           <>
                             <MenuLabel>{cluster.name}</MenuLabel>
-                            <MenuItem
-                              icon={<Server className="h-3.5 w-3.5" />}
-                              onClick={() => {
-                                void openCluster(cluster.id);
-                                close();
-                              }}
-                            >
-                              {connected ? "Open cluster" : "Connect and open"}
-                            </MenuItem>
+                            {hiddenSet.has(cluster.id) ? (
+                              <MenuItem
+                                icon={<RefreshCw className="h-3.5 w-3.5" />}
+                                onClick={() => {
+                                  void setHiddenClusters(hiddenIds.filter((id) => id !== cluster.id)).then(() => {
+                                    toast.success("Restored to catalog");
+                                    close();
+                                  });
+                                }}
+                              >
+                                Restore to catalog
+                              </MenuItem>
+                            ) : (
+                              <MenuItem
+                                icon={<Server className="h-3.5 w-3.5" />}
+                                onClick={() => {
+                                  void openCluster(cluster.id);
+                                  close();
+                                }}
+                              >
+                                {connected ? "Open cluster" : "Connect and open"}
+                              </MenuItem>
+                            )}
                             <MenuItem
                               icon={<Copy className="h-3.5 w-3.5" />}
                               onClick={() => {
@@ -467,6 +596,39 @@ export function CatalogPage() {
           </div>
         )}
       </div>
+
+      <ConfirmActionDialog
+        open={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        onConfirm={() => {
+          void setHiddenClusters([...hiddenIds, ...selectedIds]).then(() => {
+            toast.success(`${selectedIds.size} cluster${selectedIds.size === 1 ? "" : "s"} removed from catalog`);
+            setSelectedIds(new Set());
+            setConfirmRemove(false);
+          });
+        }}
+        title={`Remove ${selectedIds.size} cluster${selectedIds.size === 1 ? "" : "s"} from catalog?`}
+        confirmLabel="Remove from catalog"
+        danger
+        description={
+          <>
+            <p>
+              Removed clusters disappear from the hotbar, tabs and command palette. Their kubeconfig
+              files are <span className="font-medium text-theme-text-primary">not modified</span>; you
+              can restore them from the Removed view.
+            </p>
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-theme-border bg-theme-base p-2 font-mono text-[11px]">
+              {allClusters
+                .filter((cluster) => selectedIds.has(cluster.id))
+                .map((cluster) => (
+                  <li key={cluster.id} className="truncate">
+                    {cluster.name}
+                  </li>
+                ))}
+            </ul>
+          </>
+        }
+      />
 
       <Modal
         open={pasteOpen}

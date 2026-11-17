@@ -8,6 +8,7 @@ interface CatalogStore {
   settings: AppSettings | null;
   settingsOpen: boolean;
   sources: KubeconfigSource[];
+  allClusters: ClusterSummary[];
   clusters: ClusterSummary[];
   health: Record<ClusterId, ClusterHealth>;
   activeClusterId: ClusterId | null;
@@ -17,6 +18,7 @@ interface CatalogStore {
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   loadCatalog: () => Promise<void>;
+  setHiddenClusters: (ids: ClusterId[]) => Promise<void>;
   connect: (id: ClusterId) => Promise<boolean>;
   disconnect: (id: ClusterId) => Promise<void>;
   removeKubeconfig: (path: string) => Promise<void>;
@@ -32,6 +34,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   settings: null,
   settingsOpen: false,
   sources: [],
+  allClusters: [],
   clusters: [],
   health: {},
   activeClusterId: null,
@@ -51,17 +54,42 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   updateSettings: async (patch) => {
     try {
       const settings = await call(api.settings.update(patch));
-      set({ settings });
+      const hidden = new Set(settings.hiddenClusters);
+      set((state) => ({
+        settings,
+        clusters: state.allClusters.filter((cluster) => !hidden.has(cluster.id)),
+      }));
     } catch (error) {
       toast.error("Cannot save settings", errorText(error));
     }
+  },
+
+  setHiddenClusters: async (ids) => {
+    const previous = new Set(get().settings?.hiddenClusters ?? []);
+    const newlyHidden = ids.filter((id) => !previous.has(id));
+    for (const id of newlyHidden) {
+      if (useSessionStore.getState().sessions[id]) {
+        await get().disconnect(id);
+        useSessionStore.getState().dispose(id);
+      }
+    }
+    if (get().activeClusterId && ids.includes(get().activeClusterId!)) set({ activeClusterId: null });
+    await get().updateSettings({ hiddenClusters: ids });
   },
 
   loadCatalog: async () => {
     set({ loadingCatalog: true, catalogError: null });
     try {
       const result = await call(api.clusters.listKubeconfigs());
-      set({ sources: result.sources, clusters: result.clusters, loadingCatalog: false });
+      const settings = get().settings ?? (await call(api.settings.get()));
+      const hidden = new Set(settings.hiddenClusters);
+      set({
+        sources: result.sources,
+        allClusters: result.clusters,
+        clusters: result.clusters.filter((cluster) => !hidden.has(cluster.id)),
+        settings,
+        loadingCatalog: false,
+      });
     } catch (error) {
       set({ loadingCatalog: false, catalogError: errorText(error) });
     }
