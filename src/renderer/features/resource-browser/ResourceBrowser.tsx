@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Ban,
   CircleCheck,
   Copy,
   FileCode,
@@ -9,7 +10,8 @@ import {
   Pause,
   Play,
   Plus,
-  RefreshCw,
+  RotateCcw,
+  RotateCw,
   Scale,
   TriangleExclamationPoint,
   ScrollText,
@@ -38,19 +40,13 @@ import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
-import {
-  isDeploymentPaused,
-  isSuspended,
-  restartWorkload,
-  scaleWorkload,
-  setWorkloadPaused,
-  setWorkloadSuspended,
-  workloadCapabilities,
-} from "../../lib/workload-actions";
+import { ClusterOverview } from "../overview/ClusterOverview";
+import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
   type: "create" | "scale" | "delete" | "restart" | "bulk-delete";
   object?: KubeObject;
+  force?: boolean;
 }
 
 function rowKey(object: KubeObject): string {
@@ -64,6 +60,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const updateKindState = useSessionStore((state) => state.updateKindState);
   const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
   const openDetails = useSessionStore((state) => state.openDetails);
+  const closeDetails = useSessionStore((state) => state.closeDetails);
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const details = session?.details;
@@ -323,6 +320,27 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     }
   };
 
+  const openAttach = async (object: KubeObject) => {
+    const podNamespace = object.metadata?.namespace;
+    const podName = object.metadata?.name;
+    if (!podNamespace || !podName) return;
+    try {
+      const containers = await call(api.pods.containers(clusterId, podNamespace, podName));
+      const container = containers[0]?.name;
+      if (!container) throw new Error("Pod has no containers");
+      openTerminal(clusterId, {
+        type: "pod",
+        clusterId,
+        namespace: podNamespace,
+        pod: podName,
+        container,
+        mode: "attach",
+      });
+    } catch (error) {
+      toast.error("Cannot attach to pod", errorText(error));
+    }
+  };
+
   const toggleRowSelection = (object: KubeObject) => {
     const key = rowKey(object);
     setSelectedKeys((current) => {
@@ -396,13 +414,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           namespace: dialog.object.metadata?.namespace,
           name: dialog.object.metadata?.name,
           propagationPolicy: "Background",
+          force: dialog.force,
         }),
       );
-      toast.success("Resource deleted", `${resource.kind}/${dialog.object.metadata?.name}`);
+      toast.success(dialog.force ? "Resource force-deleted" : "Resource deleted", `${resource.kind}/${dialog.object.metadata?.name}`);
       setDialog(null);
       await list.refresh(true);
     } catch (error) {
-      toast.error("Delete failed", errorText(error));
+      toast.error(dialog.force ? "Force delete failed" : "Delete failed", errorText(error));
     } finally {
       setBusy(false);
     }
@@ -453,6 +472,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     }
   };
 
+  if (session?.selectedKind?.kind === "__overview__") {
+    return <ClusterOverview clusterId={clusterId} active={active} />;
+  }
+
   if (!resource) {
     return (
       <div className="flex flex-1 flex-col">
@@ -473,6 +496,28 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const canPause = caps.pausable;
   const canSuspend = caps.suspendable;
   const isPod = lowerKind === "pod";
+  const isNode = lowerKind === "node";
+
+  const toggleCordon = async (object: KubeObject) => {
+    if (!resource) return;
+    const cordoned = Boolean(object.spec?.unschedulable);
+    try {
+      await call(
+        api.resources.patch({
+          clusterId,
+          apiVersion: resource.apiVersion,
+          kind: resource.kind,
+          namespace: object.metadata?.namespace,
+          name: object.metadata?.name,
+          patch: { spec: { unschedulable: !cordoned } },
+        }),
+      );
+      toast.success(cordoned ? "Node uncordoned" : "Node cordoned", object.metadata?.name);
+      await list.refresh(true);
+    } catch (error) {
+      toast.error(cordoned ? "Uncordon failed" : "Cordon failed", errorText(error));
+    }
+  };
 
   const toggleSuspend = async (object: KubeObject) => {
     if (!resource) return;
@@ -634,10 +679,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             type="button"
             onClick={() => void list.refresh(false)}
             className="shell-icon-button"
-            title="Refresh now"
+            title="Reload data (does not restart workloads)"
             disabled={list.loading}
           >
-            <RefreshCw className={cn("h-4 w-4", list.loading && "animate-spin")} />
+            <RotateCw className={cn("h-4 w-4", list.loading && "animate-spin")} />
           </button>
 
           <Button variant="primary" size="sm" onClick={() => setDialog({ type: "create" })}>
@@ -713,6 +758,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           selectedRef={selectedRef}
           onOpen={(object) => openTab(object)}
           onContextMenu={(object, event) => setMenu({ object, x: event.clientX, y: event.clientY })}
+          onRowMenu={(object, event) => {
+            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            setMenu({ object, x: rect.left, y: rect.bottom + 4 });
+          }}
+          onBackgroundClick={() => {
+            if (details) closeDetails(clusterId);
+          }}
           onFilterColumn={openFilter}
           columnWidths={columnWidths}
           onResizeEnd={(key, width) => {
@@ -735,6 +787,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           podMetrics={metrics.pods}
           nodeMetrics={metrics.nodes}
           onSelectNamespace={(namespace) => setSelectedNamespaces(clusterId, [namespace])}
+          onOpenNode={(name) =>
+            openDetails(clusterId, { clusterId, apiVersion: "v1", kind: "Node", name })
+          }
           selectionMode
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}
@@ -837,9 +892,8 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             setMenu(null);
           }}
         >
-          View YAML
-        </MenuItem>
-        {isPod ? (
+          Edit YAML
+        </MenuItem>        {isPod ? (
           <MenuItem
             icon={<ScrollText className="h-3.5 w-3.5" />}
             onClick={() => {
@@ -854,11 +908,33 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           <MenuItem
             icon={<SquareTerminal className="h-3.5 w-3.5" />}
             onClick={() => {
+              if (contextObject) void openAttach(contextObject);
+              setMenu(null);
+            }}
+          >
+            Attach
+          </MenuItem>
+        ) : null}
+        {isPod ? (
+          <MenuItem
+            icon={<SquareTerminal className="h-3.5 w-3.5" />}
+            onClick={() => {
               if (contextObject) void openExec(contextObject);
               setMenu(null);
             }}
           >
-            Exec into container
+            Exec shell
+          </MenuItem>
+        ) : null}
+        {isNode ? (
+          <MenuItem
+            icon={<Ban className="h-3.5 w-3.5" />}
+            onClick={() => {
+              if (contextObject) void toggleCordon(contextObject);
+              setMenu(null);
+            }}
+          >
+            {contextObject?.spec?.unschedulable ? "Uncordon node" : "Cordon node"}
           </MenuItem>
         ) : null}
         {canScale ? (
@@ -874,7 +950,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         ) : null}
         {canRestart ? (
           <MenuItem
-            icon={<Play className="h-3.5 w-3.5" />}
+            icon={<RotateCcw className="h-3.5 w-3.5" />}
             onClick={() => {
               if (isDeploymentPaused(contextObject)) {
                 toast.error("Rollout is paused", "Resume the rollout before restarting it.");
@@ -938,6 +1014,16 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         >
           Delete…
         </MenuItem>
+        <MenuItem
+          danger
+          icon={<TriangleExclamationPoint className="h-3.5 w-3.5" />}
+          onClick={() => {
+            setDialog({ type: "delete", object: contextObject, force: true });
+            setMenu(null);
+          }}
+        >
+          Force delete…
+        </MenuItem>
       </ContextMenu>
 
       <CreateResourceDialog
@@ -962,18 +1048,21 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         open={dialog?.type === "delete"}
         onClose={() => setDialog(null)}
         onConfirm={() => void deleteObject()}
-        title={`Delete ${resource.kind}`}
-        confirmLabel="Delete resource"
+        title={dialog?.force ? `Force delete ${resource.kind}` : `Delete ${resource.kind}`}
+        confirmLabel={dialog?.force ? "Force delete" : "Delete resource"}
         danger
         busy={busy}
         description={
           <>
             <p>
-              Delete <span className="font-medium text-theme-text-primary">{dialog?.object?.metadata?.name}</span>
+              {dialog?.force ? "Force delete " : "Delete "}
+              <span className="font-medium text-theme-text-primary">{dialog?.object?.metadata?.name}</span>
               {dialog?.object?.metadata?.namespace ? ` in ${dialog.object.metadata.namespace}` : ""}?
             </p>
             <p className="mt-2 text-xs text-theme-text-tertiary">
-              Dependents use the Background propagation policy. This action cannot be undone.
+              {dialog?.force
+                ? "The API server is asked for grace period 0 (kubectl delete --force --grace-period=0). Pods may be terminated abruptly."
+                : "Dependents use the Background propagation policy. This action cannot be undone."}
             </p>
           </>
         }

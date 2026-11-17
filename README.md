@@ -46,6 +46,8 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Sidebar favorites (pinned resource kinds), collapsible groups starting folded
   by default, and a configurable table row height (24–52px).
 - Health, latency, Kubernetes version, context and API server in the UI.
+- Per-cluster **Overview** home page: nodes ready, pod/workload counts, warning
+  events, CPU/memory capacity, API/CRD surface and quick links into kinds.
 - Per-cluster isolation: each cluster has its own Kubernetes client/auth context
   in the main process.
 
@@ -60,23 +62,30 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   filters, namespace filters, sortable columns, drag-to-resize columns (double-click
   to reset), horizontal scrolling, column picker and keyboard navigation.
 - Multi-select mode with bulk delete and confirmation.
-- Row context menu: details, YAML, logs (Pods), exec (Pods), scale
+- Row actions menu on the left of every row (same as right-click): details,
+  edit YAML, logs, attach, exec shell (Pods), scale
   (Deployments/StatefulSets/ReplicaSets), restart
   (Deployments/StatefulSets/DaemonSets), pause/resume rollout (Deployments),
-  suspend/resume (Jobs/CronJobs), copy kubectl command, delete.
+  suspend/resume (Jobs/CronJobs), cordon/uncordon (Nodes), copy kubectl command,
+  delete and force delete (`gracePeriodSeconds: 0`).
+- Init containers are marked in the Containers column (outlined square,
+  separator, `+N init`) and listed in their own Pod Overview section.
+- Custom resources and CRDs are labelled `kind: …` / `apiVersion: …` in the
+  sidebar so same-named CRDs from different groups stay distinguishable.
 - Create any discovered kind from YAML with server-side dry-run.
 
 ### Resource details
 
-Overview / Details / YAML / Events / Logs (Pods) / Metrics inside a resizable
-Freelens-style drawer. A kind-specific action row under the drawer title carries
-logs/exec/port-forward (Pods), scale/restart/pause/suspend for workloads, and
-delete; refresh and close stay in the header. Pods show environment variables and
-ports; ConfigMaps and Secrets are editable from the UI (Secret values
-decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
-data, storage, HPA, CRD and generic CRD renderers. Pod Overview includes a Ports
-table with one-click forwarding. Real events, real streaming logs, real
-related-resource resolution. Secrets reveal only on request.
+Overview / Details / YAML / Events / Related / Logs (Pods) / Metrics inside a
+resizable Freelens-style drawer. Kind actions are right-aligned icon buttons in
+the drawer header (logs/exec/port-forward for Pods, scale/restart/pause/suspend
+for workloads, cordon/uncordon for Nodes, delete next to close); reload only
+refetches data. Pods show init containers and environment variables with inline
+Secret/ConfigMap peeks; ConfigMaps and Secrets are editable from the UI (Secret
+values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
+data, storage, HPA, CRD and generic CRD renderers; Node Overview uses Radar-style
+capacity cards. Related resources are resolved from the live API for every kind.
+Secrets reveal only on request.
 
 ### Terminal
 

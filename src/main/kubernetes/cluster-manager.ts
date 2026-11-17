@@ -248,6 +248,7 @@ export class ClusterManager {
         apiVersion: "v1",
         kind: "DeleteOptions",
         propagationPolicy: request.propagationPolicy ?? "Background",
+        ...(request.force ? { gracePeriodSeconds: 0 } : {}),
       },
     });
   }

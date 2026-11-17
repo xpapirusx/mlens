@@ -194,6 +194,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
       const cols = terminal.cols || 80;
       const rows = terminal.rows || 24;
       if (isExec) {
+        const attach = target.mode === "attach";
         void api.exec
           .start({
             sessionId,
@@ -201,15 +202,16 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
             namespace: target.namespace,
             pod: target.pod,
             container: target.container,
-            command: [target.shell ?? "/bin/sh"],
-            tty: true,
+            command: attach ? [] : [target.shell ?? "/bin/sh"],
+            tty: !attach,
             cols,
             rows,
+            mode: attach ? "attach" : "exec",
           })
           .then(() => setStatus("ready"))
           .catch((error) => {
             setStatus("error");
-            toast.error("Pod exec failed", errorText(error));
+            toast.error(attach ? "Pod attach failed" : "Pod exec failed", errorText(error));
             terminal.write(`\x1b[31m${errorText(error)}\x1b[0m\r\n`);
           });
       } else {

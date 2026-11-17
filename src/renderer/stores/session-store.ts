@@ -3,7 +3,7 @@ import type { ApiResourceInfo, ClusterConnectionInfo, ClusterId, ResourceKey } f
 import { api, call, errorText } from "../lib/api";
 import { toast } from "../design-system/components/Toast";
 
-export type DetailTab = "overview" | "details" | "yaml" | "events" | "logs" | "metrics";
+export type DetailTab = "overview" | "details" | "yaml" | "events" | "related" | "logs" | "metrics";
 
 export interface KindState {
   search: string;
@@ -23,6 +23,8 @@ export type TerminalTarget =
       pod: string;
       container: string;
       shell?: string;
+      /** `attach` connects to the running process; otherwise a shell is exec'd. */
+      mode?: "exec" | "attach";
     };
 
 export interface TerminalTab {
@@ -186,7 +188,11 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             selectedNamespaces: state.sessions[id].selectedNamespaces,
             selectedKind:
               state.sessions[id].selectedKind ??
-              (preferred ? { apiVersion: preferred.apiVersion, kind: preferred.kind } : null),
+              (resources.length > 0
+                ? { apiVersion: "", kind: "__overview__" }
+                : preferred
+                  ? { apiVersion: preferred.apiVersion, kind: preferred.kind }
+                  : null),
           },
         },
       }));
@@ -450,7 +456,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             tab.target.clusterId === target.clusterId &&
             tab.target.namespace === target.namespace &&
             tab.target.pod === target.pod &&
-            tab.target.container === target.container
+            tab.target.container === target.container &&
+            (tab.target.mode ?? "exec") === (target.mode ?? "exec")
           );
         }
         return false;
@@ -466,7 +473,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const index = session.dock.tabs.length + 1;
       const title =
         target.type === "pod"
-          ? `${target.pod}${target.container ? ` / ${target.container}` : ""}`
+          ? `${target.mode === "attach" ? "attach · " : ""}${target.pod}${target.container ? ` / ${target.container}` : ""}`
           : `Terminal ${index}`;
       const tab: TerminalTab = {
         id: `term-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,

@@ -250,10 +250,10 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
     if (!isListable(resource)) continue;
     const kind = resource.kind;
 
-    if (kind === "Node") { node = resource; continue; }
-    if (kind === "Namespace") { namespace = resource; continue; }
-    if (kind === "Event" && resource.apiVersion === "v1") { event = resource; continue; }
-    if (kind === "CustomResourceDefinition") { crd = resource; continue; }
+    if (kind === "Node" && !resource.isCrd) { node = resource; continue; }
+    if (kind === "Namespace" && !resource.isCrd) { namespace = resource; continue; }
+    if (kind === "Event" && resource.apiVersion === "v1" && !resource.isCrd) { event = resource; continue; }
+    if (kind === "CustomResourceDefinition" && !resource.isCrd) { crd = resource; continue; }
 
     if (resource.isCrd) {
       const groupName = resource.group || "core";

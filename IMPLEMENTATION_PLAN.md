@@ -83,10 +83,19 @@ configuration).
 | Status indicators | **Done** | Kind-aware status mapping, Radar status badges |
 | Resource counts | **Done** | Sidebar counts via `remainingItemCount` |
 | Auto-refresh | **Done** | Live watch + polling interval; freshness indicator |
-| Context menu actions | **Done** | Details, YAML, Pod logs, Pod exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), pause/resume rollout (Deployment), suspend/resume (Job/CronJob), copy kubectl, delete |
-| Details workload actions | **Done** | Kind action row in the drawer plus Radar-style Scale/Pause buttons in the Overview Status section; shared capability rules in `lib/workload-actions.ts` |
+| Context menu actions | **Done** | Details, edit YAML, Pod logs/attach/exec, scale (Deployment/STS/RS), restart (Deployment/STS/DS), pause/resume rollout (Deployment), suspend/resume (Job/CronJob), Node cordon/uncordon, copy kubectl, delete, force delete |
+| Leading row menu | **Done** | Always-visible "…" column opens the same actions; checked against Pods, Deployments, Nodes |
+| Force delete | **Done** | DeleteOptions with gracePeriodSeconds 0 after explicit confirmation |
+| CRD naming in catalog | **Done** | CRs and CRDs show `kind:` + `apiVersion:` on two lines |
+| Init containers | **Done** | Table: outlined squares, separator, `+N init`; Pod Overview: numbered Init containers section |
+| Details workload actions | **Done** | Right-aligned header icons (Scale/Restart/Pause/Suspend/Cordon/Delete/Reload) plus Radar-style Scale/Pause buttons in the Overview Status section; shared capability rules in `lib/workload-actions.ts` |
 | Scale safety | **Done** | HPA ownership is checked on pressing Scale (lazy, one namespaced HPA list) and blocks manual scaling |
 | Namespace cell click | **Done** | Clicking a namespace scopes the table to it |
+| Node cell click | **Done** | Pod Node cells open the Node details drawer |
+| Background click | **Done** | Clicking empty table space closes the details drawer |
+| Node actions | **Done** | Cordon/Uncordon in the row menu, drawer header and Node Overview |
+| Cluster Overview home | **Done** | Nodes ready, counts, warning events, capacity, API/CRD surface, quick links; default landing page |
+| Related resources | **Done** | Related tab restored for every kind using the live resolver, Freelens-style list |
 | Bulk bar placement | **Done** | Selection + delete bar sits above the terminal dock |
 | Create from YAML | **Done** | Monaco editor, server dry-run, apply |
 | Large-list paging | **Done** | Continue token + “Load more” for single/all scopes; multi-namespace caps each scope at 1000 for now |
@@ -106,7 +115,7 @@ configuration).
 | Feature | Status | Notes |
 |---|---|---|
 | Lens drawer mechanics | **Done** | Right panel, resizable, expand, back stack, action toolbar (logs/exec/YAML/port-forward/delete/close), Escape |
-| Radar content and tabs | **Done** | Overview / Details / YAML / Events / Logs (Pods only) / Metrics |
+| Radar content and tabs | **Done** | Overview / Details / YAML / Events / Related / Logs (Pods only) / Metrics |
 | Pod overview | **Done** | Freelens-style sections: status, containers, environment with inline Secret/ConfigMap peek, Ports + Forward, conditions, volumes, scheduling/tolerations/affinity |
 | Deployment/STS/DS/RS overview | **Done** | Replicas, conditions, containers, owner; Scale and Pause/Resume buttons for supported kinds |
 | Node overview | **Done** | Capacity/allocatable, conditions, system info, addresses, taints |
@@ -121,7 +130,7 @@ configuration).
 | Events tab | **Done** | Live, filtered by involved object, warning filter, search |
 | Logs tab | **Done** | Pods only; streaming, container picker, follow/previous/tail/timestamps, search, download |
 | Specification & Status | **Done** | Sorted flat fields; complex objects/arrays are collapsed JSON blocks (drawer height stable) |
-| Related resources | **Removed** | Tab removed by product decision; resolver is unused |
+| Related resources | **Done** | Restored by request; owners, selectors, services, config, node and volume relationships |
 | YAML tab | **Done** | Monaco, edit, dry-run, apply |
 | Metrics tab | **Partial** | Real metrics-server values for Pods only; no history charts |
 | Conditions | **Done** | Timeline presentation with polarity |
@@ -209,7 +218,12 @@ configuration).
 | ConfigMap/Secret editor | Pass — create/patch/get/delete verified against a real ConfigMap |
 | Random port forwarding | Pass — packaged app forwarded on local port 30120 and returned HTTP 200 |
 | Problems status filter | Pass — 115 warning/error rows isolated on a live cluster |
-| Workload actions in drawer | Pass — Deployment Scale/Restart/Pause rollout, StatefulSet Scale/Restart, ReplicaSet Scale, Job Suspend; dialogs open, no console errors |
+| Workload actions in drawer | Pass — icon actions right-aligned; Deployment Scale/Restart/Pause, StatefulSet Scale/Restart, ReplicaSet Scale, Job Suspend, Node Cordon; dialogs open |
+| Cluster Overview | Pass — live counts (Pods 282+, Deployments 96, Nodes 1/1), capacity 48 CPU / 504 GiB, warning events, no console errors |
+| Related tab | Pass — Pod owners + 4 referenced ConfigMaps/Secrets resolved from the live API |
+| Init containers | Pass — a 5-init Cilium pod renders `1/1 +5 init` and the Init containers section |
+| Row menu / force delete | Pass — kebab menu opens Attach/Exec/Logs/Delete/Force delete; force dialog shows grace-period 0 |
+| Attach | Pass — pods/attach WebSocket started against a live pod without errors |
 | Workload actions in table | Pass — context menu shows Scale/Restart/Pause rollout for Deployments, Scale for ReplicaSets, Suspend for Jobs |
 | Column order | Pass — up/down in the column picker, persisted per kind |
 | Cluster switch with live terminal | Pass — xterm/PTY stays mounted through catalog → other cluster → back |

@@ -195,6 +195,8 @@ export interface ExecRequest {
   tty: boolean;
   cols: number;
   rows: number;
+  /** Attach streams the existing process instead of starting a shell. */
+  mode?: "exec" | "attach";
 }
 
 export interface LocalTerminalRequest {
@@ -258,6 +260,8 @@ export interface PatchResourceRequest extends ResourceKey {
 
 export interface DeleteResourceRequest extends ResourceKey {
   propagationPolicy?: "Foreground" | "Background" | "Orphan";
+  /** Force deletion: grace period 0 (kubectl delete --force --grace-period=0). */
+  force?: boolean;
 }
 
 export interface ScaleRequest {

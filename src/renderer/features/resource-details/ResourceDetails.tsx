@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
+  Ban,
   ChevronLeft,
   Copy,
   FileCode,
@@ -9,11 +10,12 @@ import {
   Layers,
   Maximize2,
   Minimize2,
+  Network,
   Pause,
   Play,
   Plug,
-  RefreshCw,
   RotateCcw,
+  RotateCw,
   Scale,
   ScrollText,
   SquareTerminal,
@@ -46,11 +48,12 @@ import {
   setWorkloadSuspended,
   workloadCapabilities,
 } from "../../lib/workload-actions";
-import { useEvents, useResourceObject } from "./useDetailsData";
+import { useEvents, useRelatedResources, useResourceObject } from "./useDetailsData";
 import { OverviewTab } from "./OverviewTab";
 import { DetailsTab } from "./DetailsTab";
 import { YamlTab } from "./YamlTab";
 import { EventsTab } from "./EventsTab";
+import { RelatedTab } from "./RelatedTab";
 import { LogsTab } from "./LogsTab";
 import { MetricsTab } from "./MetricsTab";
 
@@ -81,6 +84,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
 
   const tab: DetailTab = details?.tab ?? "overview";
   const events = useEvents(clusterId, details?.ref ?? null, refreshSeconds, tab === "events");
+  const related = useRelatedResources(clusterId, details?.ref ?? null, object, tab === "related");
 
   const [width, setWidth] = useState(560);
   const [expanded, setExpanded] = useState(false);
@@ -200,6 +204,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const status = object ? resourceStatus(object, details.ref.kind) : null;
   const Icon = getKindIcon(details.ref.kind, resource?.group);
   const isPod = details.ref.kind === "Pod";
+  const isNode = details.ref.kind === "Node";
   const caps = workloadCapabilities(details.ref.kind, details.ref.apiVersion);
   const fullHeightTab = tab === "yaml" || tab === "logs";
 
@@ -286,6 +291,30 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     }
   };
 
+  const toggleCordon = async () => {
+    if (!object) return;
+    const cordoned = object.spec?.unschedulable === true;
+    setActionBusy("cordon");
+    try {
+      await call(
+        api.resources.patch({
+          clusterId,
+          apiVersion: details.ref.apiVersion,
+          kind: details.ref.kind,
+          namespace: details.ref.namespace,
+          name: details.ref.name,
+          patch: { spec: { unschedulable: !cordoned } },
+        }),
+      );
+      toast.success(cordoned ? "Node uncordoned" : "Node cordoned", details.ref.name);
+      await data.refresh();
+    } catch (error) {
+      toast.error(cordoned ? "Uncordon failed" : "Cordon failed", errorText(error));
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
   return (
     <aside
       className={cn(
@@ -328,14 +357,84 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             >
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
+
+            {isPod ? (
+              <>
+                <DetailIcon
+                  icon={<ScrollText />}
+                  title="Logs"
+                  onClick={() => setDetailsTab(clusterId, "logs")}
+                />
+                <DetailIcon icon={<SquareTerminal />} title="Exec shell" onClick={() => void openShell()} />
+                <DetailIcon icon={<Plug />} title="Port forward" onClick={() => setForwardPort(8080)} />
+              </>
+            ) : null}
+
+            {caps.scalable ? (
+              <DetailIcon
+                icon={<Scale />}
+                title="Scale replicas"
+                disabled={actionBusy === "scale"}
+                onClick={() => void openScaleDialog()}
+              />
+            ) : null}
+
+            {caps.restartable ? (
+              <DetailIcon
+                icon={<RotateCcw />}
+                title="Restart rollout"
+                disabled={actionBusy === "restart"}
+                onClick={() => {
+                  if (isDeploymentPaused(object)) {
+                    toast.error("Rollout is paused", "Resume the rollout before restarting it.");
+                    return;
+                  }
+                  setRestartConfirm(true);
+                }}
+              />
+            ) : null}
+
+            {caps.pausable ? (
+              <DetailIcon
+                icon={isDeploymentPaused(object) ? <Play /> : <Pause />}
+                title={isDeploymentPaused(object) ? "Resume rollout" : "Pause rollout"}
+                disabled={actionBusy === "pause"}
+                onClick={() => void togglePause()}
+              />
+            ) : null}
+
+            {caps.suspendable ? (
+              <DetailIcon
+                icon={isSuspended(object) ? <Play /> : <Pause />}
+                title={isSuspended(object) ? "Resume" : "Suspend"}
+                disabled={actionBusy === "suspend"}
+                onClick={() => void toggleSuspend()}
+              />
+            ) : null}
+
+            {isNode ? (
+              <DetailIcon
+                icon={<Ban />}
+                title={object?.spec?.unschedulable ? "Uncordon node" : "Cordon node"}
+                disabled={actionBusy === "cordon"}
+                onClick={() => void toggleCordon()}
+              />
+            ) : null}
+
+            <span className="mx-0.5 h-4 w-px bg-theme-border" aria-hidden />
+
+            <DetailIcon
+              icon={<Trash2 />}
+              title="Delete resource"
+              danger
+              onClick={() => setConfirmDelete(true)}
+            />
+            <DetailIcon
+              icon={<RotateCw />}
+              title="Reload data"
+              disabled={data.loading}
               onClick={() => void data.refresh()}
-              title="Refresh"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", data.loading && "animate-spin")} />
-            </button>
+            />
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
@@ -379,64 +478,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1 px-3 pb-1.5">
-          {isPod ? (
-            <>
-              <DetailAction
-                icon={<ScrollText />}
-                label="Logs"
-                onClick={() => setDetailsTab(clusterId, "logs")}
-              />
-              <DetailAction icon={<SquareTerminal />} label="Exec" onClick={() => void openShell()} />
-              <DetailAction icon={<Plug />} label="Forward" onClick={() => setForwardPort(8080)} />
-            </>
-          ) : null}
-
-          {caps.scalable ? (
-            <DetailAction
-              icon={<Scale />}
-              label="Scale"
-              busy={actionBusy === "scale"}
-              onClick={() => void openScaleDialog()}
-            />
-          ) : null}
-
-          {caps.restartable ? (
-            <DetailAction
-              icon={<RotateCcw />}
-              label="Restart"
-              busy={actionBusy === "restart"}
-              onClick={() => {
-                if (isDeploymentPaused(object)) {
-                  toast.error("Rollout is paused", "Resume the rollout before restarting it.");
-                  return;
-                }
-                setRestartConfirm(true);
-              }}
-            />
-          ) : null}
-
-          {caps.pausable ? (
-            <DetailAction
-              icon={isDeploymentPaused(object) ? <Play /> : <Pause />}
-              label={isDeploymentPaused(object) ? "Resume rollout" : "Pause rollout"}
-              busy={actionBusy === "pause"}
-              onClick={() => void togglePause()}
-            />
-          ) : null}
-
-          {caps.suspendable ? (
-            <DetailAction
-              icon={isSuspended(object) ? <Play /> : <Pause />}
-              label={isSuspended(object) ? "Resume" : "Suspend"}
-              busy={actionBusy === "suspend"}
-              onClick={() => void toggleSuspend()}
-            />
-          ) : null}
-
-          <DetailAction danger icon={<Trash2 />} label="Delete" onClick={() => setConfirmDelete(true)} />
-        </div>
-
         <div className="px-1.5">
           <Tabs<DetailTab>
             value={tab}
@@ -452,6 +493,16 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 badge: events.events.length ? (
                   <span className="rounded bg-theme-elevated px-1 font-mono text-[9px] text-theme-text-tertiary">
                     {events.events.length}
+                  </span>
+                ) : null,
+              },
+              {
+                id: "related",
+                label: "Related",
+                icon: <Network />,
+                badge: related.groups.length ? (
+                  <span className="rounded bg-theme-elevated px-1 font-mono text-[9px] text-theme-text-tertiary">
+                    {related.groups.reduce((sum, group) => sum + group.items.length, 0)}
                   </span>
                 ) : null,
               },
@@ -496,6 +547,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 onScale={() => void openScaleDialog()}
                 onTogglePause={() => void togglePause()}
                 onToggleSuspend={() => void toggleSuspend()}
+                onToggleCordon={() => void toggleCordon()}
                 clusterId={clusterId}
               />
             ) : null}
@@ -505,6 +557,15 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             ) : null}
             {tab === "events" ? (
               <EventsTab events={events.events} loading={events.loading} error={events.error} />
+            ) : null}
+            {tab === "related" ? (
+              <RelatedTab
+                groups={related.groups}
+                loading={related.loading}
+                error={related.error}
+                warnings={related.warnings}
+                onNavigate={navigate}
+              />
             ) : null}
             {tab === "logs" && isPod ? <LogsTab clusterId={clusterId} object={object} /> : null}
             {tab === "metrics" && isPod ? (
@@ -593,33 +654,32 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   );
 }
 
-function DetailAction({
+function DetailIcon({
   icon,
-  label,
+  title,
   onClick,
-  busy,
+  disabled,
   danger,
 }: {
   icon: React.ReactNode;
-  label: string;
+  title: string;
   onClick: () => void;
-  busy?: boolean;
+  disabled?: boolean;
   danger?: boolean;
 }) {
   return (
     <button
       type="button"
-      disabled={busy}
+      title={title}
+      aria-label={title}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-6 items-center gap-1 rounded px-1.5 text-[11px] transition-colors disabled:opacity-50",
-        danger
-          ? "text-red-500 hover:bg-red-500/10"
-          : "text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary",
+        "flex h-6 w-6 items-center justify-center rounded-md text-theme-text-primary transition-colors hover:bg-theme-hover disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4",
+        danger && "text-red-400 hover:bg-red-500/10 hover:text-red-300",
       )}
     >
-      <span className="flex h-3.5 w-3.5 items-center justify-center [&>svg]:h-3.5 [&>svg]:w-3.5">{icon}</span>
-      {label}
+      {icon}
     </button>
   );
 }

@@ -6,6 +6,7 @@ import {
   DoorOpen,
   Download,
   GripVertical,
+  LayoutDashboard,
   LogOut,
   Pin,
   RefreshCw,
@@ -172,7 +173,16 @@ export function ResourceSidebar({
           className="flex min-w-0 flex-1 items-center gap-2 py-[5px] text-left"
         >
           <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
-          <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
+          {resource.isCrd ? (
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[12px] text-theme-text-primary">kind: {resource.kind}</span>
+              <span className="block truncate font-mono text-[10px] text-theme-text-tertiary">
+                apiVersion: {resource.apiVersion}
+              </span>
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1 truncate">{kindLabel(resource.kind, resource.plural)}</span>
+          )}
           {count !== null ? <CountBadge active={active}>{count}</CountBadge> : null}
         </button>
         <button
@@ -395,6 +405,22 @@ export function ResourceSidebar({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 pb-3">
+        {!searching ? (
+          <button
+            type="button"
+            onClick={() => selectKind(clusterId, { apiVersion: "", kind: "__overview__" })}
+            className={cn(
+              "mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors",
+              selected?.kind === "__overview__"
+                ? "selection-strong selection-text"
+                : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
+            )}
+          >
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-left">Overview</span>
+          </button>
+        ) : null}
+
         {groups.length === 0 && session?.status === "connecting" ? (
           <div className="flex items-center gap-2 px-2 py-3">
             <Spinner label="Discovering API resources…" />

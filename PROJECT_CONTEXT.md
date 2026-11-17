@@ -127,10 +127,10 @@ Freelens gets isolation from iframes. mLens instead:
 - Cluster tabs row (open clusters) and resource tabs row (open resources) follow
   the Lens mental model while using Radar sizing/typography.
 - Resource list lives in the main pane; clicking a row opens the right drawer.
-- Details keeps Freelens' drawer placement but uses Radar's action set: a
-  kind-specific action row under the title (Pods: Logs/Exec/Forward; workloads:
-  Scale/Restart/Pause/Resume; Jobs/CronJobs: Suspend/Resume; Delete everywhere),
-  YAML as a tab, close at the top-right. Related was removed at the user request.
+- Details keeps Freelens' drawer placement but uses Radar's action set:
+  right-aligned header icons (Pods: Logs/Exec/Forward; workloads:
+  Scale/Restart/Pause/Resume; Jobs/CronJobs: Suspend/Resume; Nodes:
+  Cordon/Uncordon; Delete next to Close), YAML and Related as tabs.
   Env references are peekable inline; ConfigMaps/Secrets have a key/value editor.
 - Logs are available for Pods only. Pods show environment variables; ConfigMaps
   and Secrets have a key/value editor (Secrets decoded/encoded transparently).
@@ -215,10 +215,11 @@ Freelens gets isolation from iframes. mLens instead:
 
 - Right drawer, resizable/expandable, tabbed: Overview, Details, YAML, Events,
   Logs (Pods only), Metrics.
-- A kind-specific action row under the drawer title: Logs/Exec/Forward (Pods),
-  Scale/Restart (Deployments, StatefulSets), Scale (ReplicaSets), Restart
-  (DaemonSets), Pause/Resume rollout (Deployments), Suspend/Resume
-  (Jobs/CronJobs), Delete (all kinds); refresh and close stay in the header.
+- Kind actions are right-aligned icon buttons in the drawer header:
+  Logs/Exec/Forward (Pods), Scale/Restart (Deployments, StatefulSets), Scale
+  (ReplicaSets), Restart (DaemonSets), Pause/Resume rollout (Deployments),
+  Suspend/Resume (Jobs/CronJobs), Cordon/Uncordon (Nodes), Delete next to Close.
+  Reload (clockwise) refetches data; Restart uses the counter-clockwise icon.
   Workload Scale also sits in the Overview Status section, matching Radar.
 - Manual scaling is refused when an HPA owns the replica count; the check runs
   only when Scale is pressed (one namespaced HPA list), so idle drawers cost
@@ -227,7 +228,8 @@ Freelens gets isolation from iframes. mLens instead:
   Forward button = custom port dialog), conditions, volumes, scheduling with
   structured tolerations/affinity.
 - Workload/Service/Ingress/ConfigMap/Secret/Node/PV/PVC/HPA/CRD/generic renderers.
-- Related tab was intentionally removed; the resolver remains unused.
+- Related tab restored for every kind; the resolver lists owners, selectors,
+  services, mounted config, node pods and bound volumes using Freelens-style rows.
 - Metrics tab shows real metrics-server values or an explicit “not installed”.
 
 **Terminal/logs/ports**
@@ -238,10 +240,13 @@ Freelens gets isolation from iframes. mLens instead:
   filtering, download.
 - Port forwarding over WebSocket, active forwards panel, quick forward with a
   random local port in 30000–65355.
-- Workload actions (scale/restart/pause/resume/suspend) in the row menu and the
-  details action row, with an HPA guard on manual scaling; clickable namespace
-  cells, bulk selection bar above the terminal, terminal full-line hover
+- Workload actions (scale/restart/pause/resume/suspend) plus Node cordon, in
+  the leading row menu and the drawer header, with an HPA guard on manual
+  scaling; clickable namespace and node cells, force delete, attach, init
+  containers, bulk selection bar above the terminal, terminal full-line hover
   highlight.
+- Per-cluster Overview home page with live counts, warnings, capacity and quick
+  links; it is the default landing view after connecting.
 
 **Themes/settings**
 
@@ -312,10 +317,10 @@ pnpm dist:mac | dist:win | dist:linux
   resource history and catalog.
 - Catalog group order/hotbar order use HTML5 drag; no drag library.
 - Status filters appear only when a column has 2+ distinct values (Radar-style).
-- Related tab was removed; the resolver is unused and can be deleted in a cleanup pass.
 - Radar workflow actions not yet ported: revision history + rollback, Set image,
-  CronJob Trigger, and Argo/Flux/GitOps action bars. ReplicaSet intentionally has
-  no Restart (its template is owned by the Deployment and reconciled away).
+  CronJob Trigger, Node Drain (needs the eviction API), and Argo/Flux/GitOps
+  action bars. ReplicaSet intentionally has no Restart (its template is owned by
+  the Deployment and reconciled away).
 
 ---
 

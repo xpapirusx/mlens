@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowUpDown, ChevronDown, ChevronUp, ListFilter } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronUp, ListFilter, MoreHorizontal } from "lucide-react";
 import type { KubeObject } from "@shared/types";
 import type { NodeUsage, PodUsage } from "./useResourceMetrics";
 import type { ColumnDef } from "../../lib/columns";
@@ -17,6 +17,10 @@ interface ResourceTableProps {
   selectedRef?: { namespace?: string; name: string } | null;
   onOpen: (object: KubeObject) => void;
   onContextMenu: (object: KubeObject, event: React.MouseEvent) => void;
+  /** Opens the same row menu from the leading "…" button. */
+  onRowMenu?: (object: KubeObject, event: React.MouseEvent) => void;
+  /** Click on empty space inside the table (no row, control or header). */
+  onBackgroundClick?: () => void;
   onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
   columnWidths: Record<string, number>;
   onResizeEnd: (key: string, width: number) => void;
@@ -32,6 +36,7 @@ interface ResourceTableProps {
   podMetrics?: Map<string, PodUsage>;
   nodeMetrics?: Map<string, NodeUsage>;
   onSelectNamespace?: (namespace: string) => void;
+  onOpenNode?: (name: string) => void;
 }
 
 export function ResourceTable({
@@ -58,6 +63,9 @@ export function ResourceTable({
   podMetrics,
   nodeMetrics,
   onSelectNamespace,
+  onOpenNode,
+  onRowMenu,
+  onBackgroundClick,
 }: ResourceTableProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
@@ -79,11 +87,12 @@ export function ResourceTable({
   }, [columns]);
 
   const effectiveWidths = { ...columnWidths, ...previewWidths };
-  const gridTemplate = `${selectionMode ? "40px " : ""}${columns
+  const gridTemplate = `${selectionMode ? "40px " : ""}36px ${columns
     .map((column) => formatColumnWidth(column, effectiveWidths[column.key]))
     .join(" ")}`;
   const minWidth =
     (selectionMode ? 40 : 0) +
+    36 +
     columns.reduce(
       (sum, column) => sum + (effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
       0,
@@ -121,6 +130,11 @@ export function ResourceTable({
       ref={scrollRef}
       tabIndex={0}
       onKeyDown={onKeyDown}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('[role="row"], button, input, [role="columnheader"], [role="menuitem"]')) return;
+        onBackgroundClick?.();
+      }}
       className="relative min-h-0 flex-1 overflow-auto outline-none"
     >
       <div style={{ minWidth }}>
@@ -140,6 +154,7 @@ export function ResourceTable({
               />
             </div>
           ) : null}
+          <div className="border-r-subtle" aria-hidden />
           {columns.map((column, index) => {
             const active = sort?.key === column.key;
             const filterable = filterableKeys.has(column.key);
@@ -286,6 +301,23 @@ export function ResourceTable({
                       />
                     </div>
                   ) : null}
+                  <div
+                    className="flex items-center justify-center border-r-subtle"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      aria-label="Row actions"
+                      title="Actions"
+                      className="rounded p-1 text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRowMenu?.(object, event);
+                      }}
+                    >
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                   {columns.map((column, index) => (
                     <div
                       key={column.key}
@@ -296,7 +328,7 @@ export function ResourceTable({
                         column.align === "right" && "justify-end",
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode })}</div>
                     </div>
                   ))}
                 </div>

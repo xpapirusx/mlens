@@ -1,4 +1,4 @@
-import { Exec } from "@kubernetes/client-node";
+import { Attach, Exec } from "@kubernetes/client-node";
 import { PassThrough, Writable } from "node:stream";
 import { TextDecoder } from "node:util";
 import type { ExecRequest, TerminalDataPayload, TerminalExitPayload } from "@shared/types";
@@ -75,19 +75,32 @@ export class ExecSessions {
 
     const exec = new Exec(connection.kc);
     try {
-      handle.socket = await exec.exec(
-        request.namespace,
-        request.pod,
-        request.container,
-        request.command.length ? request.command : ["/bin/sh"],
-        output,
-        output,
-        stdin,
-        request.tty,
-        (status) => {
-          finish(status?.code ?? 0, status?.message);
-        },
-      );
+      if (request.mode === "attach") {
+        const attach = new Attach(connection.kc);
+        handle.socket = await attach.attach(
+          request.namespace,
+          request.pod,
+          request.container,
+          output,
+          output,
+          stdin,
+          request.tty,
+        );
+      } else {
+        handle.socket = await exec.exec(
+          request.namespace,
+          request.pod,
+          request.container,
+          request.command.length ? request.command : ["/bin/sh"],
+          output,
+          output,
+          stdin,
+          request.tty,
+          (status) => {
+            finish(status?.code ?? 0, status?.message);
+          },
+        );
+      }
 
       // ws emits close(code, reason) when the connection drops without a status frame.
       const socket = handle.socket as unknown as {

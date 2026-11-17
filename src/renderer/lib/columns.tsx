@@ -28,6 +28,7 @@ export interface CellContext {
   podMetrics?: Map<string, PodUsage>;
   nodeMetrics?: Map<string, NodeUsage>;
   onSelectNamespace?: (namespace: string) => void;
+  onOpenNode?: (name: string) => void;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -108,9 +109,16 @@ function podContainers(object: AnyObject): Array<Record<string, any>> {
 function ContainersCell({ object }: { object: AnyObject }) {
   const statuses = podContainers(object);
   if (statuses.length === 0) return <span className="text-sm text-theme-text-tertiary">–</span>;
+  const initNames = new Set(
+    ((object.spec?.initContainers ?? []) as Array<{ name: string }>).map((container) => container.name),
+  );
+  const initStatuses = statuses.filter((container) => initNames.has(container.name));
+  const mainStatuses = statuses.filter((container) => !initNames.has(container.name));
   return (
     <div className="flex items-center gap-1">
-      {statuses.map((container) => {
+      {statuses.map((container, index) => {
+        const isInit = initNames.has(container.name);
+        const previousInit = index > 0 && initNames.has(statuses[index - 1].name);
         const waiting = container.state?.waiting?.reason;
         const terminated = container.state?.terminated?.reason;
         const tone = container.ready
@@ -119,15 +127,26 @@ function ContainersCell({ object }: { object: AnyObject }) {
             ? "bg-red-500"
             : "bg-amber-500";
         return (
-          <span
-            key={container.name}
-            title={`${container.name}: ${container.ready ? "Ready" : (waiting ?? terminated ?? "Not ready")}${container.restartCount ? ` · restarts ${container.restartCount}` : ""}`}
-            className={cn("h-3 w-1.5 rounded-[1px]", tone)}
-          />
+          <span key={container.name} className="flex items-center">
+            {index > 0 && isInit !== previousInit ? (
+              <span className="mx-0.5 h-3 w-px bg-theme-border" aria-hidden />
+            ) : null}
+            <span
+              title={`${isInit ? "init · " : ""}${container.name}: ${container.ready ? "Ready" : (waiting ?? terminated ?? "Not ready")}${container.restartCount ? ` · restarts ${container.restartCount}` : ""}`}
+              className={cn(
+                "h-3 w-1.5 rounded-[1px]",
+                tone,
+                isInit && "outline outline-1 outline-offset-2 outline-theme-text-disabled/60",
+              )}
+            />
+          </span>
         );
       })}
       <span className="ml-1 font-mono text-[11px] text-theme-text-tertiary">
-        {statuses.filter((container) => container.ready).length}/{statuses.length}
+        {mainStatuses.filter((container) => container.ready).length}/{mainStatuses.length}
+        {initStatuses.length > 0 ? (
+          <span className="ml-1 text-theme-text-disabled">+{initStatuses.length} init</span>
+        ) : null}
       </span>
     </div>
   );
@@ -372,7 +391,22 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           width: 200,
           sortable: true,
           value: (object) => object.spec?.nodeName ?? "",
-          cell: (object) => <TextCell>{object.spec?.nodeName ?? "–"}</TextCell>,
+          cell: (object, context) =>
+            object.spec?.nodeName ? (
+              <button
+                type="button"
+                className="truncate text-left text-accent-text hover:underline"
+                title={`Open node ${object.spec.nodeName}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  context.onOpenNode?.(object.spec.nodeName);
+                }}
+              >
+                {object.spec.nodeName}
+              </button>
+            ) : (
+              <TextCell>–</TextCell>
+            ),
           filterValue: (object) => object.spec?.nodeName,
         },
         {

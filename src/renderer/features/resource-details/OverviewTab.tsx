@@ -1,12 +1,13 @@
-import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Ban, Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
 import type { ApiResourceInfo } from "@shared/types";
 import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
-import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory, titleCase } from "../../lib/format";
+import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
+import { cn } from "../../lib/cn";
 import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
 
 type AnyObject = any;
@@ -21,6 +22,7 @@ export interface OverviewProps {
   onScale?: () => void;
   onTogglePause?: () => void;
   onToggleSuspend?: () => void;
+  onToggleCordon?: () => void;
   clusterId: string;
 }
 
@@ -208,6 +210,77 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
     ...(object.status?.initContainerStatuses ?? []),
     ...(object.status?.containerStatuses ?? []),
   ] as Array<Record<string, any>>;
+  const initContainers = (object.spec?.initContainers ?? []) as Array<Record<string, any>>;
+  const mainContainers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
+
+  const renderContainer = (container: Record<string, any>, order: number, init: boolean) => {
+    const status = containerStatuses.find((entry) => entry.name === container.name);
+    const state = status?.state ?? {};
+    const stateKey = Object.keys(state)[0] ?? "unknown";
+    return (
+      <div
+        key={container.name}
+        className={cn("card-inner-lg", init && "border-l-2 border-l-amber-500/60 pl-2.5")}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] text-theme-text-disabled">{order + 1}</span>
+          <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
+          {init ? <span className="badge-sm status-warning">init</span> : null}
+          <span
+            className={`badge-sm ${toneClass(
+              status?.ready ? "success" : stateKey === "waiting" ? "warning" : "error",
+            )}`}
+          >
+            {status?.ready ? "Ready" : stateKey === "waiting" ? (state.waiting?.reason ?? "Waiting") : stateKey}
+          </span>
+          {status?.restartCount ? (
+            <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
+          ) : null}
+          <span className="ml-auto font-mono text-[10px] text-theme-text-disabled">
+            {container.image?.split("@")[0]}
+          </span>
+        </div>
+        <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-tertiary">
+          {container.image}
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+          <span className="text-theme-text-tertiary">
+            CPU:{" "}
+            <span className="font-mono text-theme-text-secondary">
+              {formatCpu(parseCpu(container.resources?.requests?.cpu))} req /{" "}
+              {formatCpu(parseCpu(container.resources?.limits?.cpu))} lim
+            </span>
+          </span>
+          <span className="text-theme-text-tertiary">
+            Memory:{" "}
+            <span className="font-mono text-theme-text-secondary">
+              {formatBytes(parseMemory(container.resources?.requests?.memory))} req /{" "}
+              {formatBytes(parseMemory(container.resources?.limits?.memory))} lim
+            </span>
+          </span>
+          {container.ports?.length ? (
+            <span className="text-theme-text-tertiary">
+              Ports:{" "}
+              <span className="font-mono text-theme-text-secondary">
+                {container.ports
+                  .map((port: any) => `${port.containerPort}/${port.protocol ?? "TCP"}`)
+                  .join(", ")}
+              </span>
+            </span>
+          ) : null}
+          <span className="text-theme-text-tertiary">
+            Env:{" "}
+            <span className="font-mono text-theme-text-secondary">{container.env?.length ?? 0} vars</span>
+          </span>
+        </div>
+        {state.waiting?.message || state.terminated?.message ? (
+          <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+            {state.waiting?.message ?? state.terminated?.message}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -255,77 +328,17 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
         </PropertyList>
       </DetailSection>
 
-      <DetailSection
-        title="Containers"
-        icon={<Box />}
-        count={(object.spec?.containers?.length ?? 0) + (object.spec?.initContainers?.length ?? 0)}
-      >
+      {initContainers.length > 0 ? (
+        <DetailSection title="Init containers" icon={<Box />} count={initContainers.length}>
+          <div className="space-y-2">
+            {initContainers.map((container, index) => renderContainer(container, index, true))}
+          </div>
+        </DetailSection>
+      ) : null}
+
+      <DetailSection title="Containers" icon={<Box />} count={mainContainers.length}>
         <div className="space-y-2">
-          {[...(object.spec?.initContainers ?? []), ...(object.spec?.containers ?? [])].map(
-            (container: Record<string, any>) => {
-              const status = containerStatuses.find((entry) => entry.name === container.name);
-              const state = status?.state ?? {};
-              const stateKey = Object.keys(state)[0] ?? "unknown";
-              return (
-                <div key={container.name} className="card-inner-lg">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
-                    <span
-                      className={`badge-sm ${toneClass(
-                        status?.ready ? "success" : stateKey === "waiting" ? "warning" : "error",
-                      )}`}
-                    >
-                      {status?.ready ? "Ready" : stateKey === "waiting" ? (state.waiting?.reason ?? "Waiting") : stateKey}
-                    </span>
-                    {status?.restartCount ? (
-                      <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
-                    ) : null}
-                    <span className="ml-auto font-mono text-[10px] text-theme-text-disabled">
-                      {container.image?.split("@")[0]}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-tertiary">
-                    {container.image}
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                    <span className="text-theme-text-tertiary">
-                      CPU:{" "}
-                      <span className="font-mono text-theme-text-secondary">
-                        {formatCpu(parseCpu(container.resources?.requests?.cpu))} req /{" "}
-                        {formatCpu(parseCpu(container.resources?.limits?.cpu))} lim
-                      </span>
-                    </span>
-                    <span className="text-theme-text-tertiary">
-                      Memory:{" "}
-                      <span className="font-mono text-theme-text-secondary">
-                        {formatBytes(parseMemory(container.resources?.requests?.memory))} req /{" "}
-                        {formatBytes(parseMemory(container.resources?.limits?.memory))} lim
-                      </span>
-                    </span>
-                    {container.ports?.length ? (
-                      <span className="text-theme-text-tertiary">
-                        Ports:{" "}
-                        <span className="font-mono text-theme-text-secondary">
-                          {container.ports
-                            .map((port: any) => `${port.containerPort}/${port.protocol ?? "TCP"}`)
-                            .join(", ")}
-                        </span>
-                      </span>
-                    ) : null}
-                    <span className="text-theme-text-tertiary">
-                      Env:{" "}
-                      <span className="font-mono text-theme-text-secondary">{container.env?.length ?? 0} vars</span>
-                    </span>
-                  </div>
-                  {state.waiting?.message || state.terminated?.message ? (
-                    <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
-                      {state.waiting?.message ?? state.terminated?.message}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            },
-          )}
+          {mainContainers.map((container, index) => renderContainer(container, index, false))}
         </div>
       </DetailSection>
 
@@ -866,11 +879,12 @@ function DataOverview({ object, onEditData }: OverviewProps) {
   );
 }
 
-function NodeOverview({ object }: OverviewProps) {
+function NodeOverview({ object, onToggleCordon }: OverviewProps) {
   const status = object.status ?? {};
   const capacity = status.capacity ?? {};
   const allocatable = status.allocatable ?? {};
   const info = status.nodeInfo ?? {};
+  const cordoned = object.spec?.unschedulable === true;
   const roles = Object.keys(object.metadata?.labels ?? {})
     .filter((key) => key.startsWith("node-role.kubernetes.io/"))
     .map((key) => key.replace("node-role.kubernetes.io/", ""));
@@ -880,6 +894,7 @@ function NodeOverview({ object }: OverviewProps) {
       <DetailSection title="Status" icon={<Server />}>
         <PropertyList>
           <Property label="Status" value={<StatusPill object={object} kind="Node" />} />
+          <Property label="Schedulable" value={cordoned ? "No (cordoned)" : "Yes"} />
           <Property label="Roles" value={roles.join(", ") || "<none>"} />
           <Property label="Kubelet" value={info.kubeletVersion} mono />
           <Property label="OS image" value={info.osImage} />
@@ -890,37 +905,66 @@ function NodeOverview({ object }: OverviewProps) {
           <Property label="Hostname" value={status.addresses?.find((address: any) => address.type === "Hostname")?.address} mono />
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
+        {onToggleCordon ? (
+          <div className="mt-3 flex items-center gap-2 border-t border-theme-border-subtle pt-2.5">
+            <button
+              type="button"
+              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              onClick={onToggleCordon}
+            >
+              <Ban className="h-3 w-3" />
+              {cordoned ? "Uncordon node" : "Cordon node"}
+            </button>
+          </div>
+        ) : null}
       </DetailSection>
 
-      <DetailSection title="Capacity & allocatable" icon={<Cpu />}>
-        <div className="overflow-hidden rounded-md border border-theme-border">
-          <div className="grid grid-cols-5 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
-            <span>Resource</span>
-            <span>Capacity</span>
-            <span>Allocatable</span>
-            <span className="col-span-2">Utilization</span>
-          </div>
-          {["cpu", "memory", "pods", "ephemeral-storage"].map((key) => {
-            const cap = capacity[key];
-            const alloc = allocatable[key];
+      <DetailSection title="Capacity" icon={<Cpu />}>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { key: "cpu", label: "CPU", icon: <Cpu className="h-3.5 w-3.5" /> },
+            { key: "memory", label: "Memory", icon: <Database className="h-3.5 w-3.5" /> },
+            { key: "pods", label: "Pods", icon: <Box className="h-3.5 w-3.5" /> },
+            { key: "ephemeral-storage", label: "Storage", icon: <Server className="h-3.5 w-3.5" /> },
+          ].map((entry) => {
+            const cap = capacity[entry.key];
+            const alloc = allocatable[entry.key];
+            const show = (value: string | number | undefined) => {
+              if (value === undefined || value === null || value === "") return "–";
+              if (entry.key === "cpu") return formatCpu(parseCpu(value));
+              if (entry.key === "memory" || entry.key === "ephemeral-storage") {
+                return formatBytes(parseMemory(value));
+              }
+              return String(value);
+            };
             const ratio =
-              key === "cpu"
+              entry.key === "cpu"
                 ? (parseCpu(alloc) ?? 0) / Math.max(1, parseCpu(cap) ?? 1)
-                : key === "memory"
+                : entry.key === "memory"
                   ? (parseMemory(alloc) ?? 0) / Math.max(1, parseMemory(cap) ?? 1)
-                  : null;
+                  : entry.key === "pods"
+                    ? (Number(alloc) || 0) / Math.max(1, Number(cap) || 1)
+                    : null;
             return (
-              <div key={key} className="grid grid-cols-5 items-center border-b-subtle px-2 py-1 text-[11px] last:border-0">
-                <span className="text-theme-text-secondary">{titleCase(key)}</span>
-                <span className="font-mono text-theme-text-primary">{cap ?? "–"}</span>
-                <span className="font-mono text-theme-text-secondary">{alloc ?? "–"}</span>
-                <div className="col-span-2">
-                  {ratio !== null ? (
-                    <div className="h-1.5 overflow-hidden rounded-full bg-theme-elevated">
-                      <div className="h-full rounded-full bg-skyhook-500" style={{ width: `${Math.min(100, ratio * 100)}%` }} />
-                    </div>
-                  ) : null}
+              <div key={entry.key} className="card-inner">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+                  {entry.icon}
+                  {entry.label}
                 </div>
+                <div className="mt-1 font-mono text-[15px] font-semibold text-theme-text-primary">
+                  {show(cap)}
+                </div>
+                <div className="mt-0.5 font-mono text-[10px] text-theme-text-tertiary">
+                  allocatable {show(alloc)}
+                </div>
+                {ratio !== null ? (
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-theme-elevated">
+                    <div
+                      className="h-full rounded-full bg-skyhook-500"
+                      style={{ width: `${Math.min(100, ratio * 100)}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
             );
           })}

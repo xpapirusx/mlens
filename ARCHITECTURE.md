@@ -226,12 +226,14 @@ Namespace column is shown whenever the scope is not exactly one namespace.
 
 ### 4.7 Mutations
 
-- **Delete**: `DELETE` with `DeleteOptions` and background propagation.
+- **Delete**: `DELETE` with `DeleteOptions` and background propagation; force
+  delete adds `gracePeriodSeconds: 0`.
 - **Scale**: merge patch `spec.replicas`.
 - **Restart**: merge patch of `spec.template.metadata.annotations` with
   `kubectl.kubernetes.io/restartedAt` (and an `mlens.io` marker).
 - **Pause / resume rollout**: merge patch `spec.paused` (Deployments).
 - **Suspend / resume**: merge patch `spec.suspend` (Jobs and CronJobs).
+- **Cordon / uncordon**: merge patch `spec.unschedulable` (Nodes).
 - The renderer refuses manual scaling when a HorizontalPodAutoscaler targets the
   workload; the HPA list is read lazily on pressing Scale, never in the background.
 - **Apply YAML**: multi-document parsing; `List` documents are flattened; each
@@ -252,13 +254,18 @@ Stopping aborts the request. The viewer caps retained text at ~1.5 MB, buffers
 chunks every 160 ms to avoid render storms, and only auto-scrolls while the user
 is at the bottom.
 
-### 4.9 Pod exec
+### 4.9 Pod exec and attach
 
 `Exec.exec(...)` is used with a custom `Writable` stdout that exposes
 `rows`/`columns` and emits `resize`; the library's `TerminalSizeQueue` turns those
 events into `v4.channel.k8s.io` resize frames. stdin is a `PassThrough` fed by
 xterm. Text is decoded with a streaming `TextDecoder` so multi-byte glyphs are not
 split across chunks. Status frames and socket closes both terminate the session.
+
+Attach uses the same session plumbing with `Attach.attach(...)` and no command:
+`term.mode = "attach"` streams the running process (tty off), while exec opens an
+interactive shell with tty on. The drawer exposes both, and the dock renders them
+identically.
 
 ### 4.10 Local terminals and cluster context
 
@@ -284,7 +291,15 @@ node allocatable for Nodes. Missing metrics render `–`; there is no fallback t
 synthetic numbers. The whole metrics query is skipped when the metrics API is not
 discovered or the workspace is hidden.
 
-### 4.12 Port forwarding
+### 4.12 Related resources
+
+`useRelatedResources` resolves relationships on demand when the Related tab is
+open: owner references, label selectors (services ↔ pods, workloads → pods),
+ReplicaSet revisions, CronJob-created Jobs, pod-referenced ConfigMaps/Secrets,
+node-scoped pods and bound PVs. Every list is read through the same authenticated
+REST path; RBAC failures are reported as warnings instead of inventing links.
+
+### 4.13 Port forwarding
 
 `PortForwardManager` implements the Kubernetes WebSocket port-forward protocol
 (`v4.channel.k8s.io`) directly:
@@ -336,6 +351,13 @@ dock { open, height, tabs, activeTabId }
 
 Settings add `tableRowHeight` (24–52), `collapseCatalogGroups` (default true),
 `favoriteKinds` (pinned sidebar kinds) and `hiddenClusters` (catalog removal).
+
+The synthetic kind `{ apiVersion: "", kind: "__overview__" }` selects the
+per-cluster Overview page. It is the default selected kind after connecting, is
+rendered by `features/overview/ClusterOverview.tsx` instead of a table, and is
+filtered out of sibling tabs and the kind lookup. The page reads only cheap
+counts (`limit=1`), one Node list and the 20 most recent Warning events while it
+is visible; it adds no watchers.
 Removing a cluster only drops it from the visible catalog: the kubeconfig file is
 never modified. Hidden sessions are disconnected and disposed, and the Removed
 view can restore contexts without touching Kubernetes. The cluster catalog uses
