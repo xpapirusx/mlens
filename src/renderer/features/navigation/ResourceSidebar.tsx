@@ -256,24 +256,24 @@ export function ResourceSidebar({
           type="button"
           onClick={() => toggleGroup(clusterId, group.id, expanded)}
           className={cn(
-            "group flex h-8 w-full items-center gap-1.5 rounded-md pr-2 font-semibold text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
-            depth > 0 || group.id === "custom"
-              ? "pl-4 text-[12px] normal-case tracking-normal"
-              : "pl-1.5 text-[11px] uppercase tracking-wider",
-            group.id === "custom" && "pl-1.5",
+            "group flex h-8 w-full items-center rounded-md pr-2 font-semibold text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
+            // Level 1 mirrors a kind row exactly (pl-2 + 16px icon + gap-2), so
+            // every top-level name starts at the same x; the chevron and the
+            // drag grip live on the right instead of pushing the name inward.
+            depth > 0
+              ? "pl-4 gap-1.5 text-[12px] normal-case tracking-normal"
+              : "pl-2 gap-2 text-[11px] uppercase tracking-wider",
           )}
         >
-          {depth === 0 ? (
-            <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-theme-text-disabled opacity-0 group-hover:opacity-100" />
-          ) : null}
-          {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
-          {depth === 0 && group.id !== "custom" ? (
-            <GroupIcon className="h-3.5 w-3.5 shrink-0" />
-          ) : null}
+          {depth === 0 ? <GroupIcon className="h-4 w-4 shrink-0" /> : null}
           <span className="truncate">{group.title}</span>
           <span className="ml-auto shrink-0 font-mono text-[9px] font-normal text-theme-text-disabled">
             {aggregate ?? kindCount}
           </span>
+          {expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+          {depth === 0 ? (
+            <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-theme-text-disabled opacity-0 group-hover:opacity-100" />
+          ) : null}
         </button>
         {expanded ? (
           <div className="space-y-0.5">
