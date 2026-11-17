@@ -288,11 +288,41 @@ function LogsViewer({
   }, [lines, query]);
   const matchCount = matches?.filter(Boolean).length ?? 0;
 
+  /** Level of a log line for the CSS tint — crit beats error beats warn. */
+  const levelOf = (line: string): "crit" | "error" | "warn" | null => {
+    if (/\b(crit|critical|fatal|panic)\b/i.test(line)) return "crit";
+    if (/\b(error|exception|traceback)\b/i.test(line)) return "error";
+    if (/\bwarn(ing)?\b/i.test(line)) return "warn";
+    return null;
+  };
+  const LEVEL_TINT: Record<string, string> = {
+    crit: "bg-red-500/15 text-red-300",
+    error: "bg-red-500/10 text-red-400",
+    warn: "bg-amber-500/10 text-amber-300",
+  };
+
   useEffect(() => {
     if (!stick) return;
     const element = scrollRef.current;
     if (element) element.scrollTop = element.scrollHeight;
   }, [text, stick]);
+
+  // Ctrl/Cmd+F opens the log search, like Radar — but never steals the key
+  // from a focused input or from a terminal (xterm binds it itself).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "f") return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
+      if (event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest(".xterm")) return;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const download = () => {
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -461,13 +491,18 @@ function LogsViewer({
         ) : null}
         {lines.map((line, index) => {
           if (query && matches && !matches[index]) return null;
-          const isError = /error|fatal|panic|exception/i.test(line);
-          const isWarn = /warn/i.test(line);
+          const level = levelOf(line);
           return (
-            <div key={index} className="flex whitespace-pre-wrap break-all hover:bg-white/5">
+            <div
+              key={index}
+              className={cn(
+                "flex whitespace-pre-wrap break-all rounded-sm hover:bg-white/5",
+                level && LEVEL_TINT[level],
+              )}
+            >
               <span className="w-10 shrink-0 select-none pr-2 text-right text-slate-600">{index + 1}</span>
-              <span className={cn(isError ? "text-red-400" : isWarn ? "text-amber-300" : "text-slate-300")}>
-                {line || " "}
+              <span className={cn(!level && "text-slate-300")}>
+                <Highlighted text={line} query={query.trim()} />
               </span>
             </div>
           );
@@ -483,6 +518,30 @@ function LogsViewer({
       </div>
     </div>
   );
+}
+
+/** Wraps every case-insensitive occurrence of `query` in a mark, browser-find style. */
+function Highlighted({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text || " "}</>;
+  const needle = query.toLowerCase();
+  const lowered = text.toLowerCase();
+  const parts: React.ReactNode[] = [];
+  let from = 0;
+  let at = lowered.indexOf(needle, from);
+  let key = 0;
+  while (at >= 0 && needle) {
+    if (at > from) parts.push(text.slice(from, at));
+    parts.push(
+      <mark key={key} className="rounded-[2px] bg-yellow-400/35 text-yellow-100">
+        {text.slice(at, at + needle.length)}
+      </mark>,
+    );
+    key += 1;
+    from = at + needle.length;
+    at = lowered.indexOf(needle, from);
+  }
+  parts.push(text.slice(from));
+  return <>{parts.length > 0 ? parts : text || " "}</>;
 }
 
 function Toggle({

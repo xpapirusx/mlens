@@ -160,12 +160,20 @@ Important:
   **Connected**, not the Kubernetes version (version has its own column). A sort
   control offers open/status, name, recent and kubeconfig source.
 - Sidebar order (Freelens): Favorites, Nodes, Workloads, Config, Control, Network,
-  Storage, Namespaces, Events, User Management, Custom Resources. Nodes/Namespaces/Events
+  Storage, Namespaces, Events, User Management, Helm, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Config = workload configuration (ConfigMap/Secret/HPA/VPA/PDB/
   PriorityClass/PriorityLevelConfiguration/RuntimeClass/PodTemplate); Control =
   cluster machinery (Lease, APIService, ControllerRevision, CSR, FlowSchema,
   ResourceQuota, LimitRange, webhooks, admission policies). Custom Resources
   contains Definitions + one child per API group.
+- **Helm releases are synthetic**: the sidebar group carries
+  `HELM_RELEASES_RESOURCE`, and the browser/drawer read them through
+  `kube:helm-list` / `kube:helm-get` (release Secrets parsed in main). Never
+  send them to the Kubernetes API as a kind, never count them, and never offer
+  Create/Delete for them — the `owner=helm` secrets are the source of truth.
+- Bulk **Annotate** (next to Delete selected) applies one saved annotation from
+  `settings.annotationPresets` to every selected row after a confirm; the preset
+  list is edited in the dialog behind "Manage annotations…".
 - Custom resources and CRD definitions open on **Details** by default (Freelens
   field order); their Overview is still one click away and uses Radar-style cards.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /

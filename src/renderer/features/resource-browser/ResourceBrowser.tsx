@@ -9,12 +9,14 @@ import {
   ListChecks,
   LoaderCircle,
   Pause,
+  Pencil,
   Play,
   Plus,
   RotateCcw,
   RotateCw,
   Scale,
   Server,
+  Tags,
   TriangleExclamationPoint,
   ScrollText,
   SquareTerminal,
@@ -24,15 +26,15 @@ import {
 import type { KubeObject } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
-import { findResource } from "../../lib/catalog";
+import { findResource, HELM_RELEASES_RESOURCE } from "../../lib/catalog";
 import { resourceStatus } from "../../lib/status";
-import { getColumnsForKind, sortObjects, type CellContext, type ColumnDef } from "../../lib/columns";
+import { getColumnsForKind, sortObjects, WARNING_KINDS, type CellContext, type ColumnDef } from "../../lib/columns";
 import { getKindIcon, kindLabel } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { Button } from "../../design-system/components/Button";
 import { SearchInput } from "../../design-system/components/SearchInput";
 import { EmptyState, InlineError } from "../../design-system/components/EmptyState";
-import { MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
 import { ContextMenu } from "../../design-system/components/ContextMenu";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
@@ -43,17 +45,23 @@ import { NamespacePicker, ColumnPicker } from "./TableControls";
 import { buildFilterOptions, FilterPopover } from "./FilterPopover";
 import { ConfirmActionDialog, CreateResourceDialog, ScaleDialog } from "./ResourceDialogs";
 import { SetImageDialog } from "../resource-details/SetImageDialog";
+import { LabelsAnnotationsDialog } from "../resource-details/LabelsAnnotationsDialog";
+import { AnnotationPresetsDialog } from "./AnnotationPresetsDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { NodeDebugDialog } from "../resource-details/NodeDebugDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
 import { useClaimPods } from "./useClaimPods";
 import { useServiceEndpoints } from "./useServiceEndpoints";
+import { useWarningEvents } from "./useWarningEvents";
 import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
-  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain" | "debug";
+  type: "create" | "scale" | "delete" | "restart" | "bulk-delete" | "set-image" | "drain" | "debug" | "labels" | "annotate";
   object?: KubeObject;
   force?: boolean;
+  /** Bulk annotate: the preset to write onto every selected resource. */
+  annotateKey?: string;
+  annotateValue?: string;
 }
 
 function rowKey(object: KubeObject): string {
@@ -72,10 +80,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const details = session?.details;
 
-  const resource = useMemo(
-    () => findResource(session?.resources ?? [], session?.selectedKind ?? null),
-    [session?.resources, session?.selectedKind],
-  );
+  const resource = useMemo(() => {
+    const selected = session?.selectedKind ?? null;
+    const found = findResource(session?.resources ?? [], selected);
+    if (found) return found;
+    // Helm releases are parsed from secrets, so discovery never lists them:
+    // the synthetic resource stands in for the selected kind.
+    if (selected?.kind === "HelmRelease" && selected.apiVersion === "helm.sh/v1") {
+      return HELM_RELEASES_RESOURCE;
+    }
+    return undefined;
+  }, [session?.resources, session?.selectedKind]);
 
   const selectedNamespaces = session?.selectedNamespaces ?? [];
   const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
@@ -156,9 +171,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     active,
     refreshSeconds,
   });
+  const warningEvents = useWarningEvents({
+    clusterId,
+    namespaces: selectedNamespaces,
+    active: active && WARNING_KINDS.has(resource?.kind ?? ""),
+    refreshSeconds,
+  });
   const cellContext = useMemo<CellContext>(
-    () => ({ showNamespace, claimPods, serviceEndpoints }),
-    [showNamespace, claimPods, serviceEndpoints],
+    () => ({ showNamespace, claimPods, serviceEndpoints, warnings: warningEvents }),
+    [showNamespace, claimPods, serviceEndpoints, warningEvents],
   );
   const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
     const lower = target.kind.toLowerCase();
@@ -286,6 +307,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
   const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [presetManagerOpen, setPresetManagerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
@@ -423,6 +445,45 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   };
 
   const selectedObjects = list.items.filter((object) => selectedKeys.has(rowKey(object)));
+
+  const presetEntries = useMemo(
+    () => Object.entries(settings?.annotationPresets ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+    [settings?.annotationPresets],
+  );
+
+  /** Writes one saved annotation onto every selected resource (merge patch). */
+  const annotateSelected = async (key: string, value: string) => {
+    if (!resource || selectedObjects.length === 0) return;
+    setBusy(true);
+    let updated = 0;
+    const failures: string[] = [];
+    for (const object of selectedObjects) {
+      try {
+        await call(
+          api.resources.patch({
+            clusterId,
+            apiVersion: object.apiVersion ?? resource.apiVersion,
+            kind: object.kind ?? resource.kind,
+            namespace: object.metadata?.namespace,
+            name: object.metadata?.name ?? "",
+            patch: { metadata: { annotations: { [key]: value } } },
+          }),
+        );
+        updated += 1;
+      } catch (patchError) {
+        failures.push(`${object.metadata?.name}: ${errorText(patchError)}`);
+      }
+    }
+    setBusy(false);
+    setDialog(null);
+    await list.refresh(true);
+    if (failures.length === 0) {
+      toast.success(`Annotation set on ${updated} resource${updated === 1 ? "" : "s"}`, `${key}=${value}`);
+      setSelectedKeys(new Set());
+    } else {
+      toast.error(`Annotated ${updated}, failed ${failures.length}`, failures.slice(0, 4).join("\n"));
+    }
+  };
 
   const deleteSelected = async () => {
     if (!resource || selectedObjects.length === 0) return;
@@ -760,11 +821,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             <RotateCw className={cn("h-4 w-4", list.loading && "animate-spin")} />
           </button>
 
-          <Button variant="primary" size="sm" onClick={() => setDialog({ type: "create" })}>
-            <Plus className="h-3.5 w-3.5" />
-            <span className="hidden xl:inline">Create</span>
-            <span className="xl:hidden">YAML</span>
-          </Button>
+          {resource?.kind === "HelmRelease" ? null : (
+            <Button variant="primary" size="sm" onClick={() => setDialog({ type: "create" })}>
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden xl:inline">Create</span>
+              <span className="xl:hidden">YAML</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -832,8 +895,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onSort={onSort}
           selectedRef={selectedRef}
           onOpen={(object) => openTab(object)}
-          onContextMenu={(object, event) => setMenu({ object, x: event.clientX, y: event.clientY })}
+          onContextMenu={(object, event) => {
+            // Helm releases have no mutating actions: the menu would only offer
+            // API calls that cannot succeed.
+            if (resource?.kind === "HelmRelease") return;
+            setMenu({ object, x: event.clientX, y: event.clientY });
+          }}
           onRowMenu={(object, event) => {
+            if (resource?.kind === "HelmRelease") return;
             const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
             setMenu({ object, x: rect.left, y: rect.bottom + 4 });
           }}
@@ -869,7 +938,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           onOpenRef={openRef}
           claimPods={claimPods}
           serviceEndpoints={serviceEndpoints}
-          selectionMode
+          warnings={warningEvents}
+          hideRowMenu={resource?.kind === "HelmRelease"}
+          selectionMode={resource?.kind !== "HelmRelease"}
           selectedKeys={selectedKeys}
           onToggleRow={toggleRowSelection}
           onToggleAll={toggleAllSelection}
@@ -906,6 +977,55 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             Clear
           </button>
           <div className="ml-auto flex items-center gap-1.5">
+            <Menu
+              width={280}
+              trigger={({ toggle }) => (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={toggle}
+                  title="Annotate the selected resources with a saved annotation"
+                >
+                  <Tags className="h-3 w-3" />
+                  Annotate
+                </Button>
+              )}
+            >
+              {({ close }) => (
+                <>
+                  <MenuLabel>Annotate {selectedKeys.size} selected</MenuLabel>
+                  {presetEntries.length === 0 ? (
+                    <div className="px-2 py-1.5 text-[11px] text-theme-text-tertiary">
+                      No saved annotations yet — add one below.
+                    </div>
+                  ) : null}
+                  {presetEntries.map(([key, value]) => (
+                    <MenuItem
+                      key={key}
+                      icon={<Tags className="h-3.5 w-3.5" />}
+                      onClick={() => {
+                        setDialog({ type: "annotate", annotateKey: key, annotateValue: value });
+                        close();
+                      }}
+                    >
+                      <span className="truncate font-mono" title={`${key}=${value}`}>
+                        {key}={value}
+                      </span>
+                    </MenuItem>
+                  ))}
+                  <MenuSeparator />
+                  <MenuItem
+                    icon={<Pencil className="h-3.5 w-3.5" />}
+                    onClick={() => {
+                      setPresetManagerOpen(true);
+                      close();
+                    }}
+                  >
+                    Manage annotations…
+                  </MenuItem>
+                </>
+              )}
+            </Menu>
             <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
               <Trash2 className="h-3 w-3" />
               Delete selected
@@ -972,6 +1092,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           }}
         >
           Edit YAML
+        </MenuItem>
+        <MenuItem
+          icon={<Tags className="h-3.5 w-3.5" />}
+          onClick={() => {
+            setDialog({ type: "labels", object: contextObject });
+            setMenu(null);
+          }}
+        >
+          Labels / annotations…
         </MenuItem>        {isPod ? (
           <MenuItem
             icon={<ScrollText className="h-3.5 w-3.5" />}
@@ -1157,6 +1286,25 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         onSaved={() => void list.refresh(true)}
       />
 
+      <LabelsAnnotationsDialog
+        open={dialog?.type === "labels"}
+        onClose={() => setDialog(null)}
+        clusterId={clusterId}
+        object={
+          dialog?.type === "labels" && dialog.object?.metadata?.name
+            ? {
+                apiVersion: dialog.object.apiVersion ?? resource.apiVersion,
+                kind: dialog.object.kind ?? resource.kind,
+                namespace: dialog.object.metadata?.namespace,
+                name: dialog.object.metadata.name,
+                labels: dialog.object.metadata?.labels as Record<string, string> | undefined,
+                annotations: dialog.object.metadata?.annotations as Record<string, string> | undefined,
+              }
+            : null
+        }
+        onSaved={() => void list.refresh(true)}
+      />
+
       <NodeDrainDialog
         open={dialog?.type === "drain"}
         onClose={() => setDialog(null)}
@@ -1240,6 +1388,33 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           </>
         }
       />
+
+      <ConfirmActionDialog
+        open={dialog?.type === "annotate"}
+        onClose={() => setDialog(null)}
+        onConfirm={() => {
+          const key = dialog?.annotateKey;
+          if (key) void annotateSelected(key, dialog?.annotateValue ?? "true");
+        }}
+        title="Apply annotation"
+        confirmLabel={`Apply to ${selectedObjects.length} ${resource.kind}${selectedObjects.length === 1 ? "" : "s"}`}
+        busy={busy}
+        description={
+          <>
+            <p>
+              Set <span className="inline-code font-mono">{dialog?.annotateKey}={dialog?.annotateValue}</span> on{" "}
+              <span className="font-medium text-theme-text-primary">{selectedObjects.length}</span> selected{" "}
+              {resource.kind}
+              {selectedObjects.length === 1 ? "" : "s"}?
+            </p>
+            <p className="mt-2 text-xs text-theme-text-tertiary">
+              A merge patch adds this annotation; existing annotations stay untouched.
+            </p>
+          </>
+        }
+      />
+
+      <AnnotationPresetsDialog open={presetManagerOpen} onClose={() => setPresetManagerOpen(false)} />
 
       <ConfirmActionDialog
         open={dialog?.type === "restart"}

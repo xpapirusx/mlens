@@ -321,6 +321,11 @@ export interface AppSettings {
   hotbarPages: Array<Array<ClusterId | null>>;
   /** Index of the hotbar page currently shown on the rail. */
   hotbarPageIndex: number;
+  /**
+   * Saved annotations offered by the bulk "Annotate" action in the resource
+   * browser. One `key=value` entry each; the list is editable in the UI.
+   */
+  annotationPresets: Record<string, string>;
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;
@@ -491,4 +496,49 @@ export interface PolicyResourceResponse {
   liveUpdates: boolean;
   counts: PolicyResourceCounts;
   findings: PolicyResourceFinding[];
+}
+
+// ── Helm (release secrets parsed without a Helm binary) ──────────────────────
+// Helm v3 stores every release as a Secret labelled `owner=helm` whose `release`
+// key is base64(gzip(release JSON)). Reading that is enough for a list and a
+// detail view; no `helm` binary and no network to a chart repo is involved.
+
+export interface HelmReleasesRequest {
+  clusterId: ClusterId;
+  /** Optional namespace scope; undefined lists every namespace. */
+  namespace?: string;
+}
+
+export interface HelmReleaseSummary {
+  name: string;
+  namespace: string;
+  /** Revision number; higher is newer. */
+  revision: number;
+  /** deployed | failed | pending-* | superseded | uninstalled | unknown */
+  status: string;
+  /** `chart-name-1.2.3` */
+  chart: string;
+  chartName: string;
+  chartVersion: string;
+  appVersion?: string;
+  deployedAt?: string;
+  description?: string;
+  /** The Secret this row came from (older revisions live in `name.vN`). */
+  secretName: string;
+}
+
+export interface HelmReleaseRequest {
+  clusterId: ClusterId;
+  namespace: string;
+  /** Release name (not the secret name). */
+  name: string;
+}
+
+export interface HelmReleaseDetail extends HelmReleaseSummary {
+  /** Deployed values as YAML. */
+  values: string;
+  /** Rendered manifests as YAML text. */
+  manifest: string;
+  /** True when values/manifest were cut to keep the payload bounded. */
+  truncated?: boolean;
 }

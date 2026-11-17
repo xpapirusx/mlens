@@ -38,6 +38,15 @@ export interface TerminalTab {
   target: TerminalTarget;
 }
 
+/** Bottom-dock tab holding the multi-document YAML editor. */
+export interface YamlTab {
+  id: string;
+  kind: "yaml";
+  title: string;
+}
+
+export type DockTab = TerminalTab | YamlTab;
+
 export interface DetailsState {
   ref: ResourceKey;
   tab: DetailTab;
@@ -64,7 +73,7 @@ export interface ClusterSession {
   dock: {
     open: boolean;
     height: number;
-    tabs: TerminalTab[];
+    tabs: DockTab[];
     activeTabId: string | null;
   };
 }
@@ -96,6 +105,8 @@ interface SessionStore {
   detailsBack: (id: ClusterId) => void;
   refreshDetails: (id: ClusterId) => void;
   openTerminal: (id: ClusterId, target: TerminalTarget) => void;
+  /** Opens (or focuses) the dock's multi-document YAML editor tab. */
+  openYamlTab: (id: ClusterId) => void;
   closeTerminal: (id: ClusterId, tabId: string) => void;
   selectTerminal: (id: ClusterId, tabId: string) => void;
   setDock: (id: ClusterId, patch: Partial<ClusterSession["dock"]>) => void;
@@ -490,6 +501,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             }
           : requestedTarget;
       const existing = session.dock.tabs.find((tab) => {
+        if (tab.kind !== "terminal") return false;
         if (tab.target.type !== target.type) return false;
         if (tab.target.type === "pod" && target.type === "pod") {
           return (
@@ -538,6 +550,41 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
   },
 
+  openYamlTab: (id) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const existing = session.dock.tabs.find((tab) => tab.kind === "yaml");
+      if (existing) {
+        return {
+          sessions: {
+            ...state.sessions,
+            [id]: { ...session, dock: { ...session.dock, open: true, activeTabId: existing.id } },
+          },
+        };
+      }
+      const tab: YamlTab = {
+        id: `yaml-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        kind: "yaml",
+        title: "Create from YAML",
+      };
+      return {
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...session,
+            dock: {
+              ...session.dock,
+              open: true,
+              tabs: [...session.dock.tabs, tab],
+              activeTabId: tab.id,
+            },
+          },
+        },
+      };
+    });
+  },
+
   closeTerminal: (id, tabId) => {
     const closed = get().sessions[id]?.dock.tabs.find((tab) => tab.id === tabId);
     set((state) => {
@@ -560,7 +607,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     });
     // A node debug shell owns the pod it created: closing the console deletes
     // it, so repeated debugging does not leave privileged pods behind.
-    if (closed?.target.type === "pod" && closed.target.managedPod) {
+    if (closed?.kind === "terminal" && closed.target.type === "pod" && closed.target.managedPod) {
       const target = closed.target;
       void call(
         api.resources.delete({

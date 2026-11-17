@@ -251,6 +251,7 @@ export function getKindIcon(kind: string | undefined, group?: string): LucideIco
 
 const DISPLAY_NAMES: Record<string, string> = {
   pod: "Pods",
+  helmrelease: "Helm releases",
   deployment: "Deployments",
   daemonset: "DaemonSets",
   statefulset: "StatefulSets",

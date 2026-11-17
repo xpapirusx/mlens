@@ -121,6 +121,7 @@ string literals scattered across the code.
 | `pods` | container list |
 | `rbac` | effective ServiceAccount permissions (direct + group-inherited bindings, flattened rules) and the reverse lookup by Role/ClusterRole (bindings + rules) |
 | `policy` | per-resource policy findings read from the cluster's PolicyReport / ClusterPolicyReport families |
+| `helm` | Helm releases parsed from `owner=helm` Secrets (list + one release with values/manifests); no Helm binary |
 | `logs` | start/stop stream, chunk/end events |
 | `exec` | start, input, resize, close, data/exit events |
 | `terminal` | create, input, resize, close, data/exit events |
@@ -358,6 +359,24 @@ not cached), so opening several Pods costs one burst. The renderer shows the
 result as the "Permissions via ServiceAccount" section on Pod and workload
 Overviews; a 403 is rendered as a calm note rather than an error, because
 reading RBAC is a bonus feature.
+
+### 4.16 Helm releases without Helm
+
+`listHelmReleases` / `getHelmRelease` read the `owner=helm` Secrets directly:
+base64(Secret value) → a second base64 when the gzip magic bytes are missing
+(Helm's own value is base64-encoded twice on the wire) → gunzip → release JSON.
+One row per `namespace/name` keeps the highest revision; the detail call returns
+the deployed values (YAML) and the rendered manifests, both capped at 200k
+characters with a `truncated` flag. A corrupted secret is skipped instead of
+failing the whole list.
+
+The renderer treats releases as a synthetic kind (`HELM_RELEASES_RESOURCE` in
+`lib/catalog.ts`): the sidebar shows a Helm group, `useResourceList` swaps its
+fetch for `kube:helm-list` (polling only — there is nothing to watch), rows are
+shaped as ordinary objects (`lib/helm.ts`) so search, sort, filters, columns and
+selection work unchanged, and the drawer shows a dedicated Overview (status,
+chart, values, manifests) with the other tabs hidden — there is no API kind to
+query for events, apply YAML or counts, so Create/Delete are not offered.
 
 node-pty's prebuilt `spawn-helper` must be executable; `scripts/postinstall.cjs`
 enforces that because `pnpm --ignore-scripts` (used in some CI setups) skips

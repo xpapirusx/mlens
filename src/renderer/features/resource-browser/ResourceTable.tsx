@@ -44,6 +44,9 @@ interface ResourceTableProps {
   onOpenRef?: (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => void;
   claimPods?: Map<string, string[]>;
   serviceEndpoints?: Map<string, number>;
+  warnings?: Map<string, import("./useWarningEvents").WarningEntry>;
+  /** Hides the sticky row-actions button (kinds with no applicable actions). */
+  hideRowMenu?: boolean;
 }
 
 export function ResourceTable({
@@ -74,6 +77,8 @@ export function ResourceTable({
   onOpenRef,
   claimPods,
   serviceEndpoints,
+  warnings,
+  hideRowMenu,
   onRowMenu,
   onBackgroundClick,
   pinnedKeys = EMPTY_PINNED,
@@ -347,7 +352,7 @@ export function ResourceTable({
                         stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints, warnings })}</div>
                     </div>
                   ))}
                   <div
@@ -358,18 +363,20 @@ export function ResourceTable({
                     )}
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <button
-                      type="button"
-                      aria-label="Row actions"
-                      title="Actions"
-                      className="rounded p-1 text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onRowMenu?.(object, event);
-                      }}
-                    >
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </button>
+                    {hideRowMenu ? null : (
+                      <button
+                        type="button"
+                        aria-label="Row actions"
+                        title="Actions"
+                        className="rounded p-1 text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRowMenu?.(object, event);
+                        }}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );

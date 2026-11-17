@@ -48,6 +48,10 @@ export function defaultSettings(): AppSettings {
     hotbarSlots: [],
     hotbarPages: [[]],
     hotbarPageIndex: 0,
+    annotationPresets: {
+      iReallyWantDeleteThis: "true",
+      "cluster.x-k8s.io/delete-machine": "true",
+    },
     sidebarGroupOrder: [],
     tableColumnWidths: {},
     tableColumnOrder: {},
@@ -113,6 +117,13 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
     out.hotbarPageIndex = Math.max(0, Math.round(out.hotbarPageIndex));
   } else if (out.hotbarPageIndex !== undefined) {
     delete out.hotbarPageIndex;
+  }
+  if (out.annotationPresets) {
+    out.annotationPresets = Object.fromEntries(
+      Object.entries(out.annotationPresets).filter(
+        ([key, value]) => typeof key === "string" && key.length > 0 && typeof value === "string",
+      ),
+    );
   }
   if (out.sidebarGroupOrder) {
     out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");

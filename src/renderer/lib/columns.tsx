@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Copy } from "lucide-react";
+import { Copy, TriangleExclamationPoint } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
 import { formatAge, formatCpu, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
 import { resourceStatus, toneClass } from "./status";
@@ -9,6 +9,7 @@ import { Tooltip } from "../design-system/components/Tooltip";
 import { daysUntil, parseCertificate } from "./certificate";
 import { readJsonPath } from "./jsonpath";
 import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
+import type { WarningEntry } from "../features/resource-browser/useWarningEvents";
 
 export type AnyObject = any;
 
@@ -45,6 +46,8 @@ export interface CellContext {
   claimPods?: Map<string, string[]>;
   /** `${namespace}/${service}` → ready address count from the Endpoints object. */
   serviceEndpoints?: Map<string, number>;
+  /** `${namespace}/${name}` → latest Warning event (Freelens' warnings column). */
+  warnings?: Map<string, WarningEntry>;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
@@ -548,6 +551,25 @@ function ServiceTypeCell({ object }: { object: AnyObject }) {
   return <span className={cn("badge-sm", tone)}>{type}</span>;
 }
 
+/** Helm release status → badge tone (helm.sh/release vocabulary). */
+export const HELM_STATUS_TONES: Record<string, string> = {
+  deployed: "status-healthy",
+  failed: "status-unhealthy",
+  pending: "status-degraded",
+  "pending-install": "status-degraded",
+  "pending-upgrade": "status-degraded",
+  "pending-rollback": "status-degraded",
+  uninstalling: "status-degraded",
+  superseded: "status-unknown",
+  uninstalled: "status-unknown",
+  unknown: "status-unknown",
+};
+
+function HelmStatusCell({ object }: { object: AnyObject }) {
+  const phase = String(object.status?.phase ?? "unknown");
+  return <span className={cn("badge-sm", HELM_STATUS_TONES[phase] ?? "status-unknown")}>{phase}</span>;
+}
+
 function externalAddresses(object: AnyObject): string[] {
   return ((object.status?.loadBalancer?.ingress ?? []) as Array<{ ip?: string; hostname?: string }>)
     .map((entry) => entry.ip ?? entry.hostname ?? "")
@@ -623,6 +645,58 @@ function RoleRefCell({ object }: { object: AnyObject }) {
       </span>
     </span>
   );
+}
+
+/** Kinds whose table carries the Warnings column (Freelens' pods-warning column). */
+export const WARNING_KINDS = new Set([
+  "Pod",
+  "Deployment",
+  "StatefulSet",
+  "DaemonSet",
+  "ReplicaSet",
+  "Job",
+  "CronJob",
+  "Node",
+]);
+
+const warningEventKey = (object: AnyObject): string =>
+  `${object.metadata?.namespace ?? ""}/${object.metadata?.name}`;
+
+function WarningsCell({ object, context }: { object: AnyObject; context?: CellContext }) {
+  const entry = context?.warnings?.get(warningEventKey(object));
+  if (!entry) return null;
+  return (
+    <Tooltip
+      wrapperClassName="inline-flex"
+      content={
+        <div className="max-w-[300px] space-y-1">
+          <div className="font-medium text-amber-600 dark:text-amber-400">{entry.reason ?? "Warning"}</div>
+          <div className="text-theme-text-secondary">{entry.message}</div>
+          {entry.count > 1 ? (
+            <div className="text-theme-text-tertiary">{entry.count} warning events</div>
+          ) : null}
+        </div>
+      }
+    >
+      <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+        <TriangleExclamationPoint className="h-3.5 w-3.5" />
+        <span className="font-mono text-[11px]">{entry.count}</span>
+      </span>
+    </Tooltip>
+  );
+}
+
+function warningsColumn(): ColumnDef {
+  return {
+    key: "warnings",
+    label: "Warnings",
+    width: 104,
+    tooltip: "Warning events for this resource — hover for the latest message",
+    sortable: true,
+    value: (object, context) => context?.warnings?.get(warningEventKey(object))?.count ?? 0,
+    cell: (object, context) => <WarningsCell object={object} context={context} />,
+    filterValue: (object, context) => context?.warnings?.get(warningEventKey(object))?.reason,
+  };
 }
 
 export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: boolean): ColumnDef[] {
@@ -1810,6 +1884,47 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
       );
       break;
     }
+    case "helmrelease": {
+      base.push(
+        {
+          key: "status",
+          label: "Status",
+          width: 148,
+          sortable: true,
+          value: (object) => String(object.status?.phase ?? "unknown"),
+          cell: (object) => <HelmStatusCell object={object} />,
+          filterValue: (object) => String(object.status?.phase ?? "unknown"),
+        },
+        {
+          key: "chart",
+          label: "Chart",
+          width: 240,
+          sortable: true,
+          value: (object) => String(object.spec?.chart ?? ""),
+          cell: (object) => <TextCell>{String(object.spec?.chart ?? "–")}</TextCell>,
+          filterValue: (object) => String(object.spec?.chartName ?? ""),
+        },
+        {
+          key: "revision",
+          label: "Revision",
+          width: 96,
+          align: "right",
+          sortable: true,
+          value: (object) => Number(object.spec?.revision ?? 1),
+          cell: (object) => <Mono>{String(object.spec?.revision ?? 1)}</Mono>,
+        },
+        {
+          key: "appVersion",
+          label: "App version",
+          width: 128,
+          sortable: true,
+          value: (object) => String(object.spec?.appVersion ?? ""),
+          cell: (object) => <TextCell>{String(object.spec?.appVersion || "–")}</TextCell>,
+          filterValue: (object) => String(object.spec?.appVersion ?? "") || undefined,
+        },
+      );
+      break;
+    }
     default: {
       base.push(statusColumn(kind, 180));
       for (const printer of resource.printerColumns ?? []) {
@@ -1838,6 +1953,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
   }
 
   if (showNamespace && resource.namespaced) columns.push(namespaceColumn);
+  if (WARNING_KINDS.has(kind)) base.push(warningsColumn());
   columns.push(...base.filter((column) => column.key !== "age"));
   columns.push(ageColumn);
   return columns;

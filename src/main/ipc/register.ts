@@ -13,6 +13,8 @@ import type {
   PolicyResourceRequest,
   RbacRoleRequest,
   RbacSubjectRequest,
+  HelmReleaseRequest,
+  HelmReleasesRequest,
   ResourceCountRequest,
   ResourceKey,
   RestartRequest,
@@ -210,6 +212,14 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
 
   ipcMain.handle(IPC.policyResource, (_event, raw: unknown) =>
     clusters.policyResource(assertObject<PolicyResourceRequest>(raw, "request")),
+  );
+
+  ipcMain.handle(IPC.helmList, (_event, raw: unknown) =>
+    clusters.helmReleases(assertObject<HelmReleasesRequest>(raw, "request")),
+  );
+
+  ipcMain.handle(IPC.helmGet, (_event, raw: unknown) =>
+    clusters.helmRelease(assertObject<HelmReleaseRequest>(raw, "request")),
   );
 
   // ── Logs ──────────────────────────────────────────────────────

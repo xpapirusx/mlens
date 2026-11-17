@@ -101,6 +101,8 @@ export function ResourceSidebar({
     }
     const unique = new Map<string, (typeof resources)[number]>();
     for (const resource of list) {
+      // Synthetic kinds (Helm releases) have no API to count against.
+      if (resource.catalogGroup === "helm") continue;
       if (isListable(resource)) unique.set(`${resource.apiVersion}|${resource.kind}`, resource);
     }
     return [...unique.values()];
@@ -145,6 +147,9 @@ export function ResourceSidebar({
       return resources.find((resource) => resource.apiVersion === apiVersion && resource.kind === kind);
     })
     .filter((resource): resource is (typeof resources)[number] => Boolean(resource));
+  // Favorites default to expanded — they are pinned on purpose; the chevron
+  // only exists to hide them when the rail gets busy.
+  const favoritesExpanded = session?.expandedGroups["__favorites"] ?? true;
 
   const renderKindRow = (resource: (typeof resources)[number], depth = 0) => {
     const Icon = getKindIcon(resource.kind, resource.group);
@@ -422,13 +427,30 @@ export function ResourceSidebar({
 
         {!searching && favoriteResources.length > 0 ? (
           <div className="mb-1">
-            <div className="flex items-center gap-1.5 px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+            <button
+              type="button"
+              onClick={() => toggleGroup(clusterId, "__favorites", favoritesExpanded)}
+              className="group flex h-7 w-full items-center gap-1.5 rounded-md pl-1.5 pr-2 text-[11px] font-semibold uppercase tracking-wider text-amber-600 transition-colors hover:bg-theme-hover/60 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+              title={favoritesExpanded ? "Collapse favorites" : "Expand favorites"}
+            >
+              {favoritesExpanded ? (
+                <ChevronDown className="h-3 w-3 shrink-0" />
+              ) : (
+                <ChevronRight className="h-3 w-3 shrink-0" />
+              )}
               <Star className="h-3 w-3 fill-current" />
-              Favorites
-            </div>
-            <div className="space-y-0.5">
-              {favoriteResources.map((resource) => renderKindRow(resource, 0))}
-            </div>
+              <span className="truncate">Favorites</span>
+              <span className="ml-auto shrink-0 font-mono text-[9px] font-normal text-theme-text-disabled">
+                {favoriteResources.length}
+              </span>
+            </button>
+            {favoritesExpanded ? (
+              <div className="space-y-0.5">
+                {favoriteResources.map((resource) => renderKindRow(resource, 0))}
+              </div>
+            ) : null}
+            {/* Separates the pinned kinds from the ordered menu below. */}
+            <div className="mx-1.5 mb-1 mt-1 h-px bg-theme-border/70" />
           </div>
         ) : null}
 

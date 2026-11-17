@@ -12,6 +12,10 @@ import type {
   DeleteResourceRequest,
   EvictPodRequest,
   ExecRequest,
+  HelmReleaseDetail,
+  HelmReleaseRequest,
+  HelmReleaseSummary,
+  HelmReleasesRequest,
   PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
@@ -79,6 +83,8 @@ export const IPC = {
   rbacSubject: "kube:rbac-subject",
   rbacRole: "kube:rbac-role",
   policyResource: "kube:policy-resource",
+  helmList: "kube:helm-list",
+  helmGet: "kube:helm-get",
 
   portForwardStart: "kube:portforward-start",
   portForwardStop: "kube:portforward-stop",
@@ -158,6 +164,12 @@ export interface MlensApi {
   policy: {
     /** Policy-report findings for one resource; `not_installed` when no engine exists. */
     resource(request: PolicyResourceRequest): Promise<PolicyResourceResponse>;
+  };
+  helm: {
+    /** Releases parsed from the `owner=helm` secrets (no Helm binary). */
+    list(request: HelmReleasesRequest): Promise<HelmReleaseSummary[]>;
+    /** One release with its values and rendered manifests. */
+    get(request: HelmReleaseRequest): Promise<HelmReleaseDetail>;
   };
   portForward: {
     start(request: PortForwardRequest): Promise<PortForwardInfo>;

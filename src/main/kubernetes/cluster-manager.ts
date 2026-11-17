@@ -12,6 +12,10 @@ import type {
   ListResourcesResult,
   NamespaceInfo,
   PodContainerInfo,
+  HelmReleaseDetail,
+  HelmReleaseRequest,
+  HelmReleaseSummary,
+  HelmReleasesRequest,
   PolicyResourceRequest,
   PolicyResourceResponse,
   RbacSubjectRequest,
@@ -32,6 +36,7 @@ import { ResourceWatcher } from "./resource-watcher";
 import { LogStreams } from "./log-streams";
 import { ExecSessions } from "./exec-sessions";
 import { policyResource } from "./policy";
+import { getHelmRelease, listHelmReleases } from "./helm";
 import { rbacRole, rbacSubject } from "./rbac";
 import type { SettingsStore } from "../settings/store";
 
@@ -448,6 +453,17 @@ export class ClusterManager {
     }
     if (request.kind === "Role" && !request.namespace) throw new Error("A Role namespace is required.");
     return rbacRole(this.connection(request.clusterId), request);
+  }
+
+  /** Helm releases parsed from release secrets — no Helm binary involved. */
+  async helmReleases(request: HelmReleasesRequest): Promise<HelmReleaseSummary[]> {
+    return listHelmReleases(this.connection(request.clusterId), request);
+  }
+
+  async helmRelease(request: HelmReleaseRequest): Promise<HelmReleaseDetail> {
+    if (!request.namespace) throw new Error("A release namespace is required.");
+    if (!request.name) throw new Error("A release name is required.");
+    return getHelmRelease(this.connection(request.clusterId), request);
   }
 
   /** Serialize an object for the YAML tab (server JSON -> YAML). */

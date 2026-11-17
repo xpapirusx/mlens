@@ -91,7 +91,11 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     [resources, details],
   );
 
-  const tab: DetailTab = details?.tab ?? "overview";
+  const isHelmRelease = details?.ref.kind === "HelmRelease" && details?.ref.apiVersion === "helm.sh/v1";
+  const requestedTab: DetailTab = details?.tab ?? "overview";
+  // A Helm release only has the Overview surface — values and manifests live
+  // there, and the other tabs would query a kind the API server does not serve.
+  const tab: DetailTab = isHelmRelease && requestedTab !== "overview" ? "overview" : requestedTab;
   const events = useEvents(clusterId, details?.ref ?? null, refreshSeconds, tab === "events");
   const related = useRelatedResources(clusterId, details?.ref ?? null, object, tab === "related");
 
@@ -388,12 +392,14 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               <ArrowLeft className="h-3.5 w-3.5" />
             </button>
 
-            <DetailIcon
-              icon={<Trash2 />}
-              title="Delete resource"
-              danger
-              onClick={() => setConfirmDelete(true)}
-            />
+            {isHelmRelease ? null : (
+              <DetailIcon
+                icon={<Trash2 />}
+                title="Delete resource"
+                danger
+                onClick={() => setConfirmDelete(true)}
+              />
+            )}
             <DetailIcon
               icon={<RotateCw />}
               title="Reload data"
@@ -546,7 +552,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           <Tabs<DetailTab>
             value={tab}
             onChange={(next) => setDetailsTab(clusterId, next)}
-            tabs={[
+            tabs={isHelmRelease ? [
+              { id: "overview", label: "Overview", icon: <Layers /> },
+            ] : [
               { id: "overview", label: "Overview", icon: <Layers /> },
               { id: "details", label: "Details", icon: <FileText /> },
               { id: "yaml", label: "YAML", icon: <FileCode /> },
@@ -615,7 +623,14 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 clusterId={clusterId}
               />
             ) : null}
-            {tab === "details" ? <DetailsTab object={object} onNavigate={navigate} /> : null}
+            {tab === "details" ? (
+              <DetailsTab
+                object={object}
+                clusterId={clusterId}
+                onNavigate={navigate}
+                onMetadataChanged={() => void data.refresh()}
+              />
+            ) : null}
             {tab === "yaml" ? (
               <YamlTab clusterId={clusterId} object={object} onApplied={() => void data.refresh()} />
             ) : null}

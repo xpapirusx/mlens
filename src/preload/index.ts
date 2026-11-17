@@ -12,6 +12,10 @@ import type {
   ClusterId,
   DeleteResourceRequest,
   ExecRequest,
+  HelmReleaseDetail,
+  HelmReleaseRequest,
+  HelmReleaseSummary,
+  HelmReleasesRequest,
   PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
@@ -108,6 +112,10 @@ const api: MlensApi = {
   policy: {
     resource: (request: PolicyResourceRequest) =>
       ipcRenderer.invoke(IPC.policyResource, request) as Promise<PolicyResourceResponse>,
+  },
+  helm: {
+    list: (request: HelmReleasesRequest) => ipcRenderer.invoke(IPC.helmList, request) as Promise<HelmReleaseSummary[]>,
+    get: (request: HelmReleaseRequest) => ipcRenderer.invoke(IPC.helmGet, request) as Promise<HelmReleaseDetail>,
   },
   portForward: {
     start: (request: PortForwardRequest) =>

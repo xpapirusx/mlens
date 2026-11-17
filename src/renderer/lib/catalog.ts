@@ -6,6 +6,7 @@ import {
   FolderOpen,
   HardDrive,
   Network,
+  Package,
   Puzzle,
   ShieldCheck,
   SlidersHorizontal,
@@ -34,7 +35,31 @@ export const CATEGORIES: CategoryMeta[] = [
   { id: "storage", title: "Storage", icon: HardDrive, order: 50 },
 
   { id: "access-control", title: "User Management", icon: ShieldCheck, order: 80 },
+  { id: "helm", title: "Helm", icon: Package, order: 85 },
 ];
+
+/**
+ * Helm releases are not API resources — the browser reads them from the
+ * `owner=helm` secrets. The sidebar still shows them as a normal group, so
+ * this synthetic entry is injected into the group build (and excluded from
+ * `remainingItemCount` counts, which would query a kind that does not exist).
+ */
+export const HELM_RELEASES_RESOURCE: ApiResourceInfo = {
+  group: "helm.sh",
+  version: "v1",
+  apiVersion: "helm.sh/v1",
+  kind: "HelmRelease",
+  plural: "helmreleases",
+  singular: "helmrelease",
+  namespaced: true,
+  verbs: ["list"],
+  shortNames: ["helm"],
+  categories: [],
+  isCrd: false,
+  printerColumns: [],
+  iconKey: "Package",
+  catalogGroup: "helm",
+};
 
 const HIDDEN_KINDS = new Set([
   "PodMetrics",
@@ -319,6 +344,10 @@ export function buildResourceGroups(resources: ApiResourceInfo[]): ResourceGroup
       total: 1,
     });
   }
+
+  // The Helm group carries the synthetic release resource (see above); it has
+  // to be in place before groups are collected below.
+  byId.get("helm")?.resources.push(HELM_RELEASES_RESOURCE);
 
   for (const meta of CATEGORIES) {
     if (meta.id === "nodes" || meta.id === "namespaces" || meta.id === "events") continue;

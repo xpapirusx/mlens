@@ -76,6 +76,10 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
   External columns, ConfigMap **Size**, coloured Secret **Type** and TLS
   **Expires**, ServiceAccount **Automount**, Role/RoleBinding badges with an
   `sa:`/`grp:` subjects preview, and CRD **Kind** + **Status**.
+- A **Warnings** column for Pods, workloads and Nodes shows the warning count
+  with the latest Warning event in the tooltip (one event list per scope).
+- A **Helm** group lists releases parsed from the `owner=helm` Secrets —
+  status, chart, revision and app version — without a Helm binary.
 - Multi-select mode with bulk delete and confirmation.
 - Sticky row-actions menu on the right of every row (same as right-click):
   details, edit YAML, logs, attach, exec shell (Pods), scale
@@ -120,7 +124,10 @@ bindings, the distinct-rule count and a blast-radius warning — and with a
 **Policy** section reading the cluster's PolicyReport families. Services get
 load-balancer/no-selector banners and a live **Endpoints** section; Access
 Control overviews show bindings, rule cards, subjects and used-by pods; TLS
-Secrets show their certificate and expiry. Related resources can be filtered
+Secrets show their certificate and expiry. Details carry the full clickable
+**owner chain** (owner → owner's owner, scrollable) and an **editor for labels
+and annotations** with a confirm step; the selection bar can stamp a saved
+annotation onto every selected resource. Related resources can be filtered
 (search + regex + kind chips). Related resources are resolved from the live API for every kind.
 Secrets reveal only on request.
 
@@ -129,6 +136,9 @@ Secrets reveal only on request.
 - Real local shells through node-pty, in a bottom dock with tabs. The shell
   receives a context-pinned, 0600 KUBECONFIG for the open cluster (and its
   selected namespace), so `kubectl` starts on the right context.
+- A **Create from YAML** dock tab (the `FileCode` button) takes one manifest or
+  several separated by `---`, dry-runs and applies them through the same path as
+  the Create dialog.
 - Real Kubernetes pod exec over the exec WebSocket (no kubectl), with TTY resize.
 - Port forwarding over the Kubernetes WebSocket protocol: loopback listener,
   live forwards panel, start/stop, and one-click port forwarding from the Pod

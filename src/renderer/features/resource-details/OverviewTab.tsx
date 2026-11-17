@@ -14,6 +14,7 @@ import { readJsonPath } from "../../lib/jsonpath";
 import { NodeOverview } from "./NodeOverview";
 import { PermissionsSection } from "./PermissionsSection";
 import { PolicySection } from "./PolicySection";
+import { HelmReleaseOverview } from "./HelmReleaseOverview";
 import { useServiceEndpointsDetail } from "./useDetailsData";
 import {
   RoleBindingRbacSections,
@@ -92,6 +93,8 @@ export function OverviewTab(props: OverviewProps) {
       return <NodeOverview {...props} />;
     case "serviceaccount":
       return <ServiceAccountOverview {...props} />;
+    case "helmrelease":
+      return <HelmReleaseOverview {...props} />;
     case "role":
     case "clusterrole":
       return <RoleOverview {...props} />;

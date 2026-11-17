@@ -47,6 +47,19 @@ export function readJsonPath(root: unknown, jsonPath: string): unknown {
       continue;
     }
 
+    // field['label.key/with-slashes'] — label/annotation lookups, where the
+    // key itself contains dots (CRDs escape them as `\.`, e.g. the CAPI
+    // Cluster printer column `.metadata.labels['cluster\.x-k8s\.io/cluster-name']`)
+    const quoted = /^([^\[]+)\[(?:'((?:[^'\\]|\\.)+)'|"((?:[^"\\]|\\.)+)")\]$/.exec(token);
+    if (quoted) {
+      const field = quoted[1];
+      const key = (quoted[2] ?? quoted[3] ?? "").replace(/\\(.)/g, "$1");
+      const container = (current as Record<string, unknown>)[field];
+      if (container === null || container === undefined) return undefined;
+      current = (container as Record<string, unknown>)[key];
+      continue;
+    }
+
     // field, optionally with one or more numeric indices: envoyHosts[0].address
     const indexed = /^([^[\]]+)((?:\[\d+\])*)$/.exec(token);
     if (indexed) {

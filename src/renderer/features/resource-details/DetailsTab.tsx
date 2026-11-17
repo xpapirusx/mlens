@@ -1,9 +1,14 @@
 import type { KubeObject } from "@shared/types";
-import { ChevronRight, Database, ExternalLink, FileSliders, Tags } from "lucide-react";
+import { ArrowUp, ChevronRight, Database, ExternalLink, FileSliders, Tags } from "lucide-react";
 import { useState } from "react";
 import { formatAge, formatTimestamp } from "../../lib/format";
 import { DetailSection, Property, PropertyList } from "./DetailSections";
 import { cn } from "../../lib/cn";
+import { toneClass, type Tone } from "../../lib/status";
+import { Spinner } from "../../design-system/components/Spinner";
+import { Button } from "../../design-system/components/Button";
+import { LabelsAnnotationsDialog } from "./LabelsAnnotationsDialog";
+import { useOwnerChain } from "./useDetailsData";
 
 type Navigate = (kind: string, name: string, namespace?: string, apiVersion?: string) => void;
 
@@ -102,10 +107,23 @@ function RefLink({ target, onNavigate, children }: { target: RefTarget; onNaviga
   );
 }
 
-export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavigate?: Navigate }) {
+export function DetailsTab({
+  object,
+  clusterId,
+  onNavigate,
+  onMetadataChanged,
+}: {
+  object: KubeObject;
+  clusterId?: string;
+  onNavigate?: Navigate;
+  /** Called after labels/annotations were written, so the drawer can refetch. */
+  onMetadataChanged?: () => void;
+}) {
   const metadata = object.metadata ?? {};
   const labels = metadata.labels ?? {};
   const annotations = metadata.annotations ?? {};
+  const [metaOpen, setMetaOpen] = useState(false);
+  const { levels, loading } = useOwnerChain(clusterId ?? "", object, Boolean(clusterId));
 
   return (
     <div className="space-y-4 p-3">
@@ -114,7 +132,7 @@ export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavig
           <Property label="Name" value={metadata.name} copyable mono />
           <Property label="Namespace" value={metadata.namespace ?? "cluster-scoped"} copyable />
           <Property label="Kind" value={object.kind} />
-          <Property label="API versionsss" value={object.apiVersion} mono />
+          <Property label="API version" value={object.apiVersion} mono />
           <Property label="UID" value={metadata.uid} copyable mono />
           <Property label="Created" value={formatTimestamp(metadata.creationTimestamp)} />
           <Property label="Age" value={formatAge(metadata.creationTimestamp)} />
@@ -133,34 +151,96 @@ export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavig
         </PropertyList>
       </DetailSection>
 
-      <DetailSection title="Owner references" icon={<Database />} defaultOpen={Boolean(metadata.ownerReferences?.length)}>
-        {metadata.ownerReferences?.length ? (
-          <div className="space-y-1.5">
-            {metadata.ownerReferences.map((owner) => (
-              <div key={owner.uid} className="card-inner flex items-center gap-2 text-[12px]">
-                <span className="badge-sm status-unknown">{owner.kind}</span>
-                <RefLink
-                  target={{
-                    kind: owner.kind,
-                    name: owner.name,
-                    namespace: CLUSTER_SCOPED.has(owner.kind) ? undefined : metadata.namespace,
-                    apiVersion: owner.apiVersion,
-                  }}
-                  onNavigate={onNavigate}
-                >
-                  <span className="truncate font-mono text-theme-text-primary">{owner.name}</span>
-                </RefLink>
-                {owner.controller ? <span className="badge-sm status-neutral">controller</span> : null}
-                <span className="ml-auto truncate font-mono text-[10px] text-theme-text-disabled">{owner.uid}</span>
-              </div>
-            ))}
+      <DetailSection title="Owner chain" icon={<Database />} defaultOpen={Boolean(metadata.ownerReferences?.length)}>
+        {!metadata.ownerReferences?.length ? (
+          <div className="text-xs text-theme-text-tertiary">No owner references.</div>
+        ) : loading && levels.length === 0 ? (
+          <div className="py-1">
+            <Spinner label="Resolving owner chain…" />
           </div>
         ) : (
-          <div className="text-xs text-theme-text-tertiary">No owner references.</div>
+          <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            <div className="card-inner flex items-center gap-2 text-[12px]">
+              <span className="badge-sm status-neutral shrink-0">{object.kind}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-theme-text-primary">{metadata.name}</span>
+              <span className="shrink-0 text-[10px] text-theme-text-disabled">this resource</span>
+            </div>
+            {levels.map((level, levelIndex) => (
+              <div key={levelIndex}>
+                <div className="my-0.5 flex items-center gap-1 pl-1 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                  <ArrowUp className="h-3 w-3" />
+                  owned by
+                </div>
+                <div className="space-y-1">
+                  {level.map((entry) => (
+                    <div
+                      key={`${entry.apiVersion}|${entry.kind}|${entry.namespace ?? ""}|${entry.name}`}
+                      className="card-inner flex items-center gap-2 text-[12px]"
+                    >
+                      <span className="badge-sm status-unknown shrink-0">{entry.kind}</span>
+                      {entry.note ? (
+                        <span
+                          className="min-w-0 flex-1 truncate font-mono text-theme-text-tertiary"
+                          title={entry.note}
+                        >
+                          {entry.name}
+                        </span>
+                      ) : (
+                        <span className="min-w-0 flex-1">
+                          <RefLink
+                            target={{
+                              kind: entry.kind,
+                              name: entry.name,
+                              namespace: entry.namespace,
+                              apiVersion: entry.apiVersion,
+                            }}
+                            onNavigate={onNavigate}
+                          >
+                            <span className="truncate font-mono text-theme-text-primary">{entry.name}</span>
+                          </RefLink>
+                        </span>
+                      )}
+                      {entry.namespace && entry.namespace !== metadata.namespace ? (
+                        <span className="shrink-0 text-[10px] text-theme-text-tertiary">{entry.namespace}</span>
+                      ) : null}
+                      {entry.status ? (
+                        <span className={cn("badge-sm shrink-0", toneClass(entry.status.tone as Tone))}>
+                          {entry.status.text}
+                        </span>
+                      ) : null}
+                      {entry.note ? (
+                        <span
+                          className="ml-auto shrink-0 text-[10px] text-theme-text-disabled"
+                          title={entry.note}
+                        >
+                          {entry.note === "Owner no longer exists" ? "gone" : "unreadable"}
+                        </span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {levels.length === 0 && !loading ? (
+              <div className="text-xs text-theme-text-tertiary">
+                The chain stops here — the owners could not be read.
+              </div>
+            ) : null}
+          </div>
         )}
       </DetailSection>
 
-      <DetailSection title="Labels" icon={<Tags />} count={Object.keys(labels).length} defaultOpen={false}>
+      <DetailSection
+        title="Labels"
+        icon={<Tags />}
+        count={Object.keys(labels).length}
+        defaultOpen={false}
+        actions={
+          <Button size="xs" variant="ghost" onClick={() => setMetaOpen(true)}>
+            Edit
+          </Button>
+        }
+      >
         <div className="flex flex-wrap gap-1">
           {Object.entries(labels).map(([key, value]) => (
             <span key={key} className="badge-sm status-unknown font-mono">
@@ -176,6 +256,11 @@ export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavig
         icon={<FileSliders />}
         count={Object.keys(annotations).length}
         defaultOpen={false}
+        actions={
+          <Button size="xs" variant="ghost" onClick={() => setMetaOpen(true)}>
+            Edit
+          </Button>
+        }
       >
         <div className="space-y-1">
           {Object.entries(annotations).map(([key, value]) => (
@@ -207,6 +292,25 @@ export function DetailsTab({ object, onNavigate }: { object: KubeObject; onNavig
           <div className="text-xs text-theme-text-tertiary">This resource has no status.</div>
         )}
       </DetailSection>
+
+      <LabelsAnnotationsDialog
+        open={metaOpen}
+        onClose={() => setMetaOpen(false)}
+        clusterId={clusterId ?? ""}
+        object={
+          clusterId && metadata.name
+            ? {
+                apiVersion: object.apiVersion,
+                kind: object.kind,
+                namespace: metadata.namespace,
+                name: metadata.name,
+                labels,
+                annotations,
+              }
+            : null
+        }
+        onSaved={onMetadataChanged}
+      />
     </div>
   );
 }

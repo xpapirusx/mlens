@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiResourceInfo, KubeObject, WatchEventPayload } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
+import { helmRow } from "../../lib/helm";
 import { toast } from "../../design-system/components/Toast";
 
 export interface ResourceListState {
@@ -55,6 +56,8 @@ export function useResourceList(options: {
 
   const apiVersion = resource?.apiVersion;
   const kind = resource?.kind;
+  /** Helm releases come from release secrets, not from a watchable API. */
+  const isHelm = kind === "HelmRelease" && apiVersion === "helm.sh/v1";
   const scopes: Array<string | undefined> =
     !resource?.namespaced || namespaces.length === 0 ? [undefined] : namespaces;
   const scopeKey = `${resource?.apiVersion ?? ""}|${resource?.kind ?? ""}|${[...namespaces].sort().join(",")}`;
@@ -66,6 +69,33 @@ export function useResourceList(options: {
       const current = ++generation.current;
       if (!silent) setLoading(true);
       try {
+        if (isHelm) {
+          const summaries: Awaited<ReturnType<typeof api.helm.list>> = [];
+          const failures: string[] = [];
+          for (const scope of scopes) {
+            try {
+              summaries.push(...(await call(api.helm.list({ clusterId, namespace: scope }))));
+            } catch (listError) {
+              failures.push(errorText(listError));
+            }
+          }
+          if (current !== generation.current) return;
+          // Every scope failed → surface the first error like any list failure.
+          if (failures.length === scopes.length && summaries.length === 0) throw new Error(failures[0]);
+          const rows = summaries.map(helmRow);
+          resourceVersionRef.current = undefined;
+          setError(null);
+          setContinueToken(undefined);
+          setItems(rows);
+          setTotal(rows.length);
+          if (!loadedOnce.current) {
+            loadedOnce.current = true;
+            setListEpoch((value) => value + 1);
+          }
+          setLastUpdated(Date.now());
+          setLoading(false);
+          return;
+        }
         if (scopes.length === 1) {
           const result = await call(
             api.resources.list({
@@ -156,6 +186,11 @@ export function useResourceList(options: {
   // Live watches: one per scope so multi-namespace views stay live too.
   useEffect(() => {
     if (!resource || !apiVersion || !kind) {
+      setWatchState("off");
+      return;
+    }
+    // Helm releases are secret-backed: there is no watch, polling refreshes them.
+    if (isHelm) {
       setWatchState("off");
       return;
     }

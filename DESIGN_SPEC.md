@@ -194,7 +194,7 @@ palette and settings only see visible clusters.
   catalog, disconnect).
 - Resource filter input.
 - Groups follow Freelens order: **Favorites, Nodes, Workloads, Config, Control,
-  Network, Storage, Namespaces, Events, User Management, Custom Resources**.
+  Network, Storage, Namespaces, Events, User Management, Helm, Custom Resources**.
   Nodes, Namespaces and Events are direct rows without submenus. Config keeps
   workload configuration (ConfigMap, Secret, HPA/VPA, PDB, PriorityClass,
   PriorityLevelConfiguration, RuntimeClass, PodTemplate); **Control** holds the
@@ -203,6 +203,9 @@ palette and settings only see visible clusters.
   validating webhooks and admission policies). A category an update adds appears
   at its default position, not after everything the user already reordered
   (`mergeGroupOrder`).
+- **Favorites has its own chevron**: pinned kinds start expanded (they were
+  pinned on purpose), collapse like any group into `expandedGroups["__favorites"]`,
+  and a hairline separates them from the ordered menu below.
 - Custom Resources is a parent group with a **Definitions** child and one child
   per CRD API group; both levels collapse independently.
 - Groups start collapsed by default (settings toggle), and the expanded state is
@@ -234,6 +237,12 @@ contains a single kind.
   context launcher**: local shell or pod exec, with an explicit cluster context,
   namespace (or the context default), and — for pod exec — pod, container and
   shell command. The launcher is also offered from the empty dock state.
+- A `FileCode` button in the dock header (and in the empty dock state) opens the
+  **Create from YAML** tab: a multi-document Monaco editor that accepts one
+  manifest or several separated by `---`, counts the documents live, and applies
+  through the same server-side-checked path as the Create dialog (Dry run /
+  Apply). It is deliberately *not* in the resource-browser toolbar — pasting a
+  manifest belongs at the bottom, next to the terminals.
 - All terminal tabs stay mounted; only the active one is visible, so scrollback
   and PTY state survive switching.
 - Local shells and pod exec share the same dock, visually identical to Radar's
@@ -440,6 +449,12 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   CRDs add **Kind** and **Status** (Established / Terminating / Not
   established). Certificate parsing is a pure DER walk in `lib/certificate.ts`,
   verified against real certificates.
+- A **Warnings** column appears for Pods, workloads and Nodes: an amber warning
+  icon with the event count, a tooltip carrying the latest Warning event's
+  reason and message, and the reason as its filter value. It is fed by one
+  `type=Warning` event list per namespace scope (`useWarningEvents`), fetched
+  only while a kind that has the column is on screen — Freelens' pods-warning
+  column, generalised.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
 - Status is surfaced three ways: the status badge column, per-column status
@@ -556,7 +571,20 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   reads `status` in Radar's fixed order (phase, state, replicas, … then
   alphabetically) as flat rows, with a collapsed **Status details** block for
   nested objects.
+- **Helm** — the Helm group's releases open a dedicated Overview: status badge
+  (deployed/failed/pending/…), revision, chart and app version, deployed time,
+  the owning Secret, then the deployed **Values** and rendered **Manifests** in
+  scrollable blocks (capped at 200k characters). There is no API resource
+  behind a release, so the other tabs, Create and Delete are not offered.
 - **Details** — metadata, owner references, labels, annotations, raw spec/status.
+  The **Owner chain** walks owner references upward (owner → its owner → …,
+  eight levels, cycle- and fetch-capped) and renders the whole path as one
+  scrollable column: every level is a clickable row with its live status badge,
+  and an owner that no longer exists (or cannot be read) is marked instead of
+  silently dropped. **Labels** and **Annotations** each carry an *Edit* button
+  (also in the row menu): a `key=value`-per-line editor where `-key` removes a
+  key, followed by a confirm step that spells out `+N set / −N removed` before
+  the merge patch is sent.
 - **YAML** — Monaco, read-only by default, edit + dry-run + apply. Search is
   Monaco's own find widget (the contribution is registered in `lib/monaco.ts`,
   exactly as Radar registers it): `Ctrl/Cmd+F` opens it with match case, whole
@@ -576,7 +604,11 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
   bar renders whenever there is anything to filter, including single-group
   kinds such as a Node's Pods-on-node list.
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
-  timestamps, search, download, clear, line numbers; error/warn lines tinted.
+  timestamps, search, download, clear, line numbers. `Ctrl/Cmd+F` opens the
+  search, matched text is highlighted in place (browser-find style) and matching
+  lines are kept; lines are tinted by level — crit/fatal/panic on red, error on
+  a lighter red, warn on amber, all with a background tint so a scan down the
+  column reads the severity without reading the words.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,
   secret/configMap/field references. Ref badges have an eye that fetches the
   referenced ConfigMap/Secret and shows the decoded value inline (no navigation).

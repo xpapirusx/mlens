@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KubeObject, ResourceKey } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
+import { helmDetailRow } from "../../lib/helm";
 import { resourceStatus } from "../../lib/status";
 
 export interface ResourceObjectState {
@@ -11,7 +12,7 @@ export interface ResourceObjectState {
 }
 
 export function useResourceObject(
-  _clusterId: string,
+  clusterId: string,
   ref: ResourceKey | null,
   refreshSeconds: number,
 ): ResourceObjectState {
@@ -25,7 +26,14 @@ export function useResourceObject(
     const current = ++gen.current;
     setLoading(true);
     try {
-      const next = await call(api.resources.get(ref));
+      // Helm releases are parsed from secrets in main, not read from an API
+      // resource, so this one kind takes a different path.
+      const next =
+        ref.kind === "HelmRelease" && ref.apiVersion === "helm.sh/v1"
+          ? helmDetailRow(
+              await call(api.helm.get({ clusterId, namespace: ref.namespace ?? "", name: ref.name })),
+            )
+          : await call(api.resources.get(ref));
       if (current !== gen.current) return;
       setObject(next);
       setError(null);
@@ -35,7 +43,7 @@ export function useResourceObject(
     } finally {
       if (current === gen.current) setLoading(false);
     }
-  }, [ref]);
+  }, [clusterId, ref]);
 
   useEffect(() => {
     setObject(null);
@@ -176,6 +184,121 @@ export function useServiceEndpointsDetail(
   }, [clusterId, namespace, name, refreshSeconds]);
 
   return state;
+}
+
+export interface OwnerChainEntry {
+  kind: string;
+  apiVersion: string;
+  name: string;
+  namespace?: string;
+  status?: { text: string; tone: string };
+  /** Set when the owner itself could not be read (deleted, or RBAC denied). */
+  note?: string;
+}
+
+const OWNER_CHAIN_MAX_LEVELS = 8;
+const OWNER_CHAIN_MAX_FETCHES = 16;
+
+/**
+ * Walks owner references upward — owner, owner's owner, … — so the Details
+ * tab can show the whole ownership chain as one column. Owners live in the
+ * child's namespace (Kubernetes rejects cross-namespace owner references),
+ * and the API ignores the namespace for cluster-scoped kinds anyway.
+ */
+export function useOwnerChain(
+  clusterId: string,
+  object: KubeObject | null,
+  enabled = true,
+): { levels: OwnerChainEntry[][]; loading: boolean; error: string | null } {
+  const [levels, setLevels] = useState<OwnerChainEntry[][]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const subject = object
+    ? `${object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`}`
+    : "";
+
+  useEffect(() => {
+    if (!enabled || !object) {
+      setLevels([]);
+      setError(null);
+      return;
+    }
+    let disposed = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      const seen = new Set<string>();
+      let fetches = 0;
+      let frontier: Array<{ ref: { kind: string; apiVersion: string; name: string }; namespace?: string }> = (
+        object.metadata?.ownerReferences ?? []
+      ).map((owner) => ({ ref: owner, namespace: object.metadata?.namespace }));
+      const collected: OwnerChainEntry[][] = [];
+
+      while (frontier.length > 0 && collected.length < OWNER_CHAIN_MAX_LEVELS && fetches < OWNER_CHAIN_MAX_FETCHES) {
+        const level: OwnerChainEntry[] = [];
+        const next: typeof frontier = [];
+        await Promise.all(
+          frontier.map(async ({ ref, namespace }) => {
+            const key = `${ref.apiVersion}|${ref.kind}|${namespace ?? ""}|${ref.name}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            fetches += 1;
+            try {
+              const owner = await call(
+                api.resources.get({
+                  clusterId,
+                  apiVersion: ref.apiVersion,
+                  kind: ref.kind,
+                  namespace,
+                  name: ref.name,
+                }),
+              );
+              if (disposed) return;
+              const status = resourceStatus(owner, owner.kind ?? ref.kind);
+              level.push({
+                kind: ref.kind,
+                apiVersion: ref.apiVersion,
+                name: ref.name,
+                namespace: owner.metadata?.namespace ?? namespace,
+                status: { text: status.text, tone: status.tone },
+              });
+              for (const parent of owner.metadata?.ownerReferences ?? []) {
+                next.push({ ref: parent, namespace: owner.metadata?.namespace });
+              }
+            } catch (fetchError) {
+              if (disposed) return;
+              const message = errorText(fetchError);
+              level.push({
+                kind: ref.kind,
+                apiVersion: ref.apiVersion,
+                name: ref.name,
+                namespace,
+                note: /not found|404/i.test(message) ? "Owner no longer exists" : message,
+              });
+            }
+          }),
+        );
+        if (disposed) return;
+        if (level.length > 0) {
+          level.sort((left, right) => left.name.localeCompare(right.name));
+          collected.push(level);
+        }
+        frontier = next;
+      }
+      if (!disposed) {
+        setLevels(collected);
+        setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      disposed = true;
+    };
+    // The subject key changes whenever a different resource is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusterId, subject, enabled]);
+
+  return { levels, loading, error };
 }
 
 export interface RelatedItem {

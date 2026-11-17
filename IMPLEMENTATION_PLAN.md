@@ -155,6 +155,12 @@ configuration).
 | Related filters | **Done** | Substring/regex search + kind chips, visible/total counts per group |
 | Volume links | **Done** | ConfigMap/Secret volumes (direct and projected) open their target from the Pod overview |
 | Cluster switch animation | **Done** | Opening a cluster activates its tab before the API answers; the connecting animation covers connect + discovery, failures land on the error screen |
+| Warnings column | **Done** | Amber icon + count for Pods/workloads/Nodes, tooltip = latest Warning event, reason as filter value; one `type=Warning` event list per scope |
+| Helm releases (sidebar + table) | **Done** | `kube:helm-list` parses `owner=helm` Secrets (double base64 + gzip, verified against a live cluster: 63 releases), synthetic `HelmRelease` kind, columns Status/Chart/Revision/App version, polling only, no Create/Delete |
+| Owner chain in Details | **Done** | Owner → owner's owner up to 8 levels, clickable rows with live status badges, missing/unreadable owners marked, scrollable column |
+| Labels / annotations editor | **Done** | Edit from Details (Labels/Annotations) and the row menu; `key=value` lines, `-key` removes, confirm step shows `+N set / −N removed` before the merge patch |
+| Bulk annotate | **Done** | Annotate button next to Delete selected: presets from `settings.annotationPresets` (editable dialog), confirm, merge patch per selected row |
+| Create from YAML (dock tab) | **Done** | `FileCode` button in the dock header/empty state; multi-document editor (`---` separated), Dry run / Apply, document counter |
 | Service / Ingress | **Done** | Ports, selectors, rules, TLS, address |
 | ConfigMap / Secret | **Done** | Key/value view, explicit reveal, and UI editing with Secret base64 decode/encode via merge patch |
 | Env references | **Done** | Eye reveals referenced ConfigMap/Secret values inline without leaving the Pod |
@@ -301,6 +307,7 @@ configuration).
 | Radar container squares / Node table + details / RBAC permissions / hotbar pages | Pass — `pnpm typecheck` and `pnpm build`; real-cluster smoke test still pending |
 | Radar columns+statuses, Service/Access Control/Policy/Secret overviews, YAML find, debug shell, Related filters, cluster-switch animation | Pass — typecheck and `electron-vite build` (Monaco find widget confirmed in the bundle); certificate parser checked against real kubeconfig certs with Node's `X509Certificate` (10/10 dates and CNs match); real-cluster smoke test pending |
 | CRD printer columns (predicate/`$.`/braced JSONPath) + sidebar drag order | Pass — `readJsonPath` 11/11 on a CAPI-style CR (`Ready → True`, `envoyHosts[0]`, numeric predicate); `mergeGroupOrder` keeps the saved drag order and inserts new categories at their default slot |
+| Helm releases end-to-end, logs search/tint, Favorites collapse, owner chain, labels/annotations + bulk annotate, YAML dock tab | Pass — typecheck + `electron-vite build`; `listHelmReleases`/`getHelmRelease` run against a live cluster (63 releases, values 988 chars / manifest 44184 chars, revision dedupe correct, double-base64 decode confirmed); real-cluster smoke test for the UI parts pending |
 
 ---
 

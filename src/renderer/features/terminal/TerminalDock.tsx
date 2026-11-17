@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
+  FileCode,
   Maximize2,
   Minimize2,
   Monitor,
@@ -13,11 +14,13 @@ import { useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { Menu, MenuItem } from "../../design-system/components/Menu";
 import { TerminalView } from "./TerminalView";
+import { YamlDockTab } from "./YamlDockTab";
 import { TerminalLauncher, type TerminalMode } from "./TerminalLauncher";
 
 export function TerminalDock({ clusterId, active }: { clusterId: string; active: boolean }) {
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const openTerminal = useSessionStore((state) => state.openTerminal);
+  const openYamlTab = useSessionStore((state) => state.openYamlTab);
   const closeTerminal = useSessionStore((state) => state.closeTerminal);
   const selectTerminal = useSessionStore((state) => state.selectTerminal);
   const setDock = useSessionStore((state) => state.setDock);
@@ -126,7 +129,11 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
                   }}
                   title={tab.title}
                 >
-                  <SquareTerminal className="h-3 w-3 shrink-0 text-theme-text-tertiary" />
+                  {tab.kind === "yaml" ? (
+                    <FileCode className="h-3 w-3 shrink-0 text-theme-text-tertiary" />
+                  ) : (
+                    <SquareTerminal className="h-3 w-3 shrink-0 text-theme-text-tertiary" />
+                  )}
                   <span className="truncate">{tab.title}</span>
                   <button
                     type="button"
@@ -192,6 +199,15 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
             </>
           )}
         </Menu>
+        <button
+          type="button"
+          className="shell-icon-button h-6 w-6"
+          title="Create resources from YAML"
+          aria-label="Create resources from YAML"
+          onClick={() => openYamlTab(clusterId)}
+        >
+          <FileCode className="h-3.5 w-3.5" />
+        </button>
         {dock.tabs.length > 0 ? (
           <>
             <button type="button" className="shell-icon-button h-6 w-6" title="Maximize dock" onClick={maximize}>
@@ -233,11 +249,26 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
               >
                 Pod exec in another context…
               </button>
+              <button
+                type="button"
+                className="rounded-md border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-white/10"
+                onClick={() => openYamlTab(clusterId)}
+              >
+                Create resources from YAML
+              </button>
             </div>
           ) : (
-            dock.tabs.map((tab) => (
-              <TerminalView key={tab.id} target={tab.target} active={active && tab.id === activeTab?.id} />
-            ))
+            dock.tabs.map((tab) =>
+              tab.kind === "yaml" ? (
+                <YamlDockTab
+                  key={tab.id}
+                  clusterId={clusterId}
+                  active={active && tab.id === activeTab?.id}
+                />
+              ) : (
+                <TerminalView key={tab.id} target={tab.target} active={active && tab.id === activeTab?.id} />
+              ),
+            )
           )}
         </div>
       ) : null}
