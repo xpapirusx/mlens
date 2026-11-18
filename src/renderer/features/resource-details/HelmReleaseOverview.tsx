@@ -1,15 +1,35 @@
-import { useState } from "react";
-import { Box, Eye, FileText, History, Info, RotateCcw } from "lucide-react";
-import { DetailSection, Property, PropertyList } from "./DetailSections";
+import { useEffect, useState } from "react";
+import {
+  Box,
+  Check,
+  Copy,
+  Eye,
+  FileText,
+  GitBranch,
+  GitCompare,
+  History,
+  Info,
+  LoaderCircle,
+  RotateCcw,
+} from "lucide-react";
+import { DetailSection, Property, PropertyList, AgeProperty } from "./DetailSections";
 import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
+import { InlineError } from "../../design-system/components/EmptyState";
+import { YamlDiffEditor } from "../../design-system/components/YamlDiffEditor";
 import { formatAge, formatTimestamp } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { HELM_STATUS_TONES } from "../../lib/columns";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
-import type { HelmReleaseDetail } from "@shared/types";
+import type { HelmHookInfo, HelmReleaseDetail } from "@shared/types";
 import type { OverviewProps } from "./OverviewTab";
+
+const ANSI = /\u001b\[[0-9;]*m/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI, "");
+}
 
 function TextBlock({ text, empty }: { text: string; empty: string }) {
   if (!text.trim()) return <div className="text-xs text-theme-text-tertiary">{empty}</div>;
@@ -26,16 +46,31 @@ const VIEW_BUTTON =
   "border-theme-border-light bg-theme-elevated text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary";
 const ROLLBACK_BUTTON =
   "border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/15 dark:text-amber-300";
+const COMPARE_SELECTED =
+  "border-skyhook-500/50 bg-skyhook-500/15 text-accent-text";
+
+function CopyAction({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+      onClick={onClick}
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
 
 /**
  * Helm release overview: the record read out of the `owner=helm` secret —
- * status/revision/chart, the revision timeline with rollback (Radar's
- * RevisionHistory design), the objects the manifest creates, and the deployed
- * values/manifests. "View" swaps the values/manifests to an older revision;
- * rollback re-applies that revision's manifest and appends a new record.
+ * status/revision/chart, the revision timeline with per-revision view, compare
+ * and rollback (Radar's RevisionHistory), the objects the manifest creates, the
+ * stored notes/hooks, and the deployed values/manifests.
  *
- * There is no chart renderer here: a true `helm upgrade` would need Helm's
- * template engine, which mLens deliberately does not ship.
+ * There is no chart renderer here: a true `helm upgrade` needs Helm's template
+ * engine, which mLens deliberately does not ship. Rollback re-applies a stored
+ * manifest and appends a new record, exactly like Helm.
  */
 export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }: OverviewProps) {
   const status = (object.status ?? {}) as Record<string, any>;
@@ -53,10 +88,76 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
   const [viewed, setViewed] = useState<HelmReleaseDetail | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [comparePick, setComparePick] = useState<number | null>(null);
+  const [comparePair, setComparePair] = useState<{ left: number; right: number } | null>(null);
+  const [compareData, setCompareData] = useState<{
+    left: HelmReleaseDetail;
+    right: HelmReleaseDetail;
+  } | null>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [compareError, setCompareError] = useState<string | null>(null);
+  const [compareTab, setCompareTab] = useState<"manifest" | "values">("manifest");
 
   const shown = viewed ?? object;
-  const shownValues = String(shown.values ?? "");
-  const shownManifest = String(shown.manifest ?? "");
+  const shownRecord = shown as Record<string, any>;
+  const shownRevision = Number(shownRecord.viewedRevision ?? currentRevision);
+  const shownValues = String(shownRecord.values ?? "");
+  const shownManifest = String(shownRecord.manifest ?? "");
+  const notes = stripAnsi(String(shownRecord.notes ?? "")).trim();
+  const hooks = (shownRecord.hooks ?? []) as HelmHookInfo[];
+
+  useEffect(() => {
+    if (!comparePair) {
+      setCompareData(null);
+      setCompareError(null);
+      return;
+    }
+    let disposed = false;
+    setCompareLoading(true);
+    setCompareError(null);
+    Promise.all([
+      call(api.helm.get({ clusterId, namespace, name, revision: comparePair.left })),
+      call(api.helm.get({ clusterId, namespace, name, revision: comparePair.right })),
+    ])
+      .then(([left, right]) => {
+        if (!disposed) setCompareData({ left, right });
+      })
+      .catch((error) => {
+        if (!disposed) setCompareError(errorText(error));
+      })
+      .finally(() => {
+        if (!disposed) setCompareLoading(false);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [comparePair, clusterId, namespace, name]);
+
+  const copy = (key: string, text: string) => {
+    if (!text) return;
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      window.setTimeout(() => setCopied(null), 1500);
+    });
+  };
+
+  const pickForCompare = (revision: number) => {
+    if (comparePick === null) {
+      setComparePick(revision);
+      return;
+    }
+    if (comparePick === revision) {
+      setComparePick(null);
+      return;
+    }
+    setComparePair({
+      left: Math.min(comparePick, revision),
+      right: Math.max(comparePick, revision),
+    });
+    setComparePick(null);
+    setCompareTab("manifest");
+  };
 
   const viewRevision = async (revision: number) => {
     if (revision === currentRevision) {
@@ -93,7 +194,8 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
       {viewed ? (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-skyhook-500/30 bg-skyhook-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
           <span>
-            Viewing revision {viewed.viewedRevision} — values and manifests below are from that revision.
+            Viewing revision {viewed.viewedRevision} — values, manifests and notes below are from that
+            revision.
           </span>
           <button
             type="button"
@@ -123,15 +225,31 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
           <Property label="App version" value={spec.appVersion || "–"} mono />
           <Property label="Description" value={status.description || "–"} />
           <Property label="Secret" value={status.secretName} mono />
-          <Property label="Age" value={formatAge(metadata.creationTimestamp)} />
+          <AgeProperty timestamp={metadata.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
       <DetailSection title={`Revisions (${revisions.length})`} icon={<History />} count={revisions.length}>
+        {comparePick !== null ? (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-skyhook-500/30 bg-skyhook-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
+            <span className="flex items-center gap-1.5">
+              <GitCompare className="h-3.5 w-3.5" />
+              Select another revision to compare with revision {comparePick}.
+            </span>
+            <button
+              type="button"
+              className="shrink-0 font-medium underline hover:no-underline"
+              onClick={() => setComparePick(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : null}
         <div className="space-y-2">
           {revisions.map((revision) => {
             const isCurrent = revision.revision === currentRevision;
             const isViewing = revision.revision === (viewed?.viewedRevision ?? currentRevision);
+            const isComparePick = comparePick === revision.revision;
             return (
               <div
                 key={revision.revision}
@@ -139,9 +257,11 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
                   "relative rounded-lg border p-3 transition-colors",
                   isCurrent
                     ? "border-emerald-500/50 bg-emerald-500/5"
-                    : isViewing
+                    : isComparePick
                       ? "border-skyhook-500/50 bg-skyhook-500/10"
-                      : "border-theme-border-subtle bg-theme-base hover:border-theme-border",
+                      : isViewing
+                        ? "border-skyhook-500/50 bg-skyhook-500/10"
+                        : "border-theme-border-subtle bg-theme-base hover:border-theme-border",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -183,6 +303,19 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
                       >
                         <Eye className="h-3.5 w-3.5" />
                         {isViewing && !isCurrent ? "Viewing" : "View"}
+                      </button>
+                      <button
+                        type="button"
+                        className={cn(ROW_BUTTON, isComparePick ? COMPARE_SELECTED : VIEW_BUTTON)}
+                        onClick={() => pickForCompare(revision.revision)}
+                        title={
+                          isComparePick
+                            ? "Selected for comparison — pick another revision"
+                            : "Select this revision, then another one, to diff them"
+                        }
+                      >
+                        <GitCompare className="h-3.5 w-3.5" />
+                        {isComparePick ? "Selected" : "Compare"}
                       </button>
                       {!isCurrent ? (
                         <button
@@ -237,11 +370,78 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Values" icon={<Box />}>
+      {notes ? (
+        <DetailSection
+          title={`Release notes · revision ${shownRevision}`}
+          icon={<FileText />}
+          actions={<CopyAction copied={copied === "notes"} onClick={() => copy("notes", notes)} />}
+        >
+          <TextBlock text={notes} empty="This revision has no release notes." />
+        </DetailSection>
+      ) : null}
+
+      {hooks.length > 0 ? (
+        <DetailSection title={`Hooks (${hooks.length})`} icon={<GitBranch />} count={hooks.length}>
+          <div className="space-y-1">
+            {hooks.map((hook, index) => (
+              <div
+                key={`${hook.kind}-${hook.name}-${index}`}
+                className="flex flex-wrap items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2 py-1.5"
+                title={[
+                  hook.events?.length ? `events: ${hook.events.join(", ")}` : "",
+                  hook.weight !== undefined ? `weight: ${hook.weight}` : "",
+                  hook.deletePolicies?.length ? `delete: ${hook.deletePolicies.join(", ")}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
+              >
+                <span className="badge-sm status-violet shrink-0">{hook.kind || "Hook"}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-theme-text-primary">
+                  {hook.name || "–"}
+                </span>
+                {hook.events?.length ? (
+                  <span className="shrink-0 text-[10px] text-theme-text-tertiary">
+                    {hook.events.join(", ")}
+                  </span>
+                ) : null}
+                {hook.lastRun?.phase ? (
+                  <span
+                    className={cn(
+                      "badge-sm shrink-0",
+                      hook.lastRun.phase === "Succeeded"
+                        ? "status-healthy"
+                        : hook.lastRun.phase === "Failed"
+                          ? "status-unhealthy"
+                          : "status-neutral",
+                    )}
+                  >
+                    {hook.lastRun.phase}
+                  </span>
+                ) : null}
+                {hook.lastRun?.completedAt ?? hook.lastRun?.startedAt ? (
+                  <span className="shrink-0 font-mono text-[10px] text-theme-text-disabled">
+                    {formatTimestamp(hook.lastRun.completedAt ?? hook.lastRun.startedAt)}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </DetailSection>
+      ) : null}
+
+      <DetailSection
+        title={`Values · revision ${shownRevision}`}
+        icon={<Box />}
+        actions={<CopyAction copied={copied === "values"} onClick={() => copy("values", shownValues)} />}
+      >
         <TextBlock text={shownValues} empty="This release was deployed without custom values." />
       </DetailSection>
 
-      <DetailSection title="Manifests" icon={<FileText />}>
+      <DetailSection
+        title={`Manifests · revision ${shownRevision}`}
+        icon={<FileText />}
+        actions={<CopyAction copied={copied === "manifest"} onClick={() => copy("manifest", shownManifest)} />}
+      >
         <TextBlock text={shownManifest} empty="No rendered manifests are stored with this release." />
         {truncated ? (
           <div className="mt-1.5 text-[11px] text-theme-text-tertiary">
@@ -249,6 +449,58 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
           </div>
         ) : null}
       </DetailSection>
+
+      <Modal
+        open={comparePair !== null}
+        onClose={() => setComparePair(null)}
+        width={1180}
+        title={`Compare revisions ${comparePair?.left ?? "?"} → ${comparePair?.right ?? "?"}`}
+        subtitle={`${namespace}/${name} · A is the older revision, B the newer one`}
+        footer={
+          <Button variant="ghost" onClick={() => setComparePair(null)}>
+            Close
+          </Button>
+        }
+      >
+        <div className="flex h-[calc(100vh-17rem)] min-h-[320px] flex-col gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px]">
+            {(["manifest", "values"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setCompareTab(tab)}
+                className={cn(
+                  "rounded-md border px-2 py-1 text-[11px] transition-colors",
+                  compareTab === tab
+                    ? "border-skyhook-500/50 bg-skyhook-500/15 text-accent-text"
+                    : "border-theme-border bg-theme-elevated text-theme-text-secondary hover:bg-theme-hover",
+                )}
+              >
+                {tab === "manifest" ? "Manifests" : "Values"}
+              </button>
+            ))}
+            <span className="ml-auto font-mono text-theme-text-tertiary">
+              A rev {comparePair?.left ?? "?"} · B rev {comparePair?.right ?? "?"}
+            </span>
+          </div>
+          {compareLoading ? (
+            <div className="flex flex-1 items-center justify-center gap-2 text-xs text-theme-text-tertiary">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Reading both revisions…
+            </div>
+          ) : compareError ? (
+            <InlineError title="Cannot load the revisions for comparison" message={compareError} />
+          ) : compareData ? (
+            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-theme-border">
+              <YamlDiffEditor
+                key={compareTab}
+                original={compareTab === "manifest" ? compareData.left.manifest : compareData.left.values}
+                modified={compareTab === "manifest" ? compareData.right.manifest : compareData.right.values}
+              />
+            </div>
+          ) : null}
+        </div>
+      </Modal>
 
       <Modal
         open={rollbackTarget !== null}

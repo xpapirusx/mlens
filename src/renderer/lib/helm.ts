@@ -38,6 +38,11 @@ export function helmDetailRow(detail: HelmReleaseDetail): KubeObject {
     ...helmRow(detail),
     values: detail.values,
     manifest: detail.manifest,
+    revisions: detail.revisions,
+    resources: detail.resources,
+    viewedRevision: detail.viewedRevision,
+    ...(detail.notes ? { notes: detail.notes } : {}),
+    ...(detail.hooks && detail.hooks.length > 0 ? { hooks: detail.hooks } : {}),
     ...(detail.truncated ? { truncated: true } : {}),
   } as KubeObject;
 }

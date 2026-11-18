@@ -34,10 +34,23 @@ interface ReleaseJson {
   name?: string;
   namespace?: string;
   version?: number;
-  info?: { status?: string; last_deployed?: string; description?: string };
+  info?: { status?: string; last_deployed?: string; description?: string; notes?: string };
   chart?: { metadata?: { name?: string; version?: string; appVersion?: string } };
   config?: Record<string, unknown>;
   manifest?: string;
+  hooks?: Array<{
+    name?: string;
+    kind?: string;
+    path?: string;
+    events?: string[];
+    last_run?: {
+      started_at?: string;
+      completed_at?: string;
+      phase?: string;
+    };
+    weight?: number;
+    delete_policies?: string[];
+  }>;
 }
 
 function decodeRelease(secret: RawSecret): ReleaseJson | null {
@@ -109,15 +122,43 @@ export async function listHelmReleases(
   request: HelmReleasesRequest,
 ): Promise<HelmReleaseSummary[]> {
   const secrets = await listSecrets(connection, request.namespace, "owner=helm");
-  const byRelease = new Map<string, HelmReleaseSummary>();
+
+  // Helm labels every revision Secret with `name` and `version`, so the newest
+  // revision per release is known from metadata alone — decode just that one.
+  // Large clusters can carry thousands of revision Secrets (every history
+  // entry is its own object), and decoding all of them blocks the main process
+  // for tens of seconds. Secrets without usable labels fall back to a decode.
+  const newest = new Map<string, RawSecret>();
+  const unlabeled: RawSecret[] = [];
   for (const secret of secrets) {
     if (secret.metadata?.labels?.owner !== "helm") continue;
+    const labels = secret.metadata.labels;
+    const name = labels.name;
+    const version = Number(labels.version ?? Number.NaN);
+    if (!name || !Number.isFinite(version)) {
+      unlabeled.push(secret);
+      continue;
+    }
+    const key = `${secret.metadata?.namespace ?? ""}/${name}`;
+    const current = newest.get(key);
+    if (!current || version > Number(current.metadata?.labels?.version ?? 0)) {
+      newest.set(key, secret);
+    }
+  }
+
+  const byRelease = new Map<string, HelmReleaseSummary>();
+  for (const secret of newest.values()) {
+    const release = decodeRelease(secret);
+    if (!release?.name) continue;
+    const summary = toSummary(secret, release);
+    byRelease.set(`${summary.namespace}/${summary.name}`, summary);
+  }
+  for (const secret of unlabeled) {
     const release = decodeRelease(secret);
     if (!release?.name) continue;
     const summary = toSummary(secret, release);
     const key = `${summary.namespace}/${summary.name}`;
-    const current = byRelease.get(key);
-    if (!current || summary.revision > current.revision) byRelease.set(key, summary);
+    if (!byRelease.has(key)) byRelease.set(key, summary);
   }
   return [...byRelease.values()].sort(
     (left, right) =>
@@ -163,6 +204,29 @@ export async function getHelmRelease(
     ...summary,
     values: values.slice(0, MAX_TEXT),
     manifest: manifest.slice(0, MAX_TEXT),
+    ...(viewed.release.info?.notes ? { notes: viewed.release.info.notes.slice(0, MAX_TEXT) } : {}),
+    ...(Array.isArray(viewed.release.hooks) && viewed.release.hooks.length > 0
+      ? {
+          hooks: viewed.release.hooks.slice(0, 100).map((hook) => ({
+            name: String(hook.name ?? ""),
+            kind: String(hook.kind ?? ""),
+            events: Array.isArray(hook.events) ? hook.events.map(String) : undefined,
+            ...(hook.last_run
+              ? {
+                  lastRun: {
+                    startedAt: hook.last_run.started_at,
+                    completedAt: hook.last_run.completed_at,
+                    phase: hook.last_run.phase,
+                  },
+                }
+              : {}),
+            weight: typeof hook.weight === "number" ? hook.weight : undefined,
+            deletePolicies: Array.isArray(hook.delete_policies)
+              ? hook.delete_policies.map(String)
+              : undefined,
+          })),
+        }
+      : {}),
     ...(truncated ? { truncated: true } : {}),
     revisions: matches.map((entry) => {
       const info = toSummary(entry.secret, entry.release);

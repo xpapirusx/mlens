@@ -96,6 +96,13 @@ src/renderer/
 - `details { ref, tab }`, `detailsHistory`, `resourceTabs`;
 - `dock { open, height, tabs, activeTabId }`.
 
+Resource-table sorting has two layers: the session keeps the current per-kind
+choice, and every explicit sort is persisted in `settings.tableSorts` keyed by
+`<apiVersion>|<kind>`. When a kind is opened for the first time (no saved sort),
+the table defaults to **Age descending** — newest resources first. After that the
+last explicit sort wins; a saved key that no longer exists for the kind is
+ignored.
+
 `catalog-store` holds settings, kubeconfig sources, `allClusters`, visible
 `clusters`, health, active cluster, connect/disconnect, hidden clusters.
 
@@ -151,11 +158,42 @@ Important:
   Never use raw Tailwind gray/blue for themed surfaces.
 - Typography: DM Sans / DM Mono. Table header 12px uppercase; rows 14px; details
   section text 13px; console/log text 11–13px monospace.
+- Resource bars (`ResourceBar`) use Radar's **stacked** layout by default:
+  `used / total` and the percentage above the track, never inline. Table CPU
+  values are millicores (`2200m`, `formatCpuMilli`), memory is short (`851Mi`,
+  `formatMemoryShort`). The `count` scheme (blue, amber above 90%) is for node
+  pod counts — `allocatable.pods` is a Quantity, parse it with
+  `parseQuantityCount` (`110`, `1k`), never with `parseCpu`. A pod's CPU/Memory
+  tooltip is Radar's `buildContainerResourceTooltip` equivalent: containers
+  sorted by percentage (top three), then `Node <name>` with
+  `X% used · this pod Y%` (node usage/allocatable come from `useResourceMetrics`).
+  CPU/Memory columns sort by **actual usage** (`value` reads
+  `context.podMetrics` / `context.nodeMetrics`), never by requests/allocatable;
+  missing samples are 0. Every Age surface uses `AgeProperty`/an Age tooltip with
+  `creationTimestamp`.
 - Table: 44px rows by default (configurable 24–52), 40px header, fixed layout,
   always-visible selection checkbox, column resize (72px min), horizontal scroll,
-  column visibility and order, filters/search/sort.
+  column visibility and order, filters/search/sort. The default column order ends
+  with **Status, Age** for every kind; custom resources drop CRD printer columns
+  that duplicate Age (`name: Age` or `.metadata.creationTimestamp`) because the
+  generic Age column is always appended. A saved `settings.tableColumnOrder`
+  still wins, so a user's own arrangement is remembered. Age is a compact 60px
+  column (`compact: true` → `px-2`) and is appended for every discovered kind,
+  Helm releases included.
+- The namespace scope picker lists **All namespaces** first, then the currently
+  selected namespaces (after a separator), then the rest alphabetically. Search
+  and the system-namespace toggle filter both groups.
 - Status: semantic tone only (`success/warning/error/info/neutral`). Use
   `resourceStatus` and `StatusBadge`; do not invent status strings ad hoc.
+  Workloads say **Updating** (warning) while `observedGeneration` lags or
+  replicas are still being replaced, **Not ready/Failed** (error) when nothing
+  is serving or a condition failed; Pods expose the real blocker — Pending /
+  ContainerCreating / PodInitializing / Terminating (warning) and
+  CrashLoopBackOff / ImagePullBackOff / Evicted (error). Colours come from the
+  tone, never from per-kind classes. Status badges (table and drawer) and
+  condition cards explain themselves through the design-system `Tooltip`:
+  `status.conditions` sorted newest-transition first, each with state,
+  reason/message, relative age and the exact `lastTransitionTime`.
 - Catalog: clusters with a live session (open) sort to the top; Status says
   **Connected**, not the Kubernetes version (version has its own column). A sort
   control offers open/status, name, recent and kubeconfig source.
@@ -171,9 +209,41 @@ Important:
   `kube:helm-list` / `kube:helm-get` (release Secrets parsed in main). Never
   send them to the Kubernetes API as a kind, never count them, and never offer
   Create/Delete for them — the `owner=helm` secrets are the source of truth.
-- Bulk **Annotate** (next to Delete selected) applies one saved annotation from
-  `settings.annotationPresets` to every selected row after a confirm; the preset
-  list is edited in the dialog behind "Manage annotations…".
+  The drawer is read-only except Rollback: revision timeline with View, Compare
+  (older→newer Manifest/Values diff), stored Release notes and Hooks, copy
+  actions, and the manifest's Resources. `helmDetailRow` must carry
+  `revisions`, `resources`, `viewedRevision`, `notes` and `hooks`; dropping them
+  silently empties the history/resources sections. `YamlDiffEditor` opens at the
+  first changed line (`revealFirstDiff`) and its diff colours come from
+  `DIFF_COLORS` in `lib/monaco.ts` — Monaco's stock alpha is nearly invisible.
+  Helm stores `hooks[].last_run` as an **object** (`started_at`, `completed_at`,
+  `phase`), not a string; map it to `lastRun` and render the phase/timestamp, or
+  React throws "Objects are not valid as a React child" and blanks the window.
+  Installing/upgrading from a chart is deliberately absent — it needs Helm's Go
+  template engine.
+- Bulk **Annotate** (next to Delete selected) opens a checkbox dialog with every
+  entry of `settings.annotationPresets`: tick any number of annotations, then one
+  merge patch per resource writes them all. The list is edited behind
+  "Manage annotations…". Applying annotations or a saved label **keeps the row
+  selection**, so several presets can be stamped in a row.
+- **Diff** (next to Copy names) is enabled only with exactly two selected rows of
+  the same kind: a read-only Monaco side-by-side YAML diff, A = first selected
+  row in table order, B = second. Both objects are re-read from the API; a toggle
+  hides server-managed metadata (`uid`, `resourceVersion`, `generation`,
+  `creationTimestamp`, `managedFields`). Never diff Helm releases — they only
+  exist as parsed release secrets.
+- **Compare across clusters** lives in the row ⋮ / context menu: "Select for
+  comparison" pins a full `ResourceKey` in `catalogStore.compareSelection` (so it
+  survives cluster switches), then another resource's "Compare with selected"
+  opens the same diff dialog. A strip above the table names the pinned side and
+  offers Clear. The dialog takes two `ResourceKey`s, so the sides may come from
+  different clusters and be of different kinds.
+- The details **YAML tab** hides server-managed metadata by default behind an
+  "Ignore server metadata" checkbox (`lib/object-yaml.ts`: `uid`,
+  `resourceVersion`, `generation`, `creationTimestamp`, `managedFields`,
+  `selfLink`). The toggle is disabled while editing. Apply is unaffected: main
+  merges the live metadata and reuses its `resourceVersion`, so a stripped
+  document still updates the right object.
 - Custom resources and CRD definitions open on **Details** by default (Freelens
   field order); their Overview is still one click away and uses Radar-style cards.
 - Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
@@ -229,7 +299,7 @@ Important:
 ## 8. Commands
 
 ```bash
-pnpm install         # postinstall fixes node-pty spawn-helper permissions
+pnpm install         # postinstall heals node-pty +x and missing Electron runtime
 pnpm dev             # electron-vite dev
 pnpm typecheck       # tsc main+preload+shared and renderer
 pnpm build           # typecheck + production build
@@ -253,6 +323,15 @@ Always run `pnpm typecheck` and `pnpm build` before declaring work done.
    prebuild helper.
 4. **pnpm v12** blocks install scripts; `pnpm-workspace.yaml` allowBuilds lists
    electron/node-pty, and excludes Electron 45.3.3 from minimum release age.
+   Electron's runtime download *is* that install script: without
+   `node_modules/electron/dist` + `path.txt`, `pnpm dev` dies with
+   `Error: Electron uninstall`. The root postinstall (`scripts/postinstall.cjs`)
+   now self-heals this on every `pnpm install` by running
+   `node node_modules/electron/install.js`. It can still bite when
+   `ELECTRON_SKIP_BINARY_DOWNLOAD` is set (the heal is skipped) or when the
+   download fails — the postinstall then exits 1 with instructions. Manual cure
+   unchanged: run `node node_modules/electron/install.js` once online, or re-run
+   `pnpm install`; see README → Electron runtime.
 5. **Zustand selectors returning new arrays** cause infinite loops (React #185).
 6. **Hidden cluster workspaces** keep watches and mounted terminals; polling is
    disabled for inactive workspaces. Do not "optimize" by unmounting them.
@@ -280,6 +359,9 @@ Always run `pnpm typecheck` and `pnpm build` before declaring work done.
 - No mock data, no dead controls, no placeholder pages.
 - Design follows Radar tokens/density; shell follows Freelens structure.
 - State survives cluster switching and, where applicable, app restart.
-- Docs updated when behaviour/settings/architecture change.
+- Docs updated when behaviour/settings/architecture change. Every change set gets
+  its own `CHANGELOG.md` section `## vX.Y.Z — DD.MM.YYYY, HH:MM` (patch +1 from
+  the previous heading; the timestamp is when the batch was finished) and the
+  matching `package.json` version. There is no `Unreleased` section.
 - New IPC is in the shared contract and validated in main.
 - Destructive actions confirm and never touch user kubeconfig files.

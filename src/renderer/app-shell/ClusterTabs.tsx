@@ -36,7 +36,7 @@ export function ClusterTabs() {
 
   return (
     <div className="flex h-9 shrink-0 items-center gap-1 overflow-x-auto border-b border-theme-border bg-theme-sidebar px-2">
-      <div className="flex shrink-0 items-center gap-0.5 border-r border-theme-border pr-2">
+      <div className="flex shrink-0 items-center gap-0.1 border-r border-theme-border pr-1">
         <button
           type="button"
           className="shell-icon-button h-6 w-6"

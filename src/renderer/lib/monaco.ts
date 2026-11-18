@@ -21,6 +21,19 @@ self.MonacoEnvironment = {
   getWorker: () => new EditorWorker(),
 };
 
+// Monaco's stock diff colours are deliberately faint. Use stronger, semantic
+// green/red so changed lines are obvious in every mLens theme.
+const DIFF_COLORS = {
+  "diffEditor.insertedTextBackground": "#22c55e33",
+  "diffEditor.removedTextBackground": "#ef444433",
+  "diffEditor.insertedLineBackground": "#22c55e26",
+  "diffEditor.removedLineBackground": "#ef444426",
+  "diffEditorGutter.insertedLineBackground": "#22c55e33",
+  "diffEditorGutter.removedLineBackground": "#ef444433",
+  "diffEditorOverview.insertedForeground": "#22c55eaa",
+  "diffEditorOverview.removedForeground": "#ef4444aa",
+};
+
 monaco.editor.defineTheme("mlens-dark", {
   base: "vs-dark",
   inherit: true,
@@ -32,6 +45,7 @@ monaco.editor.defineTheme("mlens-dark", {
     { token: "comment", foreground: "6A7080", fontStyle: "italic" },
   ],
   colors: {
+    ...DIFF_COLORS,
     "editor.background": "#0F172A",
     "editor.foreground": "#CBD5E1",
     "editorLineNumber.foreground": "#475569",
@@ -54,6 +68,7 @@ monaco.editor.defineTheme("mlens-dracula", {
     { token: "comment", foreground: "6272A4", fontStyle: "italic" },
   ],
   colors: {
+    ...DIFF_COLORS,
     "editor.background": "#282A36",
     "editor.foreground": "#F8F8F2",
     "editorLineNumber.foreground": "#6272A4",
@@ -76,6 +91,7 @@ monaco.editor.defineTheme("mlens-freelens", {
     { token: "comment", foreground: "6A9955", fontStyle: "italic" },
   ],
   colors: {
+    ...DIFF_COLORS,
     "editor.background": "#191919",
     "editor.foreground": "#D4D4D4",
     "editorLineNumber.foreground": "#5A5A5A",
@@ -98,6 +114,7 @@ monaco.editor.defineTheme("mlens-light", {
     { token: "comment", foreground: "6B7080", fontStyle: "italic" },
   ],
   colors: {
+    ...DIFF_COLORS,
     "editor.background": "#F8FBFE",
     "editor.foreground": "#1A1C20",
     "editorLineNumber.foreground": "#A0A4AC",
@@ -120,6 +137,7 @@ monaco.editor.defineTheme("mlens-proton", {
     { token: "comment", foreground: "9299A8", fontStyle: "italic" },
   ],
   colors: {
+    ...DIFF_COLORS,
     "editor.background": "#0F1419",
     "editor.foreground": "#F5F7FA",
     "editorLineNumber.foreground": "#4A5160",
@@ -138,5 +156,19 @@ monaco.editor.defineTheme("mlens-proton", {
     "editor.findMatchHighlightBackground": "#FFD93D59",
   },
 });
+
+/**
+ * Theme id for the editor matching the shell's html classes. Read at mount
+ * time; the shell re-applies the classes on a theme switch and remounts the
+ * editors that care.
+ */
+export function editorThemeName(): string {
+  if (typeof document === "undefined") return "mlens-dark";
+  const root = document.documentElement;
+  if (root.classList.contains("theme-dracula")) return "mlens-dracula";
+  if (root.classList.contains("theme-freelens")) return "mlens-freelens";
+  if (root.classList.contains("theme-proton")) return "mlens-proton";
+  return root.classList.contains("dark") ? "mlens-dark" : "mlens-light";
+}
 
 export { monaco };

@@ -53,6 +53,13 @@ export function useResourceList(options: {
   const subscriptions = useRef<string[]>([]);
   const resourceVersionRef = useRef<string | undefined>(undefined);
   const loadedOnce = useRef(false);
+  /**
+   * The scope whose list request is currently in flight. Polling must not
+   * supersede it: a slow list (Helm inventories with thousands of revision
+   * Secrets take tens of seconds) would otherwise be discarded every 30s and
+   * the table would stay on "Loading…" forever.
+   */
+  const inFlightScope = useRef<string | null>(null);
 
   const apiVersion = resource?.apiVersion;
   const kind = resource?.kind;
@@ -66,6 +73,8 @@ export function useResourceList(options: {
   const fetchPage = useCallback(
     async (token: string | undefined, silent: boolean) => {
       if (!resource || !apiVersion || !kind) return;
+      if (inFlightScope.current === scopeKey) return;
+      inFlightScope.current = scopeKey;
       const current = ++generation.current;
       if (!silent) setLoading(true);
       try {
@@ -147,6 +156,7 @@ export function useResourceList(options: {
         if (current !== generation.current) return;
         setError(errorText(fetchError));
       } finally {
+        if (inFlightScope.current === scopeKey) inFlightScope.current = null;
         if (current === generation.current) setLoading(false);
       }
     },

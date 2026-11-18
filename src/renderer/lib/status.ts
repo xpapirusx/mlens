@@ -50,7 +50,22 @@ function condition(object: AnyObject, type: string): Record<string, any> | undef
   return conditions(object).find((entry) => entry.type === type);
 }
 
+/** Container states that always mean trouble, whatever the pod phase is. */
+const FAILING_WAITING = new Set([
+  "CrashLoopBackOff",
+  "ImagePullBackOff",
+  "ErrImagePull",
+  "ErrImageNeverPull",
+  "InvalidImageName",
+  "CreateContainerConfigError",
+  "CreateContainerError",
+  "RunContainerError",
+]);
+
+const FAILING_TERMINATED = new Set(["OOMKilled", "Error", "ContainerCannotRun"]);
+
 export function podStatus(pod: AnyObject): ResourceStatus {
+  // Radar: deletion wins over everything, then a broken container, then phase.
   if (pod.metadata?.deletionTimestamp) return { text: "Terminating", tone: "warning" };
 
   const statuses = [
@@ -61,8 +76,10 @@ export function podStatus(pod: AnyObject): ResourceStatus {
   const failing = statuses.find((container) => {
     const waiting = container.state?.waiting?.reason;
     const terminated = container.state?.terminated?.reason;
-    return waiting === "CrashLoopBackOff" || waiting === "ImagePullBackOff" || waiting === "ErrImagePull" ||
-      terminated === "OOMKilled" || terminated === "Error";
+    return (
+      (waiting && FAILING_WAITING.has(waiting)) ||
+      (terminated && FAILING_TERMINATED.has(terminated))
+    );
   });
 
   if (failing) {
@@ -71,19 +88,40 @@ export function podStatus(pod: AnyObject): ResourceStatus {
     return {
       text: waiting ?? terminated ?? "Error",
       tone: "error",
-      detail: failing.name,
+      detail: failing.state?.waiting?.message ?? failing.state?.terminated?.message ?? failing.name,
     };
   }
 
   const phase = pod.status?.phase ?? "Unknown";
+  const reason = typeof pod.status?.reason === "string" ? pod.status.reason : undefined;
+  const message = typeof pod.status?.message === "string" ? pod.status.message : undefined;
+
   if (phase === "Succeeded") return { text: "Completed", tone: "info" };
-  if (phase === "Failed") return { text: "Failed", tone: "error" };
+  if (phase === "Failed") {
+    return {
+      text: reason === "Evicted" ? "Evicted" : "Failed",
+      tone: "error",
+      detail: reason && reason !== "Failed" ? `${reason}${message ? ` · ${message}` : ""}` : message,
+    };
+  }
+
+  if (phase === "Unknown") {
+    // NodeLost / NodeShutdown / eviction in progress. Radar keeps these amber.
+    return { text: reason ?? "Unknown", tone: "warning", detail: message };
+  }
+
   if (phase === "Pending") {
+    // The exact blocker is more useful than a generic "Pending": containers
+    // that are still being created report ContainerCreating/PodInitializing.
+    const waiting = statuses.map((container) => container.state?.waiting).find((state) => state?.reason);
+    if (waiting?.reason) {
+      return { text: waiting.reason, tone: "warning", detail: waiting.message };
+    }
     const scheduling = condition(pod, "PodScheduled");
     if (scheduling?.status === "False") {
-      return { text: "Scheduling", tone: "warning", detail: scheduling.reason };
+      return { text: "Scheduling", tone: "warning", detail: scheduling.reason ?? scheduling.message };
     }
-    return { text: "Pending", tone: "warning" };
+    return { text: "Pending", tone: "warning", detail: message };
   }
 
   const total = pod.spec?.containers?.length ?? statuses.length;
@@ -100,26 +138,46 @@ export function workloadStatus(object: AnyObject): ResourceStatus {
   const generation = object.metadata?.generation;
   const observed = object.status?.observedGeneration;
   const failure = condition(object, "ReplicaFailure");
+  const progressing = condition(object, "Progressing");
+  const counts = `${ready}/${desired} ready · ${updated}/${desired} updated`;
 
-  if (failure?.status === "True") return { text: "Failed", tone: "error", detail: failure.reason };
-  if (desired === 0) return { text: "Scaled to 0", tone: "neutral" };
-  if (ready === 0) return { text: "Not ready", tone: "error" };
-  if (ready < desired) return { text: `${ready}/${desired} ready`, tone: "warning" };
-  if (available < desired) return { text: `${available}/${desired} available`, tone: "warning" };
-  if (generation !== undefined && observed !== undefined && observed < generation) {
-    return { text: "Rolling out", tone: "info" };
+  if (failure?.status === "True") {
+    return { text: "Failed", tone: "error", detail: failure.reason ?? failure.message };
   }
-  if (updated < desired) return { text: `${updated}/${desired} updated`, tone: "warning" };
-  return { text: "Running", tone: "success" };
+  // A stalled rollout (ProgressDeadlineExceeded) is a failure, not "Updating".
+  if (progressing?.status === "False") {
+    return { text: progressing.reason ?? "Failed", tone: "error", detail: progressing.message };
+  }
+  if (desired === 0) return { text: "Scaled to 0", tone: "neutral" };
+
+  // Radar's yellow "Updating": the controller has not caught up, or replicas
+  // are still being replaced/started.
+  const controllerStale = generation !== undefined && observed !== undefined && observed < generation;
+  if (controllerStale) return { text: "Updating", tone: "warning", detail: counts };
+  if (ready === 0) return { text: "Not ready", tone: "error", detail: counts };
+  if (updated < desired || ready < desired || available < desired) {
+    return { text: "Updating", tone: "warning", detail: counts };
+  }
+  return { text: "Running", tone: "success", detail: counts };
 }
 
 export function daemonSetStatus(object: AnyObject): ResourceStatus {
   const desired = object.status?.desiredNumberScheduled ?? 0;
   const ready = object.status?.numberReady ?? 0;
+  const updated = object.status?.updatedNumberScheduled ?? ready;
   const unavailable = object.status?.numberUnavailable ?? 0;
+  const generation = object.metadata?.generation;
+  const observed = object.status?.observedGeneration;
+  const counts = `${ready}/${desired} ready · ${updated}/${desired} updated`;
+
   if (desired === 0) return { text: "No nodes", tone: "neutral" };
-  if (unavailable > 0) return { text: `${ready}/${desired} ready`, tone: "warning" };
-  return { text: `${ready}/${desired} ready`, tone: "success" };
+  const controllerStale = generation !== undefined && observed !== undefined && observed < generation;
+  if (controllerStale) return { text: "Updating", tone: "warning", detail: counts };
+  if (ready === 0) return { text: "Not ready", tone: "error", detail: counts };
+  if (unavailable > 0 || updated < desired || ready < desired) {
+    return { text: "Updating", tone: "warning", detail: counts };
+  }
+  return { text: "Running", tone: "success", detail: counts };
 }
 
 export function jobStatus(object: AnyObject): ResourceStatus {
@@ -144,11 +202,19 @@ export function cronJobStatus(object: AnyObject): ResourceStatus {
 }
 
 export function nodeStatus(node: AnyObject): ResourceStatus {
-  if (node.spec?.unschedulable) return { text: "Scheduling disabled", tone: "warning" };
   const ready = condition(node, "Ready");
+  if (node.spec?.unschedulable) {
+    return {
+      text: "Scheduling disabled",
+      tone: "warning",
+      detail: `spec.unschedulable is true — no new pods are scheduled here.${
+        ready?.reason ? ` Ready: ${ready.reason}.` : ""
+      }`,
+    };
+  }
   if (ready?.status === "True") return { text: "Ready", tone: "success" };
-  if (ready?.status === "False") return { text: "NotReady", tone: "error", detail: ready.reason };
-  return { text: "Unknown", tone: "warning" };
+  if (ready?.status === "False") return { text: "NotReady", tone: "error", detail: ready.reason ?? ready.message };
+  return { text: "Unknown", tone: "warning", detail: ready?.reason ?? ready?.message };
 }
 
 export function pvcStatus(pvc: AnyObject): ResourceStatus {

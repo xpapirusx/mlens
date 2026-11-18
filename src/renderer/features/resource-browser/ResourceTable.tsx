@@ -45,6 +45,8 @@ interface ResourceTableProps {
   claimPods?: Map<string, string[]>;
   serviceEndpoints?: Map<string, number>;
   warnings?: Map<string, import("./useWarningEvents").WarningEntry>;
+  /** Node name → scheduled pod count (Nodes table). */
+  nodePodCounts?: Map<string, number>;
   /** Hides the sticky row-actions button (kinds with no applicable actions). */
   hideRowMenu?: boolean;
 }
@@ -78,6 +80,7 @@ export function ResourceTable({
   claimPods,
   serviceEndpoints,
   warnings,
+  nodePodCounts,
   hideRowMenu,
   onRowMenu,
   onBackgroundClick,
@@ -192,7 +195,8 @@ export function ResourceTable({
                     : undefined
                 }
                 className={cn(
-                  "group/th relative flex min-w-0 items-center gap-1 px-4 text-[11px] font-medium uppercase tracking-wide text-theme-text-secondary",
+                  "group/th relative flex min-w-0 items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-theme-text-secondary",
+                  column.compact ? "px-7" : "px-4",
                   stickyOffsets.has(column.key) && "bg-theme-base",
                   index !== columns.length - 1 && "border-r-subtle",
                   column.align === "right" && "justify-end",
@@ -346,13 +350,14 @@ export function ResourceTable({
                           : undefined
                       }
                       className={cn(
-                        "flex min-w-0 items-center overflow-hidden px-4",
+                        "flex min-w-0 items-center overflow-hidden",
+                        column.compact ? "px-4" : "px-4",
                         index !== columns.length - 1 && "border-r-subtle",
                         column.align === "right" && "justify-end",
                         stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
                       )}
                     >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints, warnings })}</div>
+                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints, warnings, nodePodCounts })}</div>
                     </div>
                   ))}
                   <div

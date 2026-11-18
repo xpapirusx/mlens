@@ -1,12 +1,14 @@
 import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Layers, Network, Pause, Play, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
+import { Tooltip } from "../../design-system/components/Tooltip";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
 import type { ApiResourceInfo } from "@shared/types";
-import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
+import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList, AgeProperty } from "./DetailSections";
 import { ContainerLaunchParams } from "./ContainerLaunchParams";
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
+import { ConditionsTooltip } from "../../lib/columns";
 import { formatBytes } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { isSuspended } from "../../lib/workload-actions";
@@ -69,7 +71,32 @@ function ResourceLink({
 
 function StatusPill({ object, kind }: { object: AnyObject; kind: string }) {
   const status = resourceStatus(object, kind);
-  return <span className={`badge ${toneClass(status.tone)}`}>{status.text}</span>;
+  const conditions = (object.status?.conditions ?? []) as Array<Record<string, any>>;
+  const badge = <span className={`badge ${toneClass(status.tone)}`}>{status.text}</span>;
+  if (!status.detail && conditions.length === 0) return badge;
+  return (
+    <Tooltip
+      wrapperClassName="min-w-0"
+      content={
+        <div className="max-w-xs space-y-1.5">
+          <div className="font-medium text-theme-text-primary">{status.text}</div>
+          {status.detail ? (
+            <div className="whitespace-pre-wrap break-words text-theme-text-secondary">{status.detail}</div>
+          ) : null}
+          {conditions.length > 0 ? (
+            <>
+              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                Conditions
+              </div>
+              <ConditionsTooltip conditions={conditions} />
+            </>
+          ) : null}
+        </div>
+      }
+    >
+      {badge}
+    </Tooltip>
+  );
 }
 
 export function OverviewTab(props: OverviewProps) {
@@ -349,7 +376,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
               )
             }
           />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
@@ -664,7 +691,7 @@ function WorkloadOverview({ object, onNavigate, clusterId }: OverviewProps) {
           <Property label="Observed generation" value={`${status.observedGeneration ?? 0} / ${object.metadata?.generation ?? 0}`} />
           <Property label="Strategy" value={spec.strategy?.type ?? spec.updateStrategy?.type ?? "–"} />
           <Property label="Revision history" value={spec.revisionHistoryLimit ?? "–"} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
@@ -772,7 +799,7 @@ function JobOverview({ object, onToggleSuspend }: OverviewProps) {
               <Property label="Completed" value={status.completionTime ? formatTimestamp(status.completionTime) : "–"} />
             </>
           )}
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
         {onToggleSuspend ? (
           <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle pt-2.5">
@@ -876,7 +903,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
           <Property label="IP family policy" value={spec.ipFamilyPolicy} />
           <Property label="IP families" value={(spec.ipFamilies ?? []).join(", ")} />
           <Property label="External name" value={spec.externalName} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
@@ -983,7 +1010,7 @@ function IngressOverview({ object }: OverviewProps) {
           <Property label="Class" value={spec.ingressClassName} />
           <Property label="Address" value={object.status?.loadBalancer?.ingress?.map((entry: any) => entry.ip ?? entry.hostname).join(", ")} mono />
           <Property label="Default backend" value={spec.defaultBackend?.service?.name} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
@@ -1115,7 +1142,7 @@ function DataOverview({ object, onEditData }: OverviewProps) {
           {isSecret ? <Property label="Type" value={object.type} /> : null}
           <Property label="Keys" value={Object.keys(data).length} />
           <Property label="Immutable" value={object.immutable ? "Yes" : "No"} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
       <DetailSection
@@ -1147,7 +1174,7 @@ function NamespaceOverview({ object }: OverviewProps) {
       <DetailSection title="Namespace" icon={<Info />}>
         <PropertyList>
           <Property label="Status" value={<StatusPill object={object} kind="Namespace" />} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
           <Property label="Labels" value={Object.keys(labels).length} />
         </PropertyList>
       </DetailSection>
@@ -1233,7 +1260,7 @@ function StorageOverview({ object, onNavigate }: OverviewProps) {
               <Property label="CSI driver" value={spec.csi?.driver} />
             </>
           )}
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
     </div>
@@ -1277,7 +1304,7 @@ function CrdOverview({ object }: OverviewProps) {
           <Property label="Categories" value={(names.categories ?? []).join(", ") || "–"} />
           <Property label="Conversion" value={spec.conversion?.strategy ?? "None"} />
           <Property label="Preserve unknown fields" value={spec.preserveUnknownFields ? "Yes" : "No"} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
 
@@ -1588,9 +1615,27 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
         ].map((card) => (
           <div key={card.label} className="card-inner">
             <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
-            <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary" title={card.value}>
-              {card.value}
-            </div>
+            {card.label === "Age" ? (
+              <Tooltip
+                side="top"
+                content={
+                  <div className="space-y-0.5">
+                    <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
+                    <div className="font-mono text-[11px] text-theme-text-primary">
+                      {formatTimestamp(metadata.creationTimestamp)}
+                    </div>
+                  </div>
+                }
+              >
+                <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary">
+                  {card.value}
+                </div>
+              </Tooltip>
+            ) : (
+              <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary" title={card.value}>
+                {card.value}
+              </div>
+            )}
           </div>
         ))}
       </div>

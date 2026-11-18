@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AppSettings, ClusterHealth, ClusterId, ClusterSummary, KubeconfigSource } from "@shared/types";
+import type { AppSettings, ClusterHealth, ClusterId, ClusterSummary, KubeconfigSource, ResourceKey } from "@shared/types";
 import { api, call, errorText } from "../lib/api";
 import { toast } from "../design-system/components/Toast";
 import { useSessionStore } from "./session-store";
@@ -15,6 +15,13 @@ interface CatalogStore {
   loadingCatalog: boolean;
   catalogError: string | null;
   connecting: Record<ClusterId, boolean>;
+  /**
+   * Resource pinned with "Select for comparison" (VS Code-style). Global on
+   * purpose: the other side usually lives in a different cluster, so the pair
+   * must survive cluster switches.
+   */
+  compareSelection: ResourceKey | null;
+  setCompareSelection: (selection: ResourceKey | null) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   loadCatalog: () => Promise<void>;
@@ -41,6 +48,9 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   loadingCatalog: false,
   catalogError: null,
   connecting: {},
+
+  compareSelection: null,
+  setCompareSelection: (selection) => set({ compareSelection: selection }),
 
   loadSettings: async () => {
     try {

@@ -331,6 +331,13 @@ export interface AppSettings {
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;
+  /** Last explicit sort per `<apiVersion>|<kind>`; absent = newest first. */
+  tableSorts: Record<string, TableSort>;
+}
+
+export interface TableSort {
+  key: string;
+  direction: "asc" | "desc";
 }
 
 export interface AddKubeconfigResult {
@@ -545,6 +552,10 @@ export interface HelmReleaseDetail extends HelmReleaseSummary {
   manifest: string;
   /** True when values/manifest were cut to keep the payload bounded. */
   truncated?: boolean;
+  /** Release notes stored with this revision (`info.notes`). */
+  notes?: string;
+  /** Lifecycle hooks recorded in the release object (read-only). */
+  hooks?: HelmHookInfo[];
   /** Every revision of this release found in the cluster (newest first). */
   revisions: HelmRevisionInfo[];
   /** Objects the manifest creates — clickable in the drawer. */
@@ -559,6 +570,21 @@ export interface HelmRevisionInfo {
   deployedAt?: string;
   description?: string;
   chart: string;
+}
+
+/** A Helm hook stored in the release record (no execution, read-only). */
+export interface HelmHookInfo {
+  name: string;
+  kind: string;
+  events?: string[];
+  /** Helm stores `last_run` as an object, not a timestamp string. */
+  lastRun?: {
+    startedAt?: string;
+    completedAt?: string;
+    phase?: string;
+  };
+  weight?: number;
+  deletePolicies?: string[];
 }
 
 /** One object referenced by a release manifest. */

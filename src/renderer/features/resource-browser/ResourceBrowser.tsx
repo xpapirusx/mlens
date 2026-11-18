@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeftRight,
   Ban,
   Box,
   CircleCheck,
   Copy,
+  Diff,
   FileCode,
   ListFilter,
   ListChecks,
@@ -23,7 +25,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { KubeObject } from "@shared/types";
+import type { KubeObject, ResourceKey, TableSort } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
 import { findResource, HELM_RELEASES_RESOURCE } from "../../lib/catalog";
@@ -48,12 +50,15 @@ import { SetImageDialog } from "../resource-details/SetImageDialog";
 import { LabelsAnnotationsDialog } from "../resource-details/LabelsAnnotationsDialog";
 import { PresetDialog } from "./PresetDialog";
 import { CopyNamesDialog } from "./CopyNamesDialog";
+import { ResourceDiffDialog } from "./ResourceDiffDialog";
+import { BulkAnnotationsDialog } from "./BulkAnnotationsDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { NodeDebugDialog } from "../resource-details/NodeDebugDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
 import { useClaimPods } from "./useClaimPods";
 import { useServiceEndpoints } from "./useServiceEndpoints";
 import { useWarningEvents } from "./useWarningEvents";
+import { useNodePodCounts } from "./useNodePodCounts";
 import { isDeploymentPaused, isSuspended, restartWorkload, scaleWorkload, setWorkloadPaused, setWorkloadSuspended, triggerCronJob, workloadCapabilities } from "../../lib/workload-actions";
 
 interface DialogState {
@@ -68,7 +73,9 @@ interface DialogState {
     | "labels"
     | "bulk-apply"
     | "presets"
-    | "copy-names";
+    | "copy-names"
+    | "diff"
+    | "bulk-annotate";
   object?: KubeObject;
   force?: boolean;
   /** bulk-apply: which metadata field and which preset to write. */
@@ -77,6 +84,9 @@ interface DialogState {
   applyValue?: string;
   /** presets: which saved list to edit. */
   presetField?: "labels" | "annotations";
+  /** diff: the exact pair to compare (same or different clusters). */
+  diffLeft?: ResourceKey;
+  diffRight?: ResourceKey;
 }
 
 function rowKey(object: KubeObject): string {
@@ -87,6 +97,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const session = useSessionStore((state) => state.sessions[clusterId]);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
+  const allClusters = useCatalogStore((state) => state.allClusters);
+  const compareSelection = useCatalogStore((state) => state.compareSelection);
+  const setCompareSelection = useCatalogStore((state) => state.setCompareSelection);
   const updateKindState = useSessionStore((state) => state.updateKindState);
   const setSelectedNamespaces = useSessionStore((state) => state.setSelectedNamespaces);
   const openDetails = useSessionStore((state) => state.openDetails);
@@ -144,6 +157,20 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseColumns, preferredOrder.join("|")]);
 
+  // Sort precedence: the choice made in this session, then the persisted sort
+  // for this `<apiVersion>|<kind>`, then (for a first opening) newest first.
+  // Any saved key that no longer exists for the kind is ignored.
+  const hasSortColumn = (sort: TableSort | null | undefined): sort is TableSort =>
+    Boolean(sort && columns.some((column) => column.key === sort.key));
+  const savedSort = columnOrderKey ? settings?.tableSorts?.[columnOrderKey] : undefined;
+  const defaultSort: TableSort = columns.some((column) => column.key === "age")
+    ? { key: "age", direction: "desc" }
+    : { key: "name", direction: "asc" };
+  const effectiveSort: TableSort =
+    (hasSortColumn(kindState.sort) ? kindState.sort : null) ??
+    (hasSortColumn(savedSort) ? savedSort : null) ??
+    defaultSort;
+
   const columnWidths = useMemo(() => {
     const result: Record<string, number> = {};
     for (const column of baseColumns) {
@@ -193,10 +220,11 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     active: active && WARNING_KINDS.has(resource?.kind ?? ""),
     refreshSeconds,
   });
-  const cellContext = useMemo<CellContext>(
-    () => ({ showNamespace, claimPods, serviceEndpoints, warnings: warningEvents }),
-    [showNamespace, claimPods, serviceEndpoints, warningEvents],
-  );
+  const nodePodCounts = useNodePodCounts({
+    clusterId,
+    active: active && resource?.kind === "Node",
+    refreshSeconds,
+  });
   const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
     const lower = target.kind.toLowerCase();
     const match = (session?.resources ?? []).find(
@@ -230,6 +258,19 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     refreshSeconds,
     active: active && visible.some((column) => column.key === "cpu" || column.key === "memory"),
   });
+
+  const cellContext = useMemo<CellContext>(
+    () => ({
+      showNamespace,
+      claimPods,
+      serviceEndpoints,
+      warnings: warningEvents,
+      nodePodCounts,
+      podMetrics: metrics.pods,
+      nodeMetrics: metrics.nodes,
+    }),
+    [showNamespace, claimPods, serviceEndpoints, warningEvents, nodePodCounts, metrics],
+  );
 
   const filterData = useMemo(() => {
     const map = new Map<string, ReturnType<typeof buildFilterOptions>>();
@@ -285,7 +326,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         const haystack = [
           row.metadata?.name,
           row.metadata?.namespace,
-          ...columns.map((column) => column.value?.(row)),
+          ...columns.map((column) => column.value?.(row, cellContext)),
           ...Object.keys(row.metadata?.labels ?? {}),
         ]
           .filter((value) => value !== undefined && value !== null)
@@ -315,10 +356,9 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   }, [list.items, kindState.search, kindState.regex, kindState.filters, columns, problemsOnly, resource, cellContext]);
 
   const sorted = useMemo(() => {
-    const sortColumn = kindState.sort ? columns.find((column) => column.key === kindState.sort?.key) : undefined;
-    if (sortColumn) return sortObjects(filtered, sortColumn, kindState.sort!.direction, cellContext);
-    return sortObjects(filtered, columns.find((column) => column.key === "name"), "asc", cellContext);
-  }, [filtered, kindState.sort, columns, cellContext]);
+    const sortColumn = columns.find((column) => column.key === effectiveSort.key);
+    return sortObjects(filtered, sortColumn, effectiveSort.direction, cellContext);
+  }, [filtered, effectiveSort.key, effectiveSort.direction, columns, cellContext]);
 
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
@@ -358,10 +398,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   };
 
   const onSort = (key: string) => {
-    const current = kindState.sort;
-    if (current?.key !== key) setKindPatch({ sort: { key, direction: "asc" } });
-    else if (current.direction === "asc") setKindPatch({ sort: { key, direction: "desc" } });
-    else setKindPatch({ sort: null });
+    // Explicit sorts are two-state and are persisted per kind; the first click
+    // on a new column sorts ascending, the next one descending.
+    const next: TableSort =
+      effectiveSort.key === key && effectiveSort.direction === "asc"
+        ? { key, direction: "desc" }
+        : { key, direction: "asc" };
+    setKindPatch({ sort: next });
+    if (!columnOrderKey) return;
+    void updateSettings({
+      tableSorts: { ...(settings?.tableSorts ?? {}), [columnOrderKey]: next },
+    });
   };
 
   const clearFilters = () => setKindPatch({ filters: {}, search: "" });
@@ -461,12 +508,36 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   const selectedObjects = list.items.filter((object) => selectedKeys.has(rowKey(object)));
 
+  // A/B for the diff follow the order the user sees: the first selected row in
+  // the table is the original side. `list.items` order can differ after sorting.
+  const selectedInView = sorted.filter((object) => selectedKeys.has(rowKey(object)));
+  const diffPair = selectedInView.length === 2 ? selectedInView : selectedObjects.length === 2 ? selectedObjects : [];
+  /** Full identity of a row — used by the diff and by the compare pin. */
+  const diffTarget = (object: KubeObject | undefined): ResourceKey | null =>
+    object
+      ? {
+          clusterId,
+          apiVersion: object.apiVersion ?? resource?.apiVersion ?? "",
+          kind: object.kind ?? resource?.kind ?? "",
+          namespace: object.metadata?.namespace,
+          name: object.metadata?.name ?? "",
+        }
+      : null;
+  const sameTarget = (a: ResourceKey, b: ResourceKey) =>
+    a.clusterId === b.clusterId &&
+    a.apiVersion === b.apiVersion &&
+    a.kind === b.kind &&
+    (a.namespace ?? "") === (b.namespace ?? "") &&
+    a.name === b.name;
+  const clusterName = (id: string) =>
+    allClusters.find((cluster) => cluster.id === id)?.name ?? id.split("::").pop() ?? id;
+
   const presetEntries = (field: "labels" | "annotations"): Array<[string, string]> =>
     Object.entries(
       (field === "labels" ? settings?.labelPresets : settings?.annotationPresets) ?? {},
     ).sort(([left], [right]) => left.localeCompare(right));
 
-  /** Writes one saved label/annotation onto every selected resource (merge patch). */
+  /** Writes one saved label onto every selected resource (merge patch). */
   const applyMetadataField = async (field: "labels" | "annotations", key: string, value: string) => {
     if (!resource || selectedObjects.length === 0) return;
     setBusy(true);
@@ -494,7 +565,55 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     await list.refresh(true);
     if (failures.length === 0) {
       toast.success(`${field === "labels" ? "Label" : "Annotation"} set on ${updated} resource${updated === 1 ? "" : "s"}`, `${key}=${value}`);
-      setSelectedKeys(new Set());
+      // Deliberately keep the selection: a second preset is often applied to
+      // the same rows right away (and delete/annotate flows are separate).
+    } else {
+      toast.error(`Updated ${updated}, failed ${failures.length}`, failures.slice(0, 4).join("\n"));
+    }
+  };
+
+  /** Applies every ticked saved annotation to every selected resource. */
+  const applyAnnotations = async (keys: string[]) => {
+    if (!resource || selectedObjects.length === 0 || keys.length === 0) return;
+    const saved = settings?.annotationPresets ?? {};
+    const annotations: Record<string, string> = {};
+    for (const key of keys) {
+      const value = saved[key];
+      if (value !== undefined) annotations[key] = value;
+    }
+    const appliedKeys = Object.keys(annotations);
+    if (appliedKeys.length === 0) return;
+
+    setBusy(true);
+    let updated = 0;
+    const failures: string[] = [];
+    for (const object of selectedObjects) {
+      try {
+        await call(
+          api.resources.patch({
+            clusterId,
+            apiVersion: object.apiVersion ?? resource.apiVersion,
+            kind: object.kind ?? resource.kind,
+            namespace: object.metadata?.namespace,
+            name: object.metadata?.name ?? "",
+            patch: { metadata: { annotations } },
+          }),
+        );
+        updated += 1;
+      } catch (patchError) {
+        failures.push(`${object.metadata?.name}: ${errorText(patchError)}`);
+      }
+    }
+    setBusy(false);
+    setDialog(null);
+    await list.refresh(true);
+    if (failures.length === 0) {
+      toast.success(
+        `${appliedKeys.length} annotation${appliedKeys.length === 1 ? "" : "s"} set on ${updated} resource${updated === 1 ? "" : "s"}`,
+        appliedKeys.join("\n"),
+      );
+      // Selection stays on purpose — annotating is not destructive and the
+      // same rows often get another preset afterwards.
     } else {
       toast.error(`Updated ${updated}, failed ${failures.length}`, failures.slice(0, 4).join("\n"));
     }
@@ -746,6 +865,8 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     }
   };
   const contextObject = menu?.object;
+  const contextTarget = diffTarget(contextObject);
+  const contextIsPinned = Boolean(contextTarget && compareSelection && sameTarget(contextTarget, compareSelection));
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-theme-surface">
@@ -893,6 +1014,30 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         </div>
       </div>
 
+      {compareSelection ? (
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
+          <ArrowLeftRight className="h-3 w-3 shrink-0 text-accent-text" />
+          <span className="shrink-0 text-accent-text">For comparison</span>
+          <span className="min-w-0 truncate font-mono text-[11px] text-theme-text-primary">
+            {compareSelection.kind}/{compareSelection.namespace ? `${compareSelection.namespace}/` : ""}
+            {compareSelection.name}
+          </span>
+          <span className="shrink-0 text-theme-text-tertiary">· {clusterName(compareSelection.clusterId)}</span>
+          <span className="ml-auto hidden min-w-0 truncate text-theme-text-tertiary lg:inline">
+            Open another resource&apos;s ⋮ menu → Compare with selected
+          </span>
+          <button
+            type="button"
+            className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary lg:ml-0"
+            title="Clear comparison selection"
+            onClick={() => setCompareSelection(null)}
+          >
+            <X className="h-3 w-3" />
+            Clear
+          </button>
+        </div>
+      ) : null}
+
       {problemsOnly ? (
         <div className="flex h-7 shrink-0 items-center gap-2 border-b border-theme-border bg-amber-500/5 px-3 text-[11px] text-amber-700 dark:text-amber-300">
           <TriangleExclamationPoint className="h-3 w-3" />
@@ -953,7 +1098,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           rows={sorted}
           columns={visible}
           showNamespace={showNamespace}
-          sort={kindState.sort}
+          sort={effectiveSort}
           onSort={onSort}
           selectedRef={selectedRef}
           onOpen={(object) => openTab(object)}
@@ -1001,6 +1146,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           claimPods={claimPods}
           serviceEndpoints={serviceEndpoints}
           warnings={warningEvents}
+          nodePodCounts={nodePodCounts}
           hideRowMenu={resource?.kind === "HelmRelease"}
           selectionMode={resource?.kind !== "HelmRelease"}
           selectedKeys={selectedKeys}
@@ -1053,22 +1199,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             >
               {presetMenu("labels")}
             </Menu>
-            <Menu
-              width={280}
-              trigger={({ toggle }) => (
-                <Button
-                  variant="secondary"
-                  size="xs"
-                  onClick={toggle}
-                  title="Apply a saved annotation to the selected resources"
-                >
-                  <Tags className="h-3 w-3" />
-                  Annotate
-                </Button>
-              )}
+            <Button
+              variant="secondary"
+              size="xs"
+              title="Apply saved annotations to the selected resources"
+              onClick={() => setDialog({ type: "bulk-annotate" })}
             >
-              {presetMenu("annotations")}
-            </Menu>
+              <Tags className="h-3 w-3" />
+              Annotate
+            </Button>
             <Button
               variant="secondary"
               size="xs"
@@ -1078,6 +1217,28 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
               <Copy className="h-3 w-3" />
               <span className="hidden xl:inline">Copy names</span>
             </Button>
+            {resource?.kind === "HelmRelease" ? null : (
+              <Button
+                variant="secondary"
+                size="xs"
+                disabled={diffPair.length !== 2}
+                title={
+                  diffPair.length === 2
+                    ? `Diff ${diffPair[0].metadata?.name} ↔ ${diffPair[1].metadata?.name}`
+                    : "Select exactly two resources to compare their YAML"
+                }
+                onClick={() =>
+                  setDialog({
+                    type: "diff",
+                    diffLeft: diffTarget(diffPair[0]) ?? undefined,
+                    diffRight: diffTarget(diffPair[1]) ?? undefined,
+                  })
+                }
+              >
+                <Diff className="h-3 w-3" />
+                <span className="hidden xl:inline">Diff</span>
+              </Button>
+            )}
             <Button variant="danger" size="xs" onClick={() => setDialog({ type: "bulk-delete" })}>
               <Trash2 className="h-3 w-3" />
               Delete selected
@@ -1145,6 +1306,44 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         >
           Edit YAML
         </MenuItem>
+        <MenuItem
+          icon={<Diff className="h-3.5 w-3.5" />}
+          onClick={() => {
+            if (contextTarget) {
+              setCompareSelection(contextTarget);
+              toast.success(
+                "Selected for comparison",
+                `${contextTarget.kind}/${contextTarget.name} · ${clusterName(contextTarget.clusterId)}`,
+              );
+            }
+            setMenu(null);
+          }}
+        >
+          Select for comparison
+        </MenuItem>
+        {compareSelection && contextTarget ? (
+          contextIsPinned ? (
+            <MenuItem
+              icon={<X className="h-3.5 w-3.5" />}
+              onClick={() => {
+                setCompareSelection(null);
+                setMenu(null);
+              }}
+            >
+              Clear comparison selection
+            </MenuItem>
+          ) : (
+            <MenuItem
+              icon={<ArrowLeftRight className="h-3.5 w-3.5" />}
+              onClick={() => {
+                setDialog({ type: "diff", diffLeft: compareSelection, diffRight: contextTarget });
+                setMenu(null);
+              }}
+            >
+              Compare with selected
+            </MenuItem>
+          )
+        ) : null}
         <MenuItem
           icon={<Tags className="h-3.5 w-3.5" />}
           onClick={() => {
@@ -1459,6 +1658,17 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         }
       />
 
+      <BulkAnnotationsDialog
+        open={dialog?.type === "bulk-annotate"}
+        onClose={() => setDialog(null)}
+        presets={presetEntries("annotations")}
+        targetCount={selectedObjects.length}
+        kind={resource.kind}
+        busy={busy}
+        onApply={(keys) => void applyAnnotations(keys)}
+        onManage={() => setDialog({ type: "presets", presetField: "annotations" })}
+      />
+
       <PresetDialog
         open={dialog?.type === "presets"}
         field={dialog?.presetField ?? "annotations"}
@@ -1472,6 +1682,13 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           name: object.metadata?.name ?? "",
           namespace: object.metadata?.namespace,
         }))}
+      />
+
+      <ResourceDiffDialog
+        open={dialog?.type === "diff"}
+        onClose={() => setDialog(null)}
+        left={dialog?.diffLeft ?? null}
+        right={dialog?.diffRight ?? null}
       />
 
       <ConfirmActionDialog

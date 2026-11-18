@@ -17,6 +17,9 @@ export interface PodUsage {
 export interface NodeUsage {
   cpu: number;
   memory: number;
+  /** Allocatable CPU/memory, filled for the Pods table's node context. */
+  cpuAllocatable?: number;
+  memoryAllocatable?: number;
   timestamp?: string;
 }
 
@@ -46,9 +49,14 @@ export function useResourceMetrics(options: {
 
   const podMetrics = resources.find((entry) => entry.kind === "PodMetrics");
   const nodeMetrics = resources.find((entry) => entry.kind === "NodeMetrics");
+  const nodeResource = resources.find((entry) => entry.kind === "Node" && entry.apiVersion === "v1");
   const kind = resource?.kind;
   const needsPods = kind === "Pod";
   const needsNodes = kind === "Node";
+  // Pods need the node sample + node allocatable only to explain the pod's
+  // share of its node in the CPU/Memory tooltip.
+  const wantsNodeUsage = (needsNodes || needsPods) && Boolean(nodeMetrics);
+  const wantsNodeAllocatable = needsPods && Boolean(nodeResource);
   const enabled = active && (needsPods ? Boolean(podMetrics) : needsNodes ? Boolean(nodeMetrics) : false);
   const scopeKey = [...namespaces].sort().join(",");
 
@@ -92,7 +100,7 @@ export function useResourceMetrics(options: {
           }
         }
 
-        if (needsNodes && nodeMetrics) {
+        if (wantsNodeUsage && nodeMetrics) {
           const result = await call(
             api.resources.list({
               clusterId,
@@ -106,6 +114,25 @@ export function useResourceMetrics(options: {
               cpu: parseCpu((item.usage as any)?.cpu) ?? 0,
               memory: parseMemory((item.usage as any)?.memory) ?? 0,
               timestamp: item.timestamp as string | undefined,
+            });
+          }
+        }
+
+        if (wantsNodeAllocatable && nodeResource) {
+          const result = await call(
+            api.resources.list({
+              clusterId,
+              apiVersion: nodeResource.apiVersion,
+              kind: nodeResource.kind,
+              limit: 1000,
+            }),
+          );
+          for (const item of result.items as KubeObject[]) {
+            const name = item.metadata?.name ?? "";
+            nodes.set(name, {
+              ...(nodes.get(name) ?? { cpu: 0, memory: 0 }),
+              cpuAllocatable: parseCpu((item.status?.allocatable as any)?.cpu) ?? 0,
+              memoryAllocatable: parseMemory((item.status?.allocatable as any)?.memory) ?? 0,
             });
           }
         }
@@ -135,6 +162,7 @@ export function useResourceMetrics(options: {
     needsNodes,
     podMetrics,
     nodeMetrics,
+    nodeResource,
     scopeKey,
     refreshSeconds,
   ]);

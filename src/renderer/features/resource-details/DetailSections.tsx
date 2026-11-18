@@ -3,11 +3,35 @@ import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { cn } from "../../lib/cn";
 import { CollapseSection } from "../../design-system/components/Collapse";
+import { Tooltip } from "../../design-system/components/Tooltip";
 import { conditionTone, toneClass, toneTextClass } from "../../lib/status";
-import { formatRelativeTime } from "../../lib/format";
+import { formatRelativeTime, formatTimestamp, formatAge } from "../../lib/format";
 
 export function PropertyList({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("space-y-1.5", className)}>{children}</div>;
+}
+
+/** `Age` property with the exact creation timestamp on hover. */
+export function AgeProperty({ timestamp }: { timestamp?: string }) {
+  if (!timestamp) return <Property label="Age" value="–" />;
+  return (
+    <Property
+      label="Age"
+      value={
+        <Tooltip
+          side="top"
+          content={
+            <div className="space-y-0.5">
+              <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
+              <div className="font-mono text-[11px] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
+            </div>
+          }
+        >
+          <span>{formatAge(timestamp)}</span>
+        </Tooltip>
+      }
+    />
+  );
 }
 
 export function Property({
@@ -99,8 +123,8 @@ export function ConditionsList({ conditions }: { conditions: Array<Record<string
   }
 
   const sorted = [...conditions].sort((a, b) => {
-    const left = new Date(a.lastTransitionTime ?? 0).getTime();
-    const right = new Date(b.lastTransitionTime ?? 0).getTime();
+    const left = new Date(a.lastTransitionTime ?? a.lastUpdateTime ?? 0).getTime();
+    const right = new Date(b.lastTransitionTime ?? b.lastUpdateTime ?? 0).getTime();
     return right - left;
   });
 
@@ -115,7 +139,21 @@ export function ConditionsList({ conditions }: { conditions: Array<Record<string
         return (
           <div key={`${condition.type}-${index}`} className="flex items-start gap-2">
             <span className="w-12 shrink-0 pt-0.5 text-right text-[10px] text-theme-text-disabled">
-              {condition.lastTransitionTime ? formatRelativeTime(condition.lastTransitionTime) : "—"}
+              {condition.lastTransitionTime ? (
+                <Tooltip
+                  side="top"
+                  content={
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-theme-text-primary">Last transition</div>
+                      <div>{formatTimestamp(condition.lastTransitionTime)}</div>
+                    </div>
+                  }
+                >
+                  <span>{formatRelativeTime(condition.lastTransitionTime)}</span>
+                </Tooltip>
+              ) : (
+                "—"
+              )}
             </span>
             <span
               className={cn(

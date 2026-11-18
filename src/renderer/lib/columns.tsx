@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { Copy, TriangleExclamationPoint } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
-import { formatAge, formatCpu, formatDurationSeconds, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, formatBytes } from "./format";
+import { formatAge, formatCpuMilli, formatDurationSeconds, formatMemoryShort, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, parseQuantityCount, formatBytes } from "./format";
 import { resourceStatus, toneClass } from "./status";
 import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
@@ -22,6 +22,8 @@ export interface ColumnDef {
   sortable?: boolean;
   defaultHidden?: boolean;
   tooltip?: string;
+  /** Tighter horizontal padding for narrow columns (Age, counts). */
+  compact?: boolean;
   value?: (object: AnyObject, context?: CellContext) => string | number | undefined;
   cell: (object: AnyObject, context: CellContext) => ReactNode;
   filterValue?: (object: AnyObject, context?: CellContext) => string | undefined;
@@ -48,25 +50,58 @@ export interface CellContext {
   serviceEndpoints?: Map<string, number>;
   /** `${namespace}/${name}` → latest Warning event (Freelens' warnings column). */
   warnings?: Map<string, WarningEntry>;
+  /** Node name → number of pods currently scheduled on it (Nodes table). */
+  nodePodCounts?: Map<string, number>;
 }
 
 const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
 
 function StatusCell({ object, kind }: { object: AnyObject; kind: string }) {
   const status = resourceStatus(object, kind);
+  const conditions = ((object.status?.conditions ?? []) as Array<Record<string, any>>);
+  const badge = <span className={cn("badge", toneClass(status.tone))}>{status.text}</span>;
+  if (!status.detail && conditions.length === 0) return badge;
   return (
-    <span className={cn("badge", toneClass(status.tone))} title={status.detail}>
-      {status.text}
-    </span>
+    <Tooltip
+      wrapperClassName="min-w-0"
+      content={
+        <div className="max-w-xs space-y-1.5">
+          <div className="font-medium text-theme-text-primary">{status.text}</div>
+          {status.detail ? (
+            <div className="whitespace-pre-wrap break-words text-theme-text-secondary">{status.detail}</div>
+          ) : null}
+          {conditions.length > 0 ? (
+            <>
+              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                Conditions
+              </div>
+              <ConditionsTooltip conditions={conditions} />
+            </>
+          ) : null}
+        </div>
+      }
+    >
+      {badge}
+    </Tooltip>
   );
 }
 
 function AgeCell({ object }: { object: AnyObject }) {
   const timestamp = object.metadata?.creationTimestamp;
+  const body = <span className="mono-nums text-theme-text-tertiary">{formatAge(timestamp)}</span>;
+  if (!timestamp) return body;
   return (
-    <span className="mono-nums text-theme-text-tertiary" title={formatTimestamp(timestamp)}>
-      {formatAge(timestamp)}
-    </span>
+    <Tooltip
+      wrapperClassName="min-w-0"
+      content={
+        <div className="space-y-0.5">
+          <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
+          <div className="font-mono text-[11px] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
+        </div>
+      }
+    >
+      {body}
+    </Tooltip>
   );
 }
 
@@ -126,6 +161,9 @@ function podContainers(object: AnyObject): Array<Record<string, any>> {
 }
 
 type ContainerState = "ready" | "running" | "waiting" | "completed" | "terminated" | "unknown";
+
+/** Waiting states that are a normal part of starting, not a failure. */
+const CREATING_REASONS = new Set(["ContainerCreating", "PodInitializing"]);
 
 interface ContainerSquare {
   name: string;
@@ -224,6 +262,8 @@ function ContainerTooltip({ square }: { square: ContainerSquare }) {
       : restartAge !== null && restartAge < 3_600_000
         ? "text-amber-600 dark:text-amber-400"
         : "text-orange-600 dark:text-orange-400";
+  const startingUp = square.status === "waiting" && Boolean(square.reason && CREATING_REASONS.has(square.reason));
+  const broken = square.status === "terminated" || (square.status === "waiting" && !startingUp);
 
   return (
     <div className="max-w-[280px] space-y-1">
@@ -238,9 +278,11 @@ function ContainerTooltip({ square }: { square: ContainerSquare }) {
       {square.reason && square.reason !== stateLabel ? (
         <div
           className={
-            square.status === "waiting" || square.status === "terminated"
+            broken
               ? "font-medium text-red-600 dark:text-red-400"
-              : "text-theme-text-secondary"
+              : startingUp
+                ? "font-medium text-amber-600 dark:text-amber-400"
+                : "text-theme-text-secondary"
           }
         >
           {square.reason}
@@ -304,9 +346,13 @@ function ContainersCell({ object }: { object: AnyObject }) {
               ? "border border-theme-text-tertiary/60 bg-theme-text-tertiary/30"
               : square.status === "running"
                 ? "bg-amber-500"
-                : square.status === "waiting" || square.status === "terminated"
-                  ? "bg-red-500"
-                  : "border border-dashed border-theme-text-tertiary";
+                : square.status === "waiting"
+                  ? square.reason && CREATING_REASONS.has(square.reason)
+                    ? "bg-amber-500"
+                    : "bg-red-500"
+                  : square.status === "terminated"
+                    ? "bg-red-500"
+                    : "border border-dashed border-theme-text-tertiary";
         return (
           <Fragment key={`${square.name}-${index}`}>
             {showSeparator ? (
@@ -331,63 +377,133 @@ function sumContainerResources(object: AnyObject, kind: "cpu" | "memory", field:
   }, 0);
 }
 
+/** Actual live usage for a pod, used by the CPU/Memory sort. */
+function podUsage(object: AnyObject, kind: "cpu" | "memory", metrics?: Map<string, PodUsage>): number {
+  const key = `${object.metadata?.namespace}/${object.metadata?.name}`;
+  const sample = metrics?.get(key);
+  return sample ? sample.containers.reduce((sum, container) => sum + container[kind], 0) : 0;
+}
+
+function formatPercent(pct: number): string {
+  if (!Number.isFinite(pct)) return "–";
+  if (pct > 0 && pct < 1) return "<1%";
+  return `${Math.round(pct)}%`;
+}
+
 function PodUsageCell({
   object,
   kind,
   metrics,
+  nodes,
 }: {
   object: AnyObject;
   kind: "cpu" | "memory";
   metrics?: Map<string, PodUsage>;
+  nodes?: Map<string, NodeUsage>;
 }) {
   const key = `${object.metadata?.namespace}/${object.metadata?.name}`;
   const sample = metrics?.get(key);
   if (!sample) return <span className="text-sm text-theme-text-tertiary">–</span>;
 
-  const formats = kind === "cpu" ? formatCpu : formatBytes;
+  const formats = kind === "cpu" ? formatCpuMilli : formatMemoryShort;
   const usage = sample.containers.reduce((sum, container) => sum + container[kind], 0);
   if (usage <= 0) return <span className="text-sm text-theme-text-tertiary">–</span>;
 
   const requests = sumContainerResources(object, kind, "requests");
   const limits = sumContainerResources(object, kind, "limits");
-  const containers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
-  const allLimited = containers.length > 0 && containers.every((container) => {
-    const value = container.resources?.limits?.[kind];
-    const parsed = kind === "cpu" ? parseCpu(value) : parseMemory(value);
-    return (parsed ?? 0) > 0;
-  });
+  const specContainers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
 
   const mode = limits > 0 ? "limit" : requests > 0 ? "request" : "none";
+
+  // Node context: how full the pod's node is and how much of it this pod takes
+  // (Radar's `X% used · this pod Y%` line). `cpuAllocatable`/`memoryAllocatable`
+  // arrive from useResourceMetrics for the Pods table.
+  const nodeName = typeof object.spec?.nodeName === "string" ? object.spec.nodeName : undefined;
+  const node = nodeName ? nodes?.get(nodeName) : undefined;
+  const nodeAllocatable = kind === "cpu" ? node?.cpuAllocatable : node?.memoryAllocatable;
+  const nodeUsage = kind === "cpu" ? node?.cpu : node?.memory;
+  const nodeUsedPct =
+    nodeAllocatable && nodeAllocatable > 0 && nodeUsage !== undefined
+      ? (nodeUsage / nodeAllocatable) * 100
+      : undefined;
+  const podSharePct =
+    nodeAllocatable && nodeAllocatable > 0 ? (usage / nodeAllocatable) * 100 : undefined;
+
+  const containerRows = sample.containers
+    .map((container) => {
+      const spec = specContainers.find((entry) => entry.name === container.name);
+      const request = kind === "cpu"
+        ? parseCpu(spec?.resources?.requests?.cpu)
+        : parseMemory(spec?.resources?.requests?.memory);
+      const limit = kind === "cpu"
+        ? parseCpu(spec?.resources?.limits?.cpu)
+        : parseMemory(spec?.resources?.limits?.memory);
+      const yardstick = limit ?? request ?? 0;
+      const pct = yardstick > 0 ? (container[kind] / yardstick) * 100 : 0;
+      const detail =
+        limit !== undefined && limit > 0
+          ? `${formats(container[kind])} · ${formatPercent(pct)} · ${formats(limit)} limit${
+              request !== undefined && request > 0 ? ` · req ${formats(request)}` : ""
+            }`
+          : request !== undefined && request > 0
+            ? `${formats(container[kind])} · ${formatPercent(pct)} · ${formats(request)} request`
+            : `${formats(container[kind])} · no limit`;
+      return { name: container.name, pct, detail };
+    })
+    .sort((left, right) => right.pct - left.pct || left.name.localeCompare(right.name));
+
+  const shown = containerRows.slice(0, 3);
+  const remaining = containerRows.length - shown.length;
+
+  const tooltip = (
+    <div className="w-72 space-y-2 whitespace-normal">
+      <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+        {kind === "cpu" ? "CPU" : "Memory"} by container
+      </div>
+      <div className="space-y-1.5">
+        {shown.map((row) => (
+          <div key={row.name} className="space-y-0.5">
+            <div className="truncate text-[11px] text-theme-text-tertiary">{row.name}</div>
+            <div className="font-mono text-[11px] text-theme-text-primary">{row.detail}</div>
+          </div>
+        ))}
+        {remaining > 0 ? (
+          <div className="border-t border-theme-border/50 pt-1 text-[10px] text-theme-text-tertiary">
+            +{remaining} more
+          </div>
+        ) : null}
+      </div>
+      {nodeName ? (
+        <div className="space-y-0.5 border-t border-theme-border/50 pt-1">
+          <div className="truncate text-[11px] text-theme-text-tertiary">Node {nodeName}</div>
+          {nodeUsedPct !== undefined && podSharePct !== undefined && (nodeUsage ?? 0) > 0 ? (
+            <div
+              className={cn(
+                "font-mono text-[11px]",
+                nodeUsedPct >= 90 ? "text-amber-600 dark:text-amber-400" : "text-theme-text-secondary",
+              )}
+            >
+              {formatPercent(nodeUsedPct)} used · this pod {formatPercent(podSharePct)}
+            </div>
+          ) : (
+            <div className="text-[11px] text-theme-text-tertiary">node metrics unavailable</div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+
   if (mode === "none") {
-    return <span className="font-mono text-[11px] text-theme-text-secondary">{formats(usage)}</span>;
+    return (
+      <Tooltip content={tooltip} wrapperClassName="min-w-0" delay={200}>
+        <span className="font-mono text-[11px] text-theme-text-secondary">{formats(usage)}</span>
+      </Tooltip>
+    );
   }
 
   const denom = mode === "limit" ? limits : requests;
   const percent = denom > 0 ? (usage / denom) * 100 : 0;
   const marker = mode === "limit" && requests > 0 && requests < limits ? (requests / limits) * 100 : undefined;
-
-  const tooltip = (
-    <div className="space-y-1">
-      {sample.containers.map((container) => {
-        const spec = containers.find((entry) => entry.name === container.name);
-        const req = kind === "cpu" ? parseCpu(spec?.resources?.requests?.cpu) : parseMemory(spec?.resources?.requests?.memory);
-        const lim = kind === "cpu" ? parseCpu(spec?.resources?.limits?.cpu) : parseMemory(spec?.resources?.limits?.memory);
-        return (
-          <div key={container.name} className="flex items-center gap-2 font-mono text-[10px]">
-            <span className="min-w-0 flex-1 truncate text-theme-text-primary">{container.name}</span>
-            <span>{formats(container[kind])}</span>
-            <span className="text-theme-text-disabled">
-              req {req ? formats(req) : "–"} · lim {lim ? formats(lim) : "–"}
-            </span>
-          </div>
-        );
-      })}
-      <div className="text-[10px] text-theme-text-tertiary">
-        {mode === "limit" ? "Usage against the summed container limit" : "Usage against the summed request (no limit set)"}
-        {!allLimited && mode === "limit" ? " · some containers unbounded" : ""}
-      </div>
-    </div>
-  );
 
   return (
     <ResourceBar
@@ -429,9 +545,10 @@ const namespaceColumn: ColumnDef = {
 const ageColumn: ColumnDef = {
   key: "age",
   label: "Age",
-  width: 88,
+  width: 60,
   align: "right",
   sortable: true,
+  compact: true,
   value: (object) => object.metadata?.creationTimestamp ?? "",
   cell: (object) => <AgeCell object={object} />,
 };
@@ -742,9 +859,9 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           width: 196,
           tooltip: "CPU usage / limit (marker = request)",
           sortable: true,
-          value: (object) => sumContainerResources(object, "cpu", "requests"),
+          value: (object, context) => podUsage(object, "cpu", context?.podMetrics),
           cell: (object, context) => (
-            <PodUsageCell object={object} kind="cpu" metrics={context.podMetrics} />
+            <PodUsageCell object={object} kind="cpu" metrics={context.podMetrics} nodes={context.nodeMetrics} />
           ),
         },
         {
@@ -753,9 +870,9 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           width: 196,
           tooltip: "Memory usage / limit (marker = request)",
           sortable: true,
-          value: (object) => sumContainerResources(object, "memory", "requests"),
+          value: (object, context) => podUsage(object, "memory", context?.podMetrics),
           cell: (object, context) => (
-            <PodUsageCell object={object} kind="memory" metrics={context.podMetrics} />
+            <PodUsageCell object={object} kind="memory" metrics={context.podMetrics} nodes={context.nodeMetrics} />
           ),
         },
         {
@@ -1305,13 +1422,9 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "cpu",
           label: "CPU",
           width: 196,
-          tooltip: "Current CPU usage / allocatable",
+          tooltip: "Current CPU usage / allocatable — sorted by usage",
           sortable: true,
-          value: (object, context) => {
-            const sample = context?.nodeMetrics?.get(object.metadata?.name ?? "");
-            if (sample && sample.cpu > 0) return sample.cpu;
-            return parseCpu(object.status?.allocatable?.cpu) ?? 0;
-          },
+          value: (object, context) => context?.nodeMetrics?.get(object.metadata?.name ?? "")?.cpu ?? 0,
           cell: (object, context) => {
             const sample = context.nodeMetrics?.get(object.metadata?.name ?? "");
             const allocatable = parseCpu(object.status?.allocatable?.cpu) ?? 0;
@@ -1320,8 +1433,8 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
             }
             return (
               <ResourceBar
-                used={formatCpu(sample.cpu)}
-                total={formatCpu(allocatable)}
+                used={formatCpuMilli(sample.cpu)}
+                total={formatCpuMilli(allocatable)}
                 percent={(sample.cpu / allocatable) * 100}
               />
             );
@@ -1331,13 +1444,10 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "memory",
           label: "Memory",
           width: 196,
-          tooltip: "Current memory usage / allocatable",
+          tooltip: "Current memory usage / allocatable — sorted by usage",
           sortable: true,
-          value: (object, context) => {
-            const sample = context?.nodeMetrics?.get(object.metadata?.name ?? "");
-            if (sample && sample.memory > 0) return sample.memory;
-            return parseMemory(object.status?.allocatable?.memory) ?? 0;
-          },
+          value: (object, context) =>
+            context?.nodeMetrics?.get(object.metadata?.name ?? "")?.memory ?? 0,
           cell: (object, context) => {
             const sample = context.nodeMetrics?.get(object.metadata?.name ?? "");
             const allocatable = parseMemory(object.status?.allocatable?.memory) ?? 0;
@@ -1346,8 +1456,8 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
             }
             return (
               <ResourceBar
-                used={formatBytes(sample.memory)}
-                total={formatBytes(allocatable)}
+                used={formatMemoryShort(sample.memory)}
+                total={formatMemoryShort(allocatable)}
                 percent={(sample.memory / allocatable) * 100}
               />
             );
@@ -1356,11 +1466,41 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
         {
           key: "pods",
           label: "Pods",
-          width: 88,
-          align: "right",
+          width: 132,
+          tooltip: "Pods scheduled on this node / allocatable pod capacity",
           sortable: true,
-          value: (object) => parseCpu(object.status?.capacity?.pods) ?? 0,
-          cell: (object) => <Mono>{object.status?.capacity?.pods ?? "–"}</Mono>,
+          value: (object, context) =>
+            context?.nodePodCounts?.get(object.metadata?.name ?? "") ?? 0,
+          cell: (object, context) => {
+            const count = context.nodePodCounts?.get(object.metadata?.name ?? "");
+            const max =
+              parseQuantityCount(object.status?.allocatable?.pods) ??
+              parseQuantityCount(object.status?.capacity?.pods);
+            if (count === undefined) {
+              return (
+                <span className="text-sm text-theme-text-tertiary" title="Pod count is not loaded yet">
+                  –
+                </span>
+              );
+            }
+            if (!max || max <= 0) return <Mono>{String(count)}</Mono>;
+            return (
+              <ResourceBar
+                used={String(count)}
+                total={String(Math.round(max))}
+                percent={(count / max) * 100}
+                scheme="count"
+                tooltip={
+                  <div className="space-y-0.5">
+                    <div className="font-medium text-theme-text-primary">Pods</div>
+                    <div className="text-theme-text-secondary">
+                      {count} scheduled of {Math.round(max)} allocatable
+                    </div>
+                  </div>
+                }
+              />
+            );
+          },
         },
         {
           key: "conditions",
@@ -1929,10 +2069,14 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
       base.push(statusColumn(kind, 180));
       for (const printer of resource.printerColumns ?? []) {
         if ((printer.priority ?? 0) > 0) continue;
+        // CAPI-style CRDs declare their own Age column; the table already has a
+        // generic one, so showing both would duplicate the header.
+        if (printer.name.trim().toLowerCase() === "age") continue;
+        if (printer.jsonPath === ".metadata.creationTimestamp") continue;
         base.push({
           key: `printer:${printer.name}`,
           label: printer.name,
-          width: 160,
+          width: 70,
           sortable: true,
           value: (object) => printerValue(object, printer.jsonPath, printer.type),
           cell: (object) => {
@@ -1954,8 +2098,12 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
 
   if (showNamespace && resource.namespaced) columns.push(namespaceColumn);
   if (WARNING_KINDS.has(kind)) base.push(warningsColumn());
-  columns.push(...base.filter((column) => column.key !== "age"));
-  columns.push(ageColumn);
+  // Radar's default tail: Status immediately before Age. Saved column orders
+  // (`settings.tableColumnOrder`) are applied afterwards, so a user who moved
+  // columns keeps their arrangement.
+  const statusColumns = base.filter((column) => column.key === "status");
+  const rest = base.filter((column) => column.key !== "status" && column.key !== "age");
+  columns.push(...rest, ...statusColumns, ageColumn);
   return columns;
 }
 
@@ -2016,31 +2164,121 @@ export function nodeTaints(node: AnyObject): NodeTaint[] {
 
 function NodeConditionsCell({ object }: { object: AnyObject }) {
   const summary = nodeConditionSummary(object);
-  if (summary.healthy) {
-    return <span className="text-sm text-emerald-600 dark:text-emerald-400">Healthy</span>;
-  }
-  if (summary.problems.length > 0) {
-    return (
+  const text = summary.healthy
+    ? "Healthy"
+    : summary.problems.length > 0
+      ? summary.problems.join(", ")
+      : summary.text;
+  return (
+    <Tooltip
+      content={<ConditionsTooltip conditions={(object.status?.conditions ?? []) as Array<Record<string, any>>} />}
+      wrapperClassName="min-w-0 w-full"
+    >
       <span
-        className="block truncate text-sm text-amber-600 dark:text-amber-400"
-        title={summary.problems.join("\n")}
+        className={cn(
+          "block truncate text-sm",
+          summary.healthy
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-amber-600 dark:text-amber-400",
+        )}
       >
-        {summary.problems.join(", ")}
+        {text}
       </span>
-    );
+    </Tooltip>
+  );
+}
+
+const NEGATIVE_CONDITION = /pressure|unavailable|failure|degraded|unhealthy|error|warning/i;
+
+/**
+ * Hover card for `status.conditions` of any resource: newest transition first,
+ * each with state, reason/message and the time it last changed.
+ */
+export function ConditionsTooltip({ conditions }: { conditions: Array<Record<string, any>> }) {
+  if (conditions.length === 0) {
+    return <div className="text-theme-text-tertiary">No conditions reported.</div>;
   }
-  return <span className="text-sm text-theme-text-secondary">{summary.text}</span>;
+  const sorted = [...conditions].sort((left, right) => {
+    const l = new Date(left.lastTransitionTime ?? left.lastUpdateTime ?? 0).getTime();
+    const r = new Date(right.lastTransitionTime ?? right.lastUpdateTime ?? 0).getTime();
+    return r - l;
+  });
+  return (
+    <div className="max-w-xs space-y-1.5">
+      {sorted.map((condition, index) => {
+        const state = String(condition.status ?? "Unknown");
+        const negative = NEGATIVE_CONDITION.test(String(condition.type ?? ""));
+        const healthy = negative ? state !== "True" : state === "True";
+        const dot =
+          state === "Unknown" ? "bg-amber-500" : healthy ? "bg-emerald-500" : "bg-red-500";
+        const timestamp = condition.lastTransitionTime ?? condition.lastUpdateTime;
+        return (
+          <div key={`${condition.type}-${index}`} className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />
+              <span className="min-w-0 truncate font-medium text-theme-text-primary">
+                {condition.type}
+              </span>
+              <span className="shrink-0 text-theme-text-tertiary">{state}</span>
+              {timestamp ? (
+                <span className="ml-auto shrink-0 text-[10px] text-theme-text-disabled">
+                  {formatRelativeTime(timestamp)}
+                </span>
+              ) : null}
+            </div>
+            {condition.reason || condition.message ? (
+              <div className="break-words pl-3 text-[10px] leading-snug text-theme-text-tertiary">
+                {condition.reason ? (
+                  <span className="text-theme-text-secondary">{condition.reason}</span>
+                ) : null}
+                {condition.reason && condition.message ? " · " : null}
+                {condition.message}
+              </div>
+            ) : null}
+            {timestamp ? (
+              <div className="pl-3 text-[10px] text-theme-text-disabled">
+                {formatTimestamp(timestamp)}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function taintEffectDot(effect: string): string {
+  if (effect === "NoExecute") return "bg-red-500";
+  if (effect === "NoSchedule") return "bg-amber-500";
+  return "bg-sky-500";
+}
+
+/** Hover card for a node's taints: colour dot + `key=value:effect`, wrapping. */
+export function NodeTaintsTooltip({ taints }: { taints: NodeTaint[] }) {
+  return (
+    <div className="max-w-xs space-y-1">
+      {taints.map((taint, index) => (
+        <div
+          key={`${taint.text}-${index}`}
+          className="flex items-start gap-1.5 font-mono text-[11px] leading-snug"
+        >
+          <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${taintEffectDot(taint.effect)}`} />
+          <span className="min-w-0 break-all text-theme-text-secondary">{taint.text}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function NodeTaintsCell({ object }: { object: AnyObject }) {
   const taints = nodeTaints(object);
   if (taints.length === 0) return <span className="text-sm text-theme-text-secondary">&lt;none&gt;</span>;
-  const [first, ...rest] = taints;
   return (
-    <span className="block truncate text-sm text-amber-600 dark:text-amber-400" title={taints.map((taint) => taint.text).join("\n")}>
-      {first.text}
-      {rest.length > 0 ? <span className="text-theme-text-tertiary"> +{rest.length}</span> : null}
-    </span>
+    <Tooltip content={<NodeTaintsTooltip taints={taints} />} wrapperClassName="min-w-0">
+      <span className="text-sm text-amber-600 dark:text-amber-400">
+        {taints.length} taint{taints.length === 1 ? "" : "s"}
+      </span>
+    </Tooltip>
   );
 }
 

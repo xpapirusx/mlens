@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { stringify } from "yaml";
 import { Check, Copy, Pencil, RefreshCw, Replace, Save, Search, X } from "lucide-react";
 import type { KubeObject } from "@shared/types";
 import { YamlEditor, type YamlEditorHandle } from "../../design-system/components/YamlEditor";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
+import { objectYaml } from "../../lib/object-yaml";
+import { cn } from "../../lib/cn";
 
 export function YamlTab({
   clusterId,
@@ -16,7 +17,15 @@ export function YamlTab({
   object: KubeObject;
   onApplied: () => void;
 }) {
-  const source = useMemo(() => stringify(object, { lineWidth: 0 }), [object]);
+  // The YAML tab hides the fields the API server owns by default: they are
+  // never worth reading and make every other field harder to find. Applying a
+  // stripped document is safe — main re-reads the live object and reuses its
+  // resourceVersion.
+  const [ignoreServerMetadata, setIgnoreServerMetadata] = useState(true);
+  const source = useMemo(
+    () => objectYaml(object, { ignoreServerMetadata }),
+    [object, ignoreServerMetadata],
+  );
   const [value, setValue] = useState(source);
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -51,6 +60,26 @@ export function YamlTab({
         <span className="font-mono text-[10px] text-theme-text-tertiary">
           {object.apiVersion}/{object.kind}
         </span>
+        <label
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 text-[11px] text-theme-text-secondary",
+            editing ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+          )}
+          title={
+            editing
+              ? "Finish editing to change the YAML view"
+              : "Hide server-managed metadata: uid, resourceVersion, generation, creationTimestamp, managedFields, selfLink"
+          }
+        >
+          <input
+            type="checkbox"
+            checked={ignoreServerMetadata}
+            disabled={editing}
+            onChange={(event) => setIgnoreServerMetadata(event.target.checked)}
+            className="h-3.5 w-3.5 shrink-0 rounded border-theme-border accent-skyhook-500"
+          />
+          <span className="truncate whitespace-nowrap">Ignore server metadata</span>
+        </label>
         <div className="ml-auto flex items-center gap-1">
           <Button
             size="xs"

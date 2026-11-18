@@ -20,13 +20,20 @@ export function NamespacePicker({
   const [search, setSearch] = useState("");
   const selected = new Set(value);
 
+  // Chosen namespaces stay pinned under "All namespaces" so the current scope
+  // is readable at a glance and does not depend on where its names sort.
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return namespaces
+    const matching = namespaces
       .filter((namespace) => showSystemNamespaces || !namespace.startsWith("kube-"))
       .filter((namespace) => !term || namespace.toLowerCase().includes(term))
       .sort((a, b) => a.localeCompare(b));
-  }, [namespaces, search, showSystemNamespaces]);
+    const chosen = matching.filter((namespace) => selected.has(namespace));
+    const rest = matching.filter((namespace) => !selected.has(namespace));
+    return [...chosen, ...rest];
+  }, [namespaces, search, showSystemNamespaces, value]);
+
+  const selectedCount = visible.filter((namespace) => selected.has(namespace)).length;
 
   const label =
     value.length === 0
@@ -34,6 +41,35 @@ export function NamespacePicker({
       : value.length === 1
         ? value[0]
         : `${value.length} namespaces`;
+
+  const renderNamespace = (namespace: string) => {
+    const active = selected.has(namespace);
+    return (
+      <button
+        key={namespace}
+        type="button"
+        onClick={() =>
+          onChange(
+            active ? value.filter((entry) => entry !== namespace) : [...value, namespace],
+          )
+        }
+        className={cn(
+          "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs",
+          active
+            ? "selection selection-text"
+            : "text-theme-text-secondary hover:bg-theme-elevated hover:text-theme-text-primary",
+        )}
+      >
+        <input
+          type="checkbox"
+          checked={active}
+          readOnly
+          className="h-3 w-3 rounded border-theme-border accent-skyhook-500"
+        />
+        <span className="min-w-0 flex-1 truncate font-mono">{namespace}</span>
+      </button>
+    );
+  };
 
   return (
     <Menu
@@ -81,36 +117,11 @@ export function NamespacePicker({
             {value.length === 0 ? <Check className="h-3 w-3 shrink-0" /> : null}
           </button>
           <div className="max-h-72 overflow-y-auto">
-            {visible.map((namespace) => {
-              const active = selected.has(namespace);
-              return (
-                <button
-                  key={namespace}
-                  type="button"
-                  onClick={() =>
-                    onChange(
-                      active
-                        ? value.filter((entry) => entry !== namespace)
-                        : [...value, namespace],
-                    )
-                  }
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs",
-                    active
-                      ? "selection selection-text"
-                      : "text-theme-text-secondary hover:bg-theme-elevated hover:text-theme-text-primary",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={active}
-                    readOnly
-                    className="h-3 w-3 rounded border-theme-border accent-skyhook-500"
-                  />
-                  <span className="min-w-0 flex-1 truncate font-mono">{namespace}</span>
-                </button>
-              );
-            })}
+            {visible.slice(0, selectedCount).map(renderNamespace)}
+            {selectedCount > 0 && selectedCount < visible.length ? (
+              <div className="mx-2 my-1 border-t border-theme-border" />
+            ) : null}
+            {visible.slice(selectedCount).map(renderNamespace)}
             {visible.length === 0 ? (
               <div className="px-2 py-2 text-xs text-theme-text-disabled">No namespaces</div>
             ) : null}

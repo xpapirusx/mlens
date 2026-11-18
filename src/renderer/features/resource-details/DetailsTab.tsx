@@ -1,8 +1,8 @@
 import type { KubeObject } from "@shared/types";
 import { ArrowUp, ChevronRight, Database, ExternalLink, FileSliders, Tags } from "lucide-react";
 import { Fragment, useState } from "react";
-import { formatAge, formatTimestamp } from "../../lib/format";
-import { DetailSection, Property, PropertyList } from "./DetailSections";
+import { formatTimestamp } from "../../lib/format";
+import { DetailSection, Property, PropertyList, AgeProperty } from "./DetailSections";
 import { cn } from "../../lib/cn";
 import { toneClass, type Tone } from "../../lib/status";
 import { Spinner } from "../../design-system/components/Spinner";
@@ -135,7 +135,7 @@ export function DetailsTab({
           <Property label="API version" value={object.apiVersion} mono />
           <Property label="UID" value={metadata.uid} copyable mono />
           <Property label="Created" value={formatTimestamp(metadata.creationTimestamp)} />
-          <Property label="Age" value={formatAge(metadata.creationTimestamp)} />
+          <AgeProperty timestamp={metadata.creationTimestamp} />
           <Property label="Resource version" value={metadata.resourceVersion} mono copyable />
           <Property label="Generation" value={metadata.generation ?? "–"} />
           {metadata.deletionTimestamp ? (

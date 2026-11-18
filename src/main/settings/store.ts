@@ -56,6 +56,7 @@ export function defaultSettings(): AppSettings {
     sidebarGroupOrder: [],
     tableColumnWidths: {},
     tableColumnOrder: {},
+    tableSorts: {},
   };
 }
 
@@ -141,6 +142,18 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   if (out.tableColumnOrder) {
     out.tableColumnOrder = Object.fromEntries(
       Object.entries(out.tableColumnOrder).filter(([, value]) => Array.isArray(value)),
+    );
+  }
+  if (out.tableSorts) {
+    out.tableSorts = Object.fromEntries(
+      Object.entries(out.tableSorts).filter(
+        ([, value]) =>
+          value &&
+          typeof value === "object" &&
+          typeof value.key === "string" &&
+          value.key.length > 0 &&
+          (value.direction === "asc" || value.direction === "desc"),
+      ),
     );
   }
   return out;

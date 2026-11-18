@@ -2,10 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Box, Cpu, Database, Globe, Info, Server, ShieldCheck, Tag } from "lucide-react";
 import type { KubeObject } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
-import { formatAge, formatBytes, formatCpu, formatTimestamp, parseCpu, parseMemory } from "../../lib/format";
+import { formatBytes, formatCpu, formatTimestamp, parseCpu, parseMemory } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
-import { nodeConditionSummary, nodeRoles, nodeTaints } from "../../lib/columns";
-import { ConditionsList, DetailSection, Property, PropertyList } from "./DetailSections";
+import { ConditionsTooltip, nodeConditionSummary, nodeRoles, nodeTaints, NodeTaintsTooltip } from "../../lib/columns";
+import { Tooltip } from "../../design-system/components/Tooltip";
+import { ConditionsList, DetailSection, Property, PropertyList, AgeProperty } from "./DetailSections";
 import type { OverviewProps } from "./OverviewTab";
 
 type AnyObject = any;
@@ -14,7 +15,30 @@ const PODS_LIMIT = 500;
 
 function StatusPill({ object, kind }: { object: AnyObject; kind: string }) {
   const status = resourceStatus(object, kind);
-  return <span className={`badge ${toneClass(status.tone)}`}>{status.text}</span>;
+  const conditions = (object.status?.conditions ?? []) as Array<Record<string, any>>;
+  return (
+    <Tooltip
+      wrapperClassName="min-w-0"
+      content={
+        <div className="max-w-xs space-y-1.5">
+          <div className="font-medium text-theme-text-primary">{status.text}</div>
+          {status.detail ? (
+            <div className="whitespace-pre-wrap break-words text-theme-text-secondary">{status.detail}</div>
+          ) : null}
+          {conditions.length > 0 ? (
+            <>
+              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                Conditions
+              </div>
+              <ConditionsTooltip conditions={conditions} />
+            </>
+          ) : null}
+        </div>
+      }
+    >
+      <span className={`badge ${toneClass(status.tone)}`}>{status.text}</span>
+    </Tooltip>
+  );
 }
 
 function Banner({
@@ -287,7 +311,7 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
           <Property label="Status" value={<StatusPill object={object} kind="Node" />} />
           <Property label="Schedulable" value={cordoned ? "No (cordoned)" : "Yes"} />
           <Property label="Roles" value={roles.join(", ") || "<none>"} />
-          <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
+          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
         {/* {onToggleCordon ? (
           <div className="mt-3 flex items-center gap-2 border-t border-theme-border-subtle pt-2.5">
@@ -442,27 +466,27 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
         </DetailSection>
       ) : null}
 
-      <DetailSection title="Taints" icon={<ShieldCheck />} defaultOpen={taints.length > 0 && taints.length <= 5} count={taints.length}>
+      <DetailSection title="Taints" icon={<ShieldCheck />}>
         {taints.length === 0 ? (
           <div className="text-xs text-theme-text-tertiary">No taints.</div>
         ) : (
-          <div className="space-y-1">
-            {taints.map((taint, index) => (
-              <div key={`${taint.text}-${index}`} className="flex items-center gap-2 font-mono text-[11px]">
-                <span
-                  className={`badge-sm ${
-                    taint.effect === "NoSchedule"
-                      ? "status-degraded"
-                      : taint.effect === "NoExecute"
-                        ? "status-unhealthy"
-                        : "status-neutral"
-                  }`}
-                >
-                  {taint.text}
-                </span>
-              </div>
-            ))}
-          </div>
+          <Tooltip
+            side="bottom"
+            wrapperClassName="w-fit"
+            content={<NodeTaintsTooltip taints={taints} />}
+          >
+            <span
+              className={`badge-sm ${
+                taints.some((taint) => taint.effect === "NoExecute")
+                  ? "status-unhealthy"
+                  : taints.some((taint) => taint.effect === "NoSchedule")
+                    ? "status-degraded"
+                    : "status-neutral"
+              }`}
+            >
+              {taints.length} taint{taints.length === 1 ? "" : "s"}
+            </span>
+          </Tooltip>
         )}
       </DetailSection>
 

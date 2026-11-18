@@ -318,8 +318,8 @@ export function ResourceSidebar({
           </div>
           <div className="flex items-center gap-1.5 truncate text-[10px] text-theme-text-tertiary">
             <span>{session?.info?.version ? `v${session.info.version}` : "connecting…"}</span>
-            <span className="text-theme-text-disabled">·</span>
-            <span className="truncate">{session?.info?.context ?? cluster?.context}</span>
+            {/* <span className="text-theme-text-disabled">·</span>
+            <span className="truncate">{session?.info?.user ?? cluster?.context}</span> */}
           </div>
         </div>
         <Menu

@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
-import { monaco } from "../../lib/monaco";
+import { editorThemeName, monaco } from "../../lib/monaco";
 import { cn } from "../../lib/cn";
 
 loader.config({ monaco });
@@ -33,17 +33,7 @@ export const YamlEditor = forwardRef<YamlEditorHandle, YamlEditorProps>(function
   { value, onChange, readOnly = true, height = "100%", className },
   ref,
 ) {
-  const root = typeof document !== "undefined" ? document.documentElement : null;
-  const isDark = Boolean(root?.classList.contains("dark"));
-  const editorTheme = root?.classList.contains("theme-dracula")
-    ? "mlens-dracula"
-    : root?.classList.contains("theme-freelens")
-      ? "mlens-freelens"
-      : root?.classList.contains("theme-proton")
-        ? "mlens-proton"
-        : isDark
-          ? "mlens-dark"
-          : "mlens-light";
+  const editorTheme = editorThemeName();
   const editorRef = useRef<EditorInstance | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
 

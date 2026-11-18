@@ -25,16 +25,19 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { ApiResourceInfo } from "@shared/types";
+import type { ApiResourceInfo, KubeObject } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab } from "../../stores/session-store";
 import { getKindIcon, kindColor, kindLabel } from "../../lib/icons";
 import { resourceStatus, toneClass } from "../../lib/status";
+import { ConditionsTooltip } from "../../lib/columns";
+import { Tooltip } from "../../design-system/components/Tooltip";
 import { formatAge } from "../../lib/format";
 import { cn } from "../../lib/cn";
 import { Spinner } from "../../design-system/components/Spinner";
 import { InlineError } from "../../design-system/components/EmptyState";
 import { Button } from "../../design-system/components/Button";
+import { ErrorBoundary } from "../../design-system/components/ErrorBoundary";
 import { ConfirmActionDialog, ScaleDialog } from "../resource-browser/ResourceDialogs";
 import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
 import { EditDataDialog } from "./EditDataDialog";
@@ -63,6 +66,37 @@ import { EventsTab } from "./EventsTab";
 import { RelatedTab } from "./RelatedTab";
 import { LogsTab } from "./LogsTab";
 import { MetricsTab } from "./MetricsTab";
+
+/** Drawer header status badge: status text + conditions on hover. */
+function DrawerStatus({ object, kind }: { object: KubeObject; kind?: string }) {
+  const status = resourceStatus(object, kind);
+  const conditions = (object.status?.conditions ?? []) as Array<Record<string, any>>;
+  const badge = <span className={cn("badge-sm", toneClass(status.tone))}>{status.text}</span>;
+  if (!status.detail && conditions.length === 0) return badge;
+  return (
+    <Tooltip
+      wrapperClassName="min-w-0"
+      content={
+        <div className="max-w-xs space-y-1.5">
+          <div className="font-medium text-theme-text-primary">{status.text}</div>
+          {status.detail ? (
+            <div className="whitespace-pre-wrap break-words text-theme-text-secondary">{status.detail}</div>
+          ) : null}
+          {conditions.length > 0 ? (
+            <>
+              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                Conditions
+              </div>
+              <ConditionsTooltip conditions={conditions} />
+            </>
+          ) : null}
+        </div>
+      }
+    >
+      {badge}
+    </Tooltip>
+  );
+}
 
 export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const details = useSessionStore((state) => state.sessions[clusterId]?.details ?? null);
@@ -221,7 +255,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
     }
   };
 
-  const status = object ? resourceStatus(object, details.ref.kind) : null;
   const Icon = getKindIcon(details.ref.kind, resource?.group);
   const isPod = details.ref.kind === "Pod";
   const isNode = details.ref.kind === "Node";
@@ -375,7 +408,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <Icon className="h-3 w-3" />
             {kindLabel(details.ref.kind, resource?.plural)}
           </span>
-          {status ? <span className={cn("badge-sm", toneClass(status.tone))}>{status.text}</span> : null}
+          {object ? <DrawerStatus object={object} kind={details.ref.kind} /> : null}
           {object?.metadata?.deletionTimestamp ? (
             <span className="badge-sm status-degraded">Terminating</span>
           ) : null}
@@ -608,7 +641,10 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             </div>
           )
         ) : (
-          <>
+          <ErrorBoundary
+            resetKey={`${details.ref.kind}|${details.ref.namespace ?? ""}|${details.ref.name}|${tab}`}
+            title="This resource view failed to render"
+          >
             {tab === "overview" ? (
               <OverviewTab
                 object={object}
@@ -657,7 +693,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 refreshSeconds={refreshSeconds}
               />
             ) : null}
-          </>
+          </ErrorBoundary>
         )}
       </div>
 

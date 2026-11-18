@@ -99,6 +99,47 @@ export function formatCpu(millicores?: number): string {
   return `${Math.round(millicores)}m`;
 }
 
+/** Radar's compact CPU format for table bars: always millicores. */
+export function formatCpuMilli(millicores?: number): string {
+  if (millicores === undefined || Number.isNaN(millicores)) return "–";
+  return `${Math.round(millicores)}m`;
+}
+
+/**
+ * Radar's compact memory format for table bars: `2.4Gi` above a GiB, `512Mi`
+ * below it — short units, no `iB`, one decimal only when it helps.
+ */
+export function formatMemoryShort(bytes?: number): string {
+  if (bytes === undefined || bytes === null || Number.isNaN(bytes)) return "–";
+  const gib = bytes / (1024 * 1024 * 1024);
+  if (gib >= 1) return `${gib.toFixed(1)}Gi`;
+  return `${Math.round(bytes / (1024 * 1024))}Mi`;
+}
+
+/** Kubernetes Quantity → number, for counts such as `allocatable.pods` (`110`, `1k`). */
+export function parseQuantityCount(value?: string | number): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return value;
+  const match = /^([0-9.]+)([A-Za-z]+)?$/.exec(String(value).trim());
+  if (!match) return undefined;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount)) return undefined;
+  const suffix = match[2];
+  if (!suffix) return amount;
+  const factor: Record<string, number> = {
+    k: 1e3,
+    K: 1e3,
+    M: 1e6,
+    G: 1e9,
+    T: 1e12,
+    Ki: 1024,
+    Mi: 1024 ** 2,
+    Gi: 1024 ** 3,
+    Ti: 1024 ** 4,
+  };
+  return amount * (factor[suffix] ?? 1);
+}
+
 export function formatDurationSeconds(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "–";
   if (seconds < 60) return `${Math.round(seconds)}s`;

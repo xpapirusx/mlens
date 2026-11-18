@@ -38,30 +38,40 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Xcode command line tools on macOS (for the node-pty prebuilt check)
 
 ```bash
-node node_modules/electron/install.js  
 pnpm install
+node node_modules/electron/install.js
 pnpm dev
 ```
 
-`pnpm install` runs `scripts/postinstall.cjs`, which ensures node-pty's bundled
-`spawn-helper` is executable (some installers skip node-pty's own postinstall).
-Without that bit, local terminals fail with `posix_spawnp failed`.
+`pnpm install` runs `scripts/postinstall.cjs`, which self-heals two known issues:
+node-pty's bundled `spawn-helper` missing its executable bit (some installers
+skip node-pty's own postinstall; without it terminals fail with
+`posix_spawnp failed`) and a missing Electron runtime (see below).
 
 #### Electron runtime
 
 `electron` is a dev dependency, but its npm package only contains the launcher —
-the ~120 MB platform binary is downloaded by the package's own postinstall into
+the ~100 MB platform binary is downloaded by the package's own postinstall into
 `node_modules/electron/dist` (plus `path.txt`). pnpm v12 blocks install scripts
-by default, so `pnpm-workspace.yaml` lists `electron` under `allowBuilds`. If the
-download was skipped or `node_modules` was copied/moved without `dist`, `pnpm dev`
-fails with:
+by default, so `pnpm-workspace.yaml` lists `electron` under `allowBuilds`.
+
+A missing runtime is healed automatically: `pnpm install` runs
+`scripts/postinstall.cjs`, which checks `node_modules/electron/path.txt` and
+`dist/` and, if either is missing, runs `node node_modules/electron/install.js`
+for you (~100 MB, cached in `~/Library/Caches/electron` on macOS after the first
+download). A fresh clone + `pnpm install` therefore no longer ends in the
+cryptic `Error: Electron uninstall` from electron-vite.
+
+The failure can still happen — set `ELECTRON_SKIP_BINARY_DOWNLOAD` to skip the
+heal, or run it offline. In that case `pnpm install` fails loudly with
+instructions, or `pnpm dev` dies with:
 
 ```
 Error: Electron uninstall
     at getElectronPath (... electron-vite/dist/chunks/lib-*.js ...)
 ```
 
-Fix it without reinstalling everything:
+Fix it manually (needs network):
 
 ```bash
 node node_modules/electron/install.js   # downloads the runtime for this platform
@@ -183,7 +193,9 @@ the Cloud Native Computing Foundation.
   Switching clusters preserves namespace scope,
   selected kind, search/sort/filters, sidebar state, open resource tabs and live
   terminal PTYs.
-- Multiple namespace selection per cluster (all, one, or several).
+- Multiple namespace selection per cluster (all, one, or several). The picker
+  keeps **All namespaces** on top, then the currently selected namespaces, then
+  the rest alphabetically; search and the system-namespace toggle apply to both.
 - Sidebar favorites (pinned resource kinds), collapsible groups starting folded
   by default, and a configurable table row height (24–52px).
 - Health, latency, Kubernetes version, context and API server in the UI.
@@ -197,7 +209,10 @@ the Cloud Native Computing Foundation.
 
 ### Resource browser
 
-- Dynamic API discovery, including CRDs and their printer columns.
+- Dynamic API discovery, including CRDs and their printer columns. Default
+  columns end with **Status** then **Age**; a CRD's own `Age` printer column is
+  dropped so it never appears twice, and a customised column order is remembered
+  per kind. Age is a narrow 60px column with compact padding on every kind.
 - Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs,
   Services, Ingresses, NetworkPolicies, ConfigMaps, Secrets, Nodes, Namespaces,
   Events, PV/PVC, StorageClasses, ServiceAccounts, Roles/Bindings,
@@ -207,8 +222,20 @@ the Cloud Native Computing Foundation.
   to reset), horizontal scrolling, column picker and keyboard navigation.
 - Radar container squares in the Pods table (state colours, orange restart ring,
   init separator, tooltip with reason/exit code/uptime/last termination) and
-  Radar Node columns (CPU/Memory usage bars, Conditions, Taints).
-- Config / Access Control / Service columns follow Radar: a live **Endpoints**
+  Radar Node columns (CPU/Memory usage bars, **Conditions** whose hover card
+  lists every condition with state, reason and message, and a **Taints** count
+  whose hover card lists every `key=value:effect`).
+- CPU/Memory bars are Radar-style: the `used / total` row with the percentage
+  sits **above** the track, CPU is always millicores (`2200m`) and memory uses
+  short units (`851Mi`, `2.2Gi`). The Nodes table **Pods** column shows scheduled
+  pods against `allocatable.pods` (`88 / 250`) in the same bar style. Hovering a
+  pod's CPU/Memory bar opens Radar's breakdown: containers sorted by percentage
+  (top three), each `used · % · limit/request`, then the node line
+  `Node <name>` / `X% used · this pod Y%`. Sorting the CPU/Memory columns sorts
+  by **actual usage** (metrics.k8s.io sample), not by requests; pods/nodes
+  without a sample sort as zero.
+- **Age** is a tooltip everywhere (table cell, drawer property and CR overview
+  card) showing the exact creation timestamp.- Config / Access Control / Service columns follow Radar: a live **Endpoints**
   column for Services (Active / No endpoints / None / External), Type and
   External columns, ConfigMap **Size**, coloured Secret **Type** and TLS
   **Expires**, ServiceAccount **Automount**, Role/RoleBinding badges with an
@@ -217,10 +244,25 @@ the Cloud Native Computing Foundation.
   with the latest Warning event in the tooltip (one event list per scope).
 - A **Helm** group lists releases parsed from the `owner=helm` Secrets —
   status, chart, revision and app version — without a Helm binary. The release
-  drawer adds the **revision timeline** (View any revision, **Rollback** which
-  re-applies that revision's stored manifest and appends a new record) and the
-  **Resources** the manifest creates, each one clickable.
-- Multi-select mode with bulk delete and confirmation.
+  drawer adds the **revision timeline** (View any revision, **Compare** two
+  revisions as a Monaco diff of stored Manifests or Values, **Rollback** which
+  re-applies that revision's stored manifest and appends a new record), stored
+  **Release notes** and **Hooks**, copy buttons for notes/values/manifests, and
+  the **Resources** the manifest creates, each one clickable. Hooks show their
+  phase and last run. A comparison opens scrolled to its first changed line, with
+  strong green/red diff colours in every theme. Install/upgrade from a chart
+  stays out of scope (no Helm template engine); only the stored release records
+  are used.
+- Multi-select mode with bulk delete and confirmation. **Annotate** opens a
+  checkbox list of saved annotations and applies any number of them to every
+  selected row; the selection stays after applying, so another preset can follow.
+- **Diff** two selected resources of the same kind: side-by-side Monaco YAML
+  comparison (A = first row in table order), with a toggle that hides
+  server-managed metadata and a Swap action.
+- **Compare across clusters** from the row ⋮ menu: "Select for comparison" pins a
+  resource (the pin survives cluster switches and is shown above the table), then
+  "Compare with selected" on another row opens the same diff — the two sides may
+  be different kinds in different clusters.
 - Sticky row-actions menu on the right of every row (same as right-click):
   details, edit YAML, logs, attach, exec shell (Pods), scale
   (Deployments/StatefulSets/ReplicaSets), restart
@@ -247,7 +289,10 @@ the Cloud Native Computing Foundation.
 ### Resource details
 
 Overview / Details / YAML / Events / Related / Logs (Pods) / Metrics inside a
-resizable Freelens-style drawer. Kind actions are labelled buttons in a
+resizable Freelens-style drawer. The YAML tab hides server-managed metadata
+(`uid`, `resourceVersion`, `generation`, `creationTimestamp`, `managedFields`,
+`selfLink`) by default; the "Ignore server metadata" toggle shows the full stored
+object, and Apply still merges the live object. Kind actions are labelled buttons in a
 right-aligned row under the name (logs/exec/port-forward for Pods,
 scale/restart/set image/pause/suspend/trigger for workloads, cordon/uncordon and
 drain for Nodes); delete/reload/expand/close stay in the header, and reload only
@@ -266,8 +311,8 @@ load-balancer/no-selector banners and a live **Endpoints** section; Access
 Control overviews show bindings, rule cards, subjects and used-by pods; TLS
 Secrets show their certificate and expiry. Details carry the full clickable
 **owner chain** (owner → owner's owner, scrollable) and an **editor for labels
-and annotations** with a confirm step; the selection bar can stamp a saved
-annotation onto every selected resource. Related resources can be filtered
+and annotations** with a confirm step; the selection bar can stamp any number of
+saved annotations onto every selected resource and keeps the selection afterwards. Related resources can be filtered
 (search + regex + kind chips). Related resources are resolved from the live API for every kind.
 Secrets reveal only on request.
 
@@ -301,6 +346,20 @@ Secrets reveal only on request.
   across clusters), and configurable row height from 24 to 52px.
 - Problems filter for warning/error statuses, plus the regular status badges and
   per-column status filters.
+- Resource tables open **sorted by age, newest first**; an explicit sort is
+  remembered per kind (Pods, CRDs, …) in settings and survives cluster switches
+  and restarts, while a kind opened for the first time falls back to newest.
+- Radar status language: Pods show their real blocker — Pending,
+  ContainerCreating, PodInitializing, Terminating in amber; CrashLoopBackOff,
+  ImagePullBackOff, ErrImagePull and Evicted in red; Running/Completed otherwise.
+  Workloads show **Updating** in amber while a rollout is in progress and
+  **Not ready** / **Failed** in red; the badge tooltip carries the
+  ready/updated counts. Status badges with a detail (container message, node
+  condition reason) explain themselves on hover; the card also lists the
+  resource's `status.conditions`, newest transition first, with state,
+  reason/message, relative age and the exact timestamp. In the details drawer the
+  same card is on the header status badge, and a condition's age opens its exact
+  transition time.
 
 ### Design system
 
