@@ -149,7 +149,7 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
             <button
               type="button"
               onClick={() => useSessionStore.getState().restoreDetails(clusterId)}
-              className="absolute bottom-3 right-3 z-40 flex max-w-[70%] items-center gap-1.5 rounded-lg border border-theme-border bg-theme-elevated px-2.5 py-1.5 text-[11px] text-theme-text-secondary shadow-theme-md transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              className="absolute bottom-17 right-3 z-40 flex max-w-[70%] items-center gap-1.5 rounded-lg border border-theme-border bg-theme-elevated px-2.5 py-1.5 text-[11px] text-theme-text-secondary shadow-theme-md transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
               title="Show the minimized resource details"
             >
               <ChevronUp className="h-3.5 w-3.5 shrink-0" />
