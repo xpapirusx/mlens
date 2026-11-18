@@ -1,35 +1,16 @@
-import {
-  Command,
-  Minus,
-  Moon,
-  Settings,
-  Square,
-  SquareTerminal,
-  Sun,
-  X,
-} from "lucide-react";
+import { Command, Minus, Moon, Settings, Square, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCatalogStore } from "../stores/catalog-store";
-import { useSessionStore } from "../stores/session-store";
 import { cn } from "../lib/cn";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { api } from "../lib/api";
 
 const isMac = window.mlens.platform === "darwin";
 
-export function TopBar({
-  activeClusterId,
-  onOpenPalette,
-}: {
-  activeClusterId: string | null;
-  onOpenPalette: () => void;
-  /** Still declared so the commented-out Port forwards button keeps its wiring. */
-  onOpenPortForwards: () => void;
-}) {
+export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const openSettings = useCatalogStore((state) => state.openSettings);
-  const openTerminal = useSessionStore((state) => state.openTerminal);
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -87,19 +68,6 @@ export function TopBar({
             </button>
           </Tooltip>
         ) : null} */}
-        {activeClusterId ? (
-          <Tooltip content="New terminal">
-            <button
-              type="button"
-              className="shell-icon-button"
-              onClick={() => openTerminal(activeClusterId, { type: "local" })}
-              title="New terminal"
-              aria-label="New terminal"
-            >
-              <SquareTerminal className="h-4 w-4" />
-            </button>
-          </Tooltip>
-        ) : null}
         <Tooltip content={settings?.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
           <button type="button" className="shell-icon-button" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {settings?.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
