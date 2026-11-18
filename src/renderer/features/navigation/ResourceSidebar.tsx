@@ -187,8 +187,8 @@ export function ResourceSidebar({
           type="button"
           title={pinned ? "Remove from sidebar favorites" : "Pin to sidebar favorites"}
           className={cn(
-            "ml-1 shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-amber-500",
-            pinned ? "opacity-100 text-amber-500" : "opacity-0 group-hover:opacity-100",
+            "ml-1 shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary",
+            pinned ? "opacity-100 text-theme-text-secondary" : "opacity-0 group-hover:opacity-100",
           )}
           onClick={(event) => {
             event.stopPropagation();
