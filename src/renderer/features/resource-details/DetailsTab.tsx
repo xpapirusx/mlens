@@ -1,6 +1,6 @@
 import type { KubeObject } from "@shared/types";
 import { ArrowUp, ChevronRight, Database, ExternalLink, FileSliders, Tags } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { formatAge, formatTimestamp } from "../../lib/format";
 import { DetailSection, Property, PropertyList } from "./DetailSections";
 import { cn } from "../../lib/cn";
@@ -364,16 +364,30 @@ function StructuredFields({
   return (
     <div className="space-y-3">
       {flat.length > 0 ? (
-        <PropertyList>
-          {flat.map(([key, entry]) => (
-            <Property
-              key={key}
-              label={key}
-              value={display(key, entry)}
-              mono={typeof entry === "string" && /^[a-z0-9./:_-]+$/i.test(entry) && entry.length < 80}
-            />
-          ))}
-        </PropertyList>
+        <div className="grid grid-cols-[minmax(0,max-content)_minmax(0,1fr)] items-baseline gap-x-4 gap-y-1">
+          {flat.map(([key, entry]) => {
+            const valueMono =
+              typeof entry === "string" && /^[a-z0-9./:_-]+$/i.test(entry) && entry.length < 80;
+            return (
+              <Fragment key={key}>
+                <span
+                  className="truncate font-mono text-[11px] leading-5 text-theme-text-tertiary"
+                  title={key}
+                >
+                  {key}
+                </span>
+                <span
+                  className={cn(
+                    "min-w-0 break-words text-[12px] leading-5 text-theme-text-primary",
+                    valueMono && "font-mono",
+                  )}
+                >
+                  {display(key, entry)}
+                </span>
+              </Fragment>
+            );
+          })}
+        </div>
       ) : null}
       {nested.map(([key, entry]) => {
         const isArray = Array.isArray(entry);
