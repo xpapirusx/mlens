@@ -201,10 +201,9 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
         terminal.clearSelection();
         return false;
       }
-      if (mod && event.key.toLowerCase() === "v") {
-        void navigator.clipboard.readText().then(sendInput).catch(() => undefined);
-        return false;
-      }
+      // Cmd/Ctrl+V is intentionally NOT handled here: xterm's own textarea
+      // receives the native `paste` event and writes once. Reading the
+      // clipboard manually on top of that pasted everything twice.
       if (mod && event.key.toLowerCase() === "f") {
         setSearchOpen(true);
         return false;
