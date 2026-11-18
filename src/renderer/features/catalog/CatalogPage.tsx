@@ -22,6 +22,8 @@ import { useAppInfo } from "../../lib/use-app-info";
 import { cn } from "../../lib/cn";
 import { formatRelativeTime, basename } from "../../lib/format";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
+import { clusterShortName } from "../../lib/short-name";
+import { clusterColor } from "../../lib/cluster-color";
 import { Button } from "../../design-system/components/Button";
 import { SearchInput } from "../../design-system/components/SearchInput";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
@@ -511,11 +513,9 @@ export function CatalogPage() {
                       />
                       <div
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-semibold text-white"
-                        style={{
-                          background: `linear-gradient(135deg, hsl(${(cluster.name.charCodeAt(0) * 37) % 360} 45% 42%), hsl(${(cluster.name.charCodeAt(0) * 37 + 40) % 360} 48% 30%))`,
-                        }}
+                        style={{ background: clusterColor(cluster.name) }}
                       >
-                        {cluster.name.slice(0, 2).toUpperCase()}
+                        {clusterShortName(cluster.name)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1 truncate text-[13px] font-medium text-theme-text-primary">

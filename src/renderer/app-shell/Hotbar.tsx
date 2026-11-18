@@ -20,38 +20,13 @@ import { Tooltip } from "../design-system/components/Tooltip";
 import { ContextMenu } from "../design-system/components/ContextMenu";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { disconnectCluster, openCluster } from "../lib/cluster-actions";
+import { clusterShortName } from "../lib/short-name";
+import { clusterColor } from "../lib/cluster-color";
 import type { ClusterSummary } from "@shared/types";
 
 const SLOT_COUNT = 10;
 /** Freelens caps a hotbar at twelve cells; mLens keeps ten per page. */
 const MAX_PAGES = 12;
-
-/**
- * Freelens' `computeDefaultShortName`: first letter of the first three name
- * parts (whitespace → dashes/underscores → `@`), uppercased, e.g.
- * "msk-avg-dev-iaas-mgmt" → "MAD".
- */
-function shortName(name: string): string {
-  if (!name) return "??";
-  const byWhitespace = name.split(/\s+/);
-  const parts =
-    byWhitespace.length > 1 ? byWhitespace : name.split(/[-_]+/).length > 1 ? name.split(/[-_]+/) : name.split(/@+/);
-  const [rawFirst, rawSecond, rawThird] = parts;
-  const first = [...rawFirst];
-  const second = rawSecond ? [...rawSecond] : first.slice(1);
-  const third = rawThird ? [...rawThird] : [];
-  return [first[0], second[0], third[0]].filter(Boolean).join("").toUpperCase();
-}
-
-/** Freelens' seeded avatar colour: FNV-1a hue, fixed saturation/lightness so white text always clears WCAG AA. */
-function tileColor(name: string): string {
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < name.length; index += 1) {
-    hash ^= name.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `hsl(${(hash >>> 0) % 360}, 60%, 27%)`;
-}
 
 function padPage(page: Array<ClusterSummary | null>): Array<ClusterSummary | null> {
   const padded = [...page.slice(0, SLOT_COUNT)];
@@ -390,10 +365,10 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                       dragging === cluster.id && "opacity-40",
                       pressed === cluster.id && "hotbar-press",
                     )}
-                    style={{ background: tileColor(cluster.name) }}
+                    style={{ background: clusterColor(cluster.name) }}
                     aria-label={cluster.name}
                   >
-                    {shortName(cluster.name)}
+                    {clusterShortName(cluster.name)}
                     <span
                       className={cn(
                         "absolute left-[3px] top-[3px] h-2 w-2 rounded-full border border-theme-sidebar",

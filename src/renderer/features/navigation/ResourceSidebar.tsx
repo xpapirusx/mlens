@@ -25,6 +25,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../design-system/components/Me
 import { Spinner } from "../../design-system/components/Spinner";
 import { countFor, useResourceCounts } from "./useResourceCounts";
 import { errorText } from "../../lib/api";
+import { clusterShortName } from "../../lib/short-name";
 import { toast } from "../../design-system/components/Toast";
 
 export function ResourceSidebar({
@@ -302,7 +303,7 @@ export function ResourceSidebar({
       <div className="flex shrink-0 items-center gap-2 border-b border-theme-border px-2.5 py-2.5">
         <div className="relative">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-skyhook-500 to-skyhook-800 text-[11px] font-semibold text-white shadow-theme-sm">
-            {(cluster?.name ?? "C").slice(0, 2).toUpperCase()}
+            {clusterShortName(cluster?.name)}
           </div>
           <span
             className={cn(
