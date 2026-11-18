@@ -38,6 +38,7 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 - Xcode command line tools on macOS (for the node-pty prebuilt check)
 
 ```bash
+node node_modules/electron/install.js  
 pnpm install
 pnpm dev
 ```
@@ -45,6 +46,42 @@ pnpm dev
 `pnpm install` runs `scripts/postinstall.cjs`, which ensures node-pty's bundled
 `spawn-helper` is executable (some installers skip node-pty's own postinstall).
 Without that bit, local terminals fail with `posix_spawnp failed`.
+
+#### Electron runtime
+
+`electron` is a dev dependency, but its npm package only contains the launcher —
+the ~120 MB platform binary is downloaded by the package's own postinstall into
+`node_modules/electron/dist` (plus `path.txt`). pnpm v12 blocks install scripts
+by default, so `pnpm-workspace.yaml` lists `electron` under `allowBuilds`. If the
+download was skipped or `node_modules` was copied/moved without `dist`, `pnpm dev`
+fails with:
+
+```
+Error: Electron uninstall
+    at getElectronPath (... electron-vite/dist/chunks/lib-*.js ...)
+```
+
+Fix it without reinstalling everything:
+
+```bash
+node node_modules/electron/install.js   # downloads the runtime for this platform
+pnpm dev
+```
+
+Or force the whole install/rebuild path:
+
+```bash
+pnpm rebuild electron
+# or
+rm -rf node_modules && pnpm install
+```
+
+Check the result: `node_modules/electron/path.txt` must exist and point at the
+platform binary (on macOS `Electron.app/Contents/MacOS/Electron`). Behind a
+corporate proxy or offline, set `ELECTRON_MIRROR` / `ELECTRON_GET_USE_PROXY`
+before running the installer. A copied `node_modules` tree is not portable across
+OSes or CPU architectures — after moving the project, prefer a fresh
+`pnpm install`.
 
 ### Build
 
