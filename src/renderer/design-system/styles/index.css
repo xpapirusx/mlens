@@ -44,6 +44,22 @@
     user-select: text;
   }
 
+  /* Reading/copying is allowed across the content area (resource tables,
+     details drawer, YAML, logs, overview, catalog) but not on its controls. */
+  main,
+  [role="dialog"] {
+    user-select: text;
+  }
+  main button,
+  main [role="tab"],
+  main [role="button"],
+  main [role="menuitem"],
+  main [role="checkbox"],
+  main [role="columnheader"],
+  [role="dialog"] button {
+    user-select: none;
+  }
+
   button {
     font: inherit;
     background: none;
@@ -224,6 +240,10 @@
 #root [role="separator"],
 #root .shell-resize-handle-x,
 #root .shell-resize-handle-y,
+/* The workspace/catalog pane is ordinary content: inside a drag region text
+   could not be selected, so window dragging stays on the shell chrome
+   (top bar, hotbar rail, cluster tabs, status bar) only. */
+#root main,
 #root .xterm,
 #root .monaco-editor,
 #root .app-no-drag,

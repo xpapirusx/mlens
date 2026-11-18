@@ -201,9 +201,12 @@ Important:
 - Dock: the plus opens a local shell in the active context; the chevron and
   `⌘⇧T` open the context launcher (any connected cluster, namespace, pod exec,
   container, shell). Keep the one-click plus behaviour.
-- Window dragging: the shell root is `-webkit-app-region: drag`; every
-  interactive control, table row, scroll area, terminal and editor must stay
-  `no-drag` (or be excluded by the global rule) so selection and scrolling work.
+- Window dragging: the shell root is `-webkit-app-region: drag`, but the
+  content pane (`main`), pane dividers, table rows, scroll areas, terminals and
+  editors are `no-drag` so text can be selected/copied and panes resized.
+  Dragging the window works from the shell chrome (top bar, hotbar rail,
+  cluster tabs, status bar). Chrome labels are `user-select: none`; `main` and
+  dialogs allow text selection.
 - The details drawer can be minimized without closing it: keep the resource
   tabs, set `detailsMinimized`, and restore from the floating pill.
 - No huge components. Split table/controls/filters/dialogs/renderers.
