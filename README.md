@@ -1,6 +1,6 @@
 # mLens
 
-**A desktop Kubernetes IDE.** Freelens' application structure, Radar's Kubernetes
+**A desktop Kubernetes IDE.** Freelens' application structure, Kubernetes
 tools and visual language — in one Electron app written entirely in TypeScript.
 
 mLens is a standalone desktop program: no Go backend, no separate server, no
@@ -27,6 +27,106 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
+
+
+## Getting started
+
+### Requirements (development)
+
+- Node.js 22+
+- pnpm 10+ (npm also works, but the lockfile is pnpm)
+- Xcode command line tools on macOS (for the node-pty prebuilt check)
+
+```bash
+pnpm install
+pnpm dev
+```
+
+`pnpm install` runs `scripts/postinstall.cjs`, which ensures node-pty's bundled
+`spawn-helper` is executable (some installers skip node-pty's own postinstall).
+Without that bit, local terminals fail with `posix_spawnp failed`.
+
+### Build
+
+```bash
+pnpm typecheck     # tsc for main/preload/shared and renderer
+pnpm build         # typecheck + electron-vite production build
+pnpm dist:mac      # DMG + ZIP (arm64/x64)
+pnpm dist:win      # NSIS installer
+pnpm dist:linux    # AppImage + deb
+```
+
+`electron-builder` packs Electron, the renderer, the TypeScript main process and
+node-pty prebuilds into a normal desktop installer. Nothing else is required at
+runtime. macOS builds are unsigned by default; when running a locally built DMG,
+use right-click → Open the first time.
+
+### Project layout
+
+```
+src/main          Electron main: kubeconfig, discovery, watch, logs, exec, pty
+src/preload       contextBridge API (window.mlens)
+src/shared        types + IPC contract shared by both sides
+src/renderer
+  app-shell       Freelens-style window chrome and workspace
+  features        catalog, sidebar, resource browser, details, terminal, settings
+  design-system   Radar-inspired tokens and primitives
+  stores          Zustand catalog + session state
+```
+
+---
+
+## Security
+
+- `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
+- The renderer gets a fixed, typed API — never `ipcRenderer` or filesystem access.
+- Kubeconfig credentials, exec plugins, TLS material and PTYs stay in the main
+  process.
+- Strict CSP; popups are denied; HTTP(S) links open in the OS browser.
+- Pasted kubeconfigs are written with `0600` permissions under the app data
+  directory.
+
+---
+
+## Known limitations
+
+- No extension system, Helm, topology, timeline or GitOps-specific views yet.
+  CRDs (including Argo/Flux) appear under a nested Custom Resources tree as
+  generic resources.
+- Port forwarding is TCP loopback (127.0.0.1), one port per forward, no UDP.
+- A kubeconfig that authenticates through an `exec` plugin (`kubectl oidc-login`,
+  `aws`, `gke-gcloud-auth-plugin`, …) needs that binary installed — mLens never
+  ships or runs kubectl itself, but it adds `/etc/paths`, Homebrew and your
+  login-shell directories to PATH at startup so such plugins resolve; if the
+  binary is genuinely missing the error says exactly that.
+- Metrics are live metrics-server values only; no historical Prometheus charts.
+- Forward navigation is disabled; back covers the details history and catalog.
+- Write actions are not pre-filtered by RBAC; the Kubernetes error is shown when
+  the action is denied.
+- No automated test suite yet; the prototype is validated by typechecking,
+  production builds, and manual smoke tests against real clusters (see the
+  verification log in `IMPLEMENTATION_PLAN.md`).
+
+---
+
+## Licensing and attribution
+
+mLens is MIT licensed (`LICENSE`).
+
+- **Freelens** (MIT) inspired the application shell, window/tab/sidebar/dock
+  mechanics. No Freelens source files are copied.
+- **Skyhook Radar** (Apache-2.0) inspired the design system and Kubernetes UI
+  patterns; token values and component recipes are adapted with attribution.
+  The Apache license text is included in `licenses/Apache-2.0.txt`.
+- Fonts (DM Sans, DM Mono) are OFL 1.1, loaded via `@fontsource` packages.
+- Build story and full context: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
+- Agent/contributor rules: [`AGENTS.md`](AGENTS.md).
+- Release history: [`CHANGELOG.md`](CHANGELOG.md).
+- Full third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+
+mLens is an independent project and is not affiliated with Freelens, Skyhook, or
+the Cloud Native Computing Foundation.
+
 
 ## Features
 
@@ -173,101 +273,3 @@ DM Sans/DM Mono, 6/8/10/14px radii, status hues (success/warning/alert/error/inf
 collapsible sections, YAML viewer and console.
 
 ---
-
-## Getting started
-
-### Requirements (development)
-
-- Node.js 22+
-- pnpm 10+ (npm also works, but the lockfile is pnpm)
-- Xcode command line tools on macOS (for the node-pty prebuilt check)
-
-```bash
-pnpm install
-pnpm dev
-```
-
-`pnpm install` runs `scripts/postinstall.cjs`, which ensures node-pty's bundled
-`spawn-helper` is executable (some installers skip node-pty's own postinstall).
-Without that bit, local terminals fail with `posix_spawnp failed`.
-
-### Build
-
-```bash
-pnpm typecheck     # tsc for main/preload/shared and renderer
-pnpm build         # typecheck + electron-vite production build
-pnpm dist:mac      # DMG + ZIP (arm64/x64)
-pnpm dist:win      # NSIS installer
-pnpm dist:linux    # AppImage + deb
-```
-
-`electron-builder` packs Electron, the renderer, the TypeScript main process and
-node-pty prebuilds into a normal desktop installer. Nothing else is required at
-runtime. macOS builds are unsigned by default; when running a locally built DMG,
-use right-click → Open the first time.
-
-### Project layout
-
-```
-src/main          Electron main: kubeconfig, discovery, watch, logs, exec, pty
-src/preload       contextBridge API (window.mlens)
-src/shared        types + IPC contract shared by both sides
-src/renderer
-  app-shell       Freelens-style window chrome and workspace
-  features        catalog, sidebar, resource browser, details, terminal, settings
-  design-system   Radar-inspired tokens and primitives
-  stores          Zustand catalog + session state
-```
-
----
-
-## Security
-
-- `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`.
-- The renderer gets a fixed, typed API — never `ipcRenderer` or filesystem access.
-- Kubeconfig credentials, exec plugins, TLS material and PTYs stay in the main
-  process.
-- Strict CSP; popups are denied; HTTP(S) links open in the OS browser.
-- Pasted kubeconfigs are written with `0600` permissions under the app data
-  directory.
-
----
-
-## Known limitations
-
-- No extension system, Helm, topology, timeline or GitOps-specific views yet.
-  CRDs (including Argo/Flux) appear under a nested Custom Resources tree as
-  generic resources.
-- Port forwarding is TCP loopback (127.0.0.1), one port per forward, no UDP.
-- A kubeconfig that authenticates through an `exec` plugin (`kubectl oidc-login`,
-  `aws`, `gke-gcloud-auth-plugin`, …) needs that binary installed — mLens never
-  ships or runs kubectl itself, but it adds `/etc/paths`, Homebrew and your
-  login-shell directories to PATH at startup so such plugins resolve; if the
-  binary is genuinely missing the error says exactly that.
-- Metrics are live metrics-server values only; no historical Prometheus charts.
-- Forward navigation is disabled; back covers the details history and catalog.
-- Write actions are not pre-filtered by RBAC; the Kubernetes error is shown when
-  the action is denied.
-- No automated test suite yet; the prototype is validated by typechecking,
-  production builds, and manual smoke tests against real clusters (see the
-  verification log in `IMPLEMENTATION_PLAN.md`).
-
----
-
-## Licensing and attribution
-
-mLens is MIT licensed (`LICENSE`).
-
-- **Freelens** (MIT) inspired the application shell, window/tab/sidebar/dock
-  mechanics. No Freelens source files are copied.
-- **Skyhook Radar** (Apache-2.0) inspired the design system and Kubernetes UI
-  patterns; token values and component recipes are adapted with attribution.
-  The Apache license text is included in `licenses/Apache-2.0.txt`.
-- Fonts (DM Sans, DM Mono) are OFL 1.1, loaded via `@fontsource` packages.
-- Build story and full context: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
-- Agent/contributor rules: [`AGENTS.md`](AGENTS.md).
-- Release history: [`CHANGELOG.md`](CHANGELOG.md).
-- Full third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-
-mLens is an independent project and is not affiliated with Freelens, Skyhook, or
-the Cloud Native Computing Foundation.
