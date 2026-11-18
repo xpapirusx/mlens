@@ -314,6 +314,12 @@
   .menu-item[data-danger="true"]:hover {
     background-color: light-dark(rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.15));
   }
+  .menu-item[data-tone="success"] {
+    color: light-dark(#15803d, #4ade80);
+  }
+  .menu-item[data-tone="success"]:hover {
+    background-color: light-dark(rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.15));
+  }
 
   /* Drag divider used between shell panes */
   .shell-resize-handle-x {

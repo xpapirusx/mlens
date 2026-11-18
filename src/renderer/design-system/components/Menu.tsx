@@ -99,6 +99,7 @@ export function MenuItem({
   icon,
   shortcut,
   danger,
+  tone,
   disabled,
 }: {
   children: ReactNode;
@@ -106,14 +107,18 @@ export function MenuItem({
   icon?: ReactNode;
   shortcut?: string;
   danger?: boolean;
+  /** Destructive (red) or affirmative (green) label, without `danger` shorthand. */
+  tone?: "success" | "danger";
   disabled?: boolean;
 }) {
+  const resolvedTone = tone ?? (danger ? "danger" : undefined);
   return (
     <button
       type="button"
       role="menuitem"
       disabled={disabled}
-      data-danger={danger ? "true" : undefined}
+      data-danger={resolvedTone === "danger" ? "true" : undefined}
+      data-tone={resolvedTone}
       className="menu-item disabled:opacity-40"
       onClick={onClick}
     >

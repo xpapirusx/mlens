@@ -1,13 +1,25 @@
 import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Blocks, Check, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
+import {
+  Blocks,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Plus,
+  Plug,
+  Settings,
+  StarOff,
+  Unplug,
+} from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { cn } from "../lib/cn";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { ContextMenu } from "../design-system/components/ContextMenu";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
-import { openCluster } from "../lib/cluster-actions";
+import { disconnectCluster, openCluster } from "../lib/cluster-actions";
 import type { ClusterSummary } from "@shared/types";
 
 const SLOT_COUNT = 10;
@@ -119,6 +131,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const openSettings = useCatalogStore((state) => state.openSettings);
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
+  const toggleFavorite = useCatalogStore((state) => state.toggleFavorite);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const sessions = useSessionStore((state) => state.sessions);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -516,13 +529,16 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
         onClose={() => setMenu(null)}
         width={220}
       >
-        <MenuLabel>Move favourite</MenuLabel>
         {(() => {
           if (!menu) return null;
           const from = slots.findIndex((cluster) => cluster?.id === menu.id);
+          const cluster = clusters.find((entry) => entry.id === menu.id);
+          const connected = sessions[menu.id]?.status === "connected";
           return (
             <>
+              <MenuLabel>{cluster?.name ?? "Cluster"}</MenuLabel>
               <MenuItem
+                icon={<ChevronUp className="h-3.5 w-3.5" />}
                 disabled={from <= 0}
                 onClick={() => {
                   moveToSlot(menu.id, from - 1);
@@ -532,6 +548,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                 Move up
               </MenuItem>
               <MenuItem
+                icon={<ChevronDown className="h-3.5 w-3.5" />}
                 disabled={from < 0 || from >= SLOT_COUNT - 1}
                 onClick={() => {
                   moveToSlot(menu.id, from + 1);
@@ -541,18 +558,38 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                 Move down
               </MenuItem>
               <MenuSeparator />
-              {Array.from({ length: SLOT_COUNT }, (_, index) => (
-                <MenuItem
-                  key={index}
-                  disabled={index === from}
-                  onClick={() => {
-                    moveToSlot(menu.id, index);
-                    setMenu(null);
-                  }}
-                >
-                  Move to slot {index + 1}
-                </MenuItem>
-              ))}
+              <MenuItem
+                icon={<Plug className="h-3.5 w-3.5" />}
+                tone="success"
+                disabled={connected}
+                onClick={() => {
+                  setMenu(null);
+                  void openCluster(menu.id);
+                }}
+              >
+                Connect
+              </MenuItem>
+              <MenuItem
+                icon={<Unplug className="h-3.5 w-3.5" />}
+                danger
+                disabled={!connected}
+                onClick={() => {
+                  setMenu(null);
+                  void disconnectCluster(menu.id);
+                }}
+              >
+                Disconnect
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                icon={<StarOff className="h-3.5 w-3.5" />}
+                onClick={() => {
+                  setMenu(null);
+                  void toggleFavorite(menu.id);
+                }}
+              >
+                Remove from hotbar
+              </MenuItem>
             </>
           );
         })()}
