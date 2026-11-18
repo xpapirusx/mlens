@@ -118,7 +118,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
           aria-orientation="horizontal"
           aria-label="Resize terminal dock"
           data-resizing={resizing}
-          className="group absolute -top-1 left-0 right-0 z-10 flex h-2 cursor-row-resize items-center justify-center"
+          className="group absolute -top-1 left-0 right-0 z-10 flex h-2 cursor-row-resize items-center"
           onPointerDown={(event) => {
             event.preventDefault();
             dockBottom.current = sectionRef.current?.getBoundingClientRect().bottom ?? null;
@@ -128,7 +128,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
         >
           <span
             className={cn(
-              "h-[2px] w-10 rounded-full transition-colors",
+              "h-[2px] w-full transition-colors",
               resizing ? "bg-skyhook-500" : "bg-theme-border group-hover:bg-skyhook-500/70",
             )}
           />
