@@ -218,6 +218,12 @@
 #root [role="checkbox"],
 #root [role="row"],
 #root [role="columnheader"],
+/* Pane dividers (dock height, sidebar width, details drawer width) must stay
+   interactive: inside a drag region the pointer events never reach the handle,
+   so the window would move instead of the pane resizing. */
+#root [role="separator"],
+#root .shell-resize-handle-x,
+#root .shell-resize-handle-y,
 #root .xterm,
 #root .monaco-editor,
 #root .app-no-drag,

@@ -1,4 +1,4 @@
-import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Layers, Network, Pause, Play, Plug, Scale, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Layers, Network, Pause, Play, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory } from "..
 import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
 import { cn } from "../../lib/cn";
-import { isDeploymentPaused, isSuspended, workloadCapabilities } from "../../lib/workload-actions";
+import { isSuspended } from "../../lib/workload-actions";
 import { daysUntil, parseCertificate } from "../../lib/certificate";
 import { readJsonPath } from "../../lib/jsonpath";
 import { NodeOverview } from "./NodeOverview";
@@ -639,12 +639,10 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
   );
 }
 
-function WorkloadOverview({ object, onNavigate, onScale, onTogglePause, clusterId }: OverviewProps) {
+function WorkloadOverview({ object, onNavigate, clusterId }: OverviewProps) {
   const spec = object.spec ?? {};
   const status = object.status ?? {};
   const containers = (spec.template?.spec?.containers ?? []) as Array<Record<string, any>>;
-  const caps = workloadCapabilities(object.kind, object.apiVersion);
-  const paused = isDeploymentPaused(object);
 
   return (
     <div className="space-y-4">

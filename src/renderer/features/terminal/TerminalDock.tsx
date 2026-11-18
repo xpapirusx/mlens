@@ -13,6 +13,7 @@ import {
 import { useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { Menu, MenuItem } from "../../design-system/components/Menu";
+import { cn } from "../../lib/cn";
 import { TerminalView } from "./TerminalView";
 import { YamlDockTab } from "./YamlDockTab";
 import { TerminalLauncher, type TerminalMode } from "./TerminalLauncher";
@@ -33,15 +34,24 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
     mode: "local",
   });
   const previousHeight = useRef<number | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
+  /** Viewport y of the dock's bottom edge (it sits above the status bar). */
+  const dockBottom = useRef<number | null>(null);
 
   const openLauncher = (mode: TerminalMode) => setLauncher({ open: true, mode });
 
   useEffect(() => {
     if (!resizing) return;
+    const bottom = dockBottom.current ?? sectionRef.current?.getBoundingClientRect().bottom ?? window.innerHeight;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+
     const onMove = (event: PointerEvent) => {
-      const next = window.innerHeight - event.clientY;
+      const next = bottom - event.clientY;
       setDock(clusterId, {
-        height: Math.min(Math.max(140, next), window.innerHeight - 180),
+        height: Math.min(Math.max(160, next), Math.max(240, bottom - 120)),
         open: true,
       });
     };
@@ -52,9 +62,15 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("blur", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("blur", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
     };
   }, [resizing, clusterId, setDock, updateSettings]);
 
@@ -88,23 +104,35 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
 
   return (
     <section
+      ref={sectionRef}
       className="relative z-20 flex shrink-0 flex-col border-t border-theme-border bg-theme-base"
       style={{ height }}
       aria-label="Terminal dock"
     >
       {dock.open ? (
+        // The grab band straddles the top border (4px outside, 4px inside) so
+        // the dock resizes in both directions and stays clear of the 24px
+        // header buttons that start 5px below the border.
         <div
           role="separator"
           aria-orientation="horizontal"
-          // Starts exactly at the dock's top border line (the section's
-          // border sits outside its padding box, so -top-px == the line) and
-          // reaches 5px into the 34px strip — clear of the 24px buttons.
-          className="app-no-drag absolute -top-px left-0 right-0 z-10 h-1.5 cursor-row-resize"
+          aria-label="Resize terminal dock"
+          data-resizing={resizing}
+          className="group absolute -top-1 left-0 right-0 z-10 flex h-2 cursor-row-resize items-center justify-center"
           onPointerDown={(event) => {
             event.preventDefault();
+            dockBottom.current = sectionRef.current?.getBoundingClientRect().bottom ?? null;
+            event.currentTarget.setPointerCapture(event.pointerId);
             setResizing(true);
           }}
-        />
+        >
+          <span
+            className={cn(
+              "h-[2px] w-10 rounded-full transition-colors",
+              resizing ? "bg-skyhook-500" : "bg-theme-border group-hover:bg-skyhook-500/70",
+            )}
+          />
+        </div>
       ) : null}
 
       <div
