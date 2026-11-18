@@ -99,7 +99,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
           // Starts exactly at the dock's top border line (the section's
           // border sits outside its padding box, so -top-px == the line) and
           // reaches 5px into the 34px strip — clear of the 24px buttons.
-          className="absolute -top-px left-0 right-0 z-10 h-1.5 cursor-row-resize"
+          className="app-no-drag absolute -top-px left-0 right-0 z-10 h-1.5 cursor-row-resize"
           onPointerDown={(event) => {
             event.preventDefault();
             setResizing(true);
