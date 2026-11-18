@@ -4,6 +4,7 @@ import { api, call, errorText } from "../../lib/api";
 import { useState } from "react";
 import type { ApiResourceInfo } from "@shared/types";
 import { ConditionsList, DetailSection, KeyValueList, NestedObject, Property, PropertyList } from "./DetailSections";
+import { ContainerLaunchParams } from "./ContainerLaunchParams";
 import { formatAge, formatCpu, formatTimestamp, parseCpu, parseMemory } from "../../lib/format";
 import { resourceStatus, toneClass } from "../../lib/status";
 import { formatBytes } from "../../lib/format";
@@ -266,6 +267,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
         <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-secondary">
           {container.image}
         </div>
+        <ContainerLaunchParams container={container} />
         <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
           <span className="text-theme-text-tertiary">
             CPU:{" "}
@@ -687,6 +689,7 @@ function WorkloadOverview({ object, onNavigate, clusterId }: OverviewProps) {
                 <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
               </div>
               <div className="mt-1 break-all font-mono text-[10px] text-theme-text-tertiary">{container.image}</div>
+              <ContainerLaunchParams container={container} />
               <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-theme-text-tertiary">
                 <span>CPU {formatCpu(parseCpu(container.resources?.requests?.cpu))} req / {formatCpu(parseCpu(container.resources?.limits?.cpu))} lim</span>
                 <span>Memory {formatBytes(parseMemory(container.resources?.requests?.memory))} req / {formatBytes(parseMemory(container.resources?.limits?.memory))} lim</span>
