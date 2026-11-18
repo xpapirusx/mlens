@@ -666,30 +666,6 @@ function WorkloadOverview({ object, onNavigate, onScale, onTogglePause, clusterI
           <Property label="Revision history" value={spec.revisionHistoryLimit ?? "–"} />
           <Property label="Age" value={formatAge(object.metadata?.creationTimestamp)} />
         </PropertyList>
-        {caps.scalable || caps.pausable ? (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle pt-2.5">
-            {caps.scalable ? (
-              <button
-                type="button"
-                className="flex h-7 items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-500/15 dark:text-emerald-400"
-                onClick={onScale}
-              >
-                <Scale className="h-3 w-3" />
-                Scale
-              </button>
-            ) : null}
-            {caps.pausable ? (
-              <button
-                type="button"
-                className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-                onClick={onTogglePause}
-              >
-                {paused ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
-                {paused ? "Resume rollout" : "Pause rollout"}
-              </button>
-            ) : null}
-          </div>
-        ) : null}
       </DetailSection>
 
       <DetailSection title="Selector" icon={<Network />}>

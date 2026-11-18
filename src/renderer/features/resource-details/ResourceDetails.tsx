@@ -557,7 +557,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             ] : [
               { id: "overview", label: "Overview", icon: <Layers /> },
               { id: "details", label: "Details", icon: <FileText /> },
-              { id: "yaml", label: "YAML", icon: <FileCode /> },
               {
                 id: "events",
                 label: "Events",
@@ -578,10 +577,12 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                   </span>
                 ) : null,
               },
+
               ...(isPod
                 ? [{ id: "logs" as const, label: "Logs", icon: <SquareTerminal /> }]
                 : []),
               ...(isPod ? [{ id: "metrics" as const, label: "Metrics", icon: <Activity /> }] : []),
+              { id: "yaml", label: "YAML", icon: <FileCode /> },
             ]}
           />
         </div>
