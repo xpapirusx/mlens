@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   Blocks,
+  FileCode,
   Moon,
   PanelBottom,
   PanelLeft,
@@ -17,12 +18,11 @@ import {
 import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore } from "../../stores/session-store";
+import { useChromeSessions, useSessionStore } from "../../stores/session-store";
 import { useAppInfo } from "../../lib/use-app-info";
 import { basename } from "../../lib/format";
+import { TERMINAL_FONTS, UI_FONTS } from "../../lib/fonts";
 import { cn } from "../../lib/cn";
-import { api, call, errorText } from "../../lib/api";
-import { toast } from "../../design-system/components/Toast";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
 
 export function SettingsDialog() {
@@ -35,7 +35,7 @@ export function SettingsDialog() {
   const removeKubeconfig = useCatalogStore((state) => state.removeKubeconfig);
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
   const clusters = useCatalogStore((state) => state.clusters);
-  const sessions = useSessionStore((state) => state.sessions);
+  const sessions = useChromeSessions();
   const info = useAppInfo();
 
   useEffect(() => {
@@ -59,19 +59,30 @@ export function SettingsDialog() {
     >
       <div className="space-y-6">
         <Section title="Appearance" icon={<Sun />}>
-          <Field label="Color theme" hint="Dracula, Freelens and Proton are dark themes; Radar follows the mode below.">
-            <div className="flex flex-wrap items-center gap-2">
+          <Field label="Color theme" hint="Radar follows the mode below; all other themes are dark.">
+            <div className="grid w-full max-w-xl grid-cols-4 gap-2">
               {(
                 [
                   { value: "radar", label: "Radar" },
                   { value: "dracula", label: "Dracula" },
-                  { value: "freelens", label: "Freelens" },
+                  { value: "freelens", label: "Teal" },
                   { value: "proton", label: "Proton" },
+                  { value: "synthwave", label: "Synthwave '84" },
+                  { value: "islands", label: "Dark Islands" },
+                  { value: "github", label: "GitHub" },
+                  { value: "night-owl", label: "Night Owl" },
+                  { value: "material", label: "Material" },
+                  { value: "one-dark-pro", label: "One Dark Pro" },
+                  { value: "one-dark", label: "One Dark" },
+                  { value: "catppuccin", label: "Catppuccin" },
+                  { value: "jellybeans", label: "Jellybeans" },
+                  { value: "adwaita", label: "Adwaita" },
                 ] as const
               ).map((option) => (
                 <button
                   key={option.value}
                   type="button"
+                  title={option.label}
                   onClick={() =>
                     void updateSettings({
                       colorTheme: option.value,
@@ -79,13 +90,13 @@ export function SettingsDialog() {
                     })
                   }
                   className={cn(
-                    "flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs transition-colors",
+                    "flex h-8 w-full min-w-0 items-center justify-center rounded-lg border px-2 text-xs transition-colors",
                     (settings.colorTheme ?? "radar") === option.value
                       ? "border-skyhook-500/60 bg-skyhook-500/10 text-accent-text"
                       : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
                   )}
                 >
-                  {option.label}
+                  <span className="truncate">{option.label}</span>
                 </button>
               ))}
             </div>
@@ -117,6 +128,42 @@ export function SettingsDialog() {
               );
             })}
           </div>
+          <Field label="Font size" hint="Scales every font (interface, terminal, YAML editor) without changing layout density.">
+            <input
+              type="number"
+              min={0.5}
+              max={2}
+              step={0.05}
+              value={settings.fontScale}
+              onChange={(event) =>
+                void updateSettings({ fontScale: Math.min(2, Math.max(0.5, Number(event.target.value) || 1)) })
+              }
+              className="h-8 w-20 rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary focus:outline-none"
+            />
+          </Field>
+          <Field label="UI font" hint="Ubuntu and DM Sans are bundled; System UI uses the operating system font.">
+            <select
+              value={settings.uiFontFamily ?? "DM Sans"}
+              onChange={(event) => void updateSettings({ uiFontFamily: event.target.value })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              {UI_FONTS.map((font) => (
+                <option key={font.value} value={font.value}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Timezone" hint="Timestamps and Age tooltips use local time or UTC.">
+            <select
+              value={settings.timeZone ?? "local"}
+              onChange={(event) => void updateSettings({ timeZone: event.target.value as "local" | "utc" })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              <option value="local">Local time</option>
+              <option value="utc">UTC</option>
+            </select>
+          </Field>
           <div className="mt-3 flex gap-2">
             <Button
               size="sm"
@@ -143,6 +190,61 @@ export function SettingsDialog() {
               Reset dock height
             </Button>
           </div>
+        </Section>
+
+        <Section title="Editor" icon={<FileCode />}>
+          <Field label="Font family">
+            <select
+              value={settings.editorFontFamily ?? "DM Mono"}
+              onChange={(event) => void updateSettings({ editorFontFamily: event.target.value })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              {TERMINAL_FONTS.map((font) => (
+                <option key={font.value} value={font.value}>
+                  {font.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Font size" hint="Base size for YAML/Monaco; the global Font size multiplier still applies.">
+            <input
+              type="number"
+              min={8}
+              max={24}
+              value={settings.editorFontSize ?? 12}
+              onChange={(event) =>
+                void updateSettings({
+                  editorFontSize: Math.min(24, Math.max(8, Number(event.target.value) || 12)),
+                })
+              }
+              className="h-8 w-20 rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary focus:outline-none"
+            />
+          </Field>
+          <Field label="Tab size">
+            <select
+              value={settings.editorTabSize ?? 2}
+              onChange={(event) => void updateSettings({ editorTabSize: Number(event.target.value) })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              {[1, 2, 4, 8].map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Line numbers">
+            <Switch
+              checked={settings.editorLineNumbers ?? true}
+              onChange={(checked) => void updateSettings({ editorLineNumbers: checked })}
+            />
+          </Field>
+          <Field label="Minimap">
+            <Switch
+              checked={settings.editorMinimap ?? false}
+              onChange={(checked) => void updateSettings({ editorMinimap: checked })}
+            />
+          </Field>
         </Section>
 
         <Section title="Data refresh" icon={<RefreshCw />}>
@@ -183,7 +285,7 @@ export function SettingsDialog() {
           </Field>
           <Field
             label="Collapse catalog groups by default"
-            hint="Freelens-style: start with groups folded, and remember what you expand."
+            hint="Start with groups folded, and remember what you expand."
           >
             <Switch
               checked={settings.collapseCatalogGroups}
@@ -194,7 +296,7 @@ export function SettingsDialog() {
 
         <Section title="Sidebar favorites" icon={<Star />}>
           {settings.favoriteKinds.length === 0 ? (
-            <p className="text-[11px] text-theme-text-tertiary">
+            <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
               Pin resource kinds from the sidebar (pin icon on hover) to keep them at the top of every cluster.
             </p>
           ) : (
@@ -208,7 +310,7 @@ export function SettingsDialog() {
                   >
                     <Star className="h-3.5 w-3.5 text-amber-500" />
                     <span className="min-w-0 flex-1 truncate font-mono">
-                      {kind} <span className="text-[10px] text-theme-text-disabled">{apiVersion}</span>
+                      {kind} <span className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{apiVersion}</span>
                     </span>
                     <button
                       type="button"
@@ -248,13 +350,30 @@ export function SettingsDialog() {
               onChange={(event) => void updateSettings({ terminalFontFamily: event.target.value })}
               className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
             >
-              <option value="DM Mono">DM Mono</option>
-              <option value="Menlo">Menlo</option>
-              <option value="Monaco">Monaco</option>
-              <option value="SFMono-Regular">SF Mono</option>
+              {TERMINAL_FONTS.map((font) => (
+                <option key={font.value} value={font.value}>
+                  {font.label}
+                </option>
+              ))}
             </select>
           </Field>
-          <p className="mt-1 text-[10px] text-theme-text-tertiary">
+          <Field label="Shell path" hint="Local terminal binary. Empty uses $SHELL (zsh/bash/sh on macOS and Linux).">
+            <input
+              type="text"
+              value={settings.defaultShell ?? ""}
+              placeholder="/bin/zsh"
+              spellCheck={false}
+              onChange={(event) => void updateSettings({ defaultShell: event.target.value })}
+              className="h-8 w-48 rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary focus:outline-none"
+            />
+          </Field>
+          <Field label="Copy on select" hint="Copy a terminal selection to the clipboard as soon as it is made.">
+            <Switch
+              checked={settings.terminalCopyOnSelect ?? false}
+              onChange={(checked) => void updateSettings({ terminalCopyOnSelect: checked })}
+            />
+          </Field>
+          <p className="mt-1 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
             Terminals open in the bottom dock. Local shells use node-pty; pod shells use the Kubernetes exec
             WebSocket (no kubectl required).
           </p>
@@ -266,7 +385,7 @@ export function SettingsDialog() {
               <div key={source.path} className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs text-theme-text-primary">{basename(source.path)}</span>
-                  <span className="block truncate font-mono text-[10px] text-theme-text-tertiary" title={source.path}>
+                  <span className="block truncate font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary" title={source.path}>
                     {source.path}
                   </span>
                 </span>
@@ -349,23 +468,11 @@ export function SettingsDialog() {
               {info?.platform ?? "—"} {info?.arch ?? ""}
             </span>
           </div>
-          <p className="mt-2 text-[10px] leading-relaxed text-theme-text-tertiary">
-            Shell and window mechanics inspired by Freelens (MIT). Resource browser, table density, details and
-            design tokens inspired by Skyhook Radar (Apache-2.0). mLens contains no Go backend and ships as a
-            standalone Electron app.
+          <p className="mt-2 text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">
+            Shell and window mechanics follow the classic Kubernetes IDE layout. Resource browser, table
+            density, details and design tokens inspired by Skyhook Radar (Apache-2.0). mLens contains no Go
+            backend and ships as a standalone Electron app.
           </p>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="mt-2"
-            onClick={() => {
-              void call(api.app.openExternal("https://github.com/freelensapp/freelens")).catch((error) =>
-                toast.error("Cannot open browser", errorText(error)),
-              );
-            }}
-          >
-            Freelens on GitHub
-          </Button>
         </Section>
       </div>
     </Modal>
@@ -379,7 +486,7 @@ function Section({ title, icon, children }: { title: string; icon: React.ReactNo
         <span className="flex h-4 w-4 items-center justify-center text-theme-text-tertiary [&>svg]:h-3.5 [&>svg]:w-3.5">
           {icon}
         </span>
-        <h3 className="text-[12px] font-semibold uppercase tracking-wide text-theme-text-secondary">{title}</h3>
+        <h3 className="text-[calc(12px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-secondary">{title}</h3>
       </div>
       {children}
     </section>
@@ -391,7 +498,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
     <div className="mb-2 flex items-start justify-between gap-4">
       <div className="min-w-0">
         <div className="text-xs font-medium text-theme-text-primary">{label}</div>
-        {hint ? <div className="mt-0.5 max-w-sm text-[10px] leading-relaxed text-theme-text-tertiary">{hint}</div> : null}
+        {hint ? <div className="mt-0.5 max-w-sm text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">{hint}</div> : null}
       </div>
       <div className="shrink-0">{children}</div>
     </div>

@@ -1,25 +1,44 @@
-import { ArrowLeft, ArrowRight, Blocks, Home, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Blocks, Columns2, Home, Plus, X } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
-import { useSessionStore } from "../stores/session-store";
+import {
+  activePaneOf,
+  hasEditorTab,
+  useSessionStore,
+  useChromeSessions,
+} from "../stores/session-store";
 import { disconnectCluster } from "../lib/cluster-actions";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { cn } from "../lib/cn";
 
 export function ClusterTabs() {
-  const sessions = useSessionStore((state) => state.sessions);
+  // A14: cluster chrome re-renders on status/info changes only — keystroke
+  // session writes (search, dock, drawer) no longer touch the tab strip.
+  const sessions = useChromeSessions();
   const activeClusterId = useCatalogStore((state) => state.activeClusterId);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const clusters = useCatalogStore((state) => state.clusters);
+  const splitClusterId = useCatalogStore((state) => state.splitClusterId);
+  const setSplitCluster = useCatalogStore((state) => state.setSplitCluster);
   const detailsBack = useSessionStore((state) => state.detailsBack);
   const closeDetails = useSessionStore((state) => state.closeDetails);
+  const hasTab = useSessionStore((state) =>
+    activeClusterId ? hasEditorTab(state.sessions[activeClusterId]) : false,
+  );
+  const historyDepth = useSessionStore((state) => {
+    if (!activeClusterId) return 0;
+    const session = state.sessions[activeClusterId];
+    return (session && activePaneOf(session)?.history.length) ?? 0;
+  });
 
   const ids = Object.keys(sessions);
-  const activeSession = activeClusterId ? sessions[activeClusterId] : undefined;
-  const details = activeSession?.details ?? null;
-  const detailsHistory = activeSession?.detailsHistory ?? [];
+  const secondaryId =
+    splitClusterId && splitClusterId !== activeClusterId && ids.includes(splitClusterId)
+      ? splitClusterId
+      : null;
 
   const goBack = () => {
-    if (activeClusterId && details) {
-      if (detailsHistory.length > 0) detailsBack(activeClusterId);
+    if (activeClusterId && hasTab) {
+      if (historyDepth > 0) detailsBack(activeClusterId);
       else closeDetails(activeClusterId);
       return;
     }
@@ -28,9 +47,18 @@ export function ClusterTabs() {
 
   const closeTab = async (id: string) => {
     const next = ids.find((entry) => entry !== id);
+    const wasSecondary = secondaryId === id;
+    const wasActive = activeClusterId === id;
     await disconnectCluster(id);
-    if (activeClusterId === id) {
-      setActiveCluster(next ?? null);
+    if (wasSecondary) setSplitCluster(null);
+    if (wasActive) {
+      if (secondaryId && !wasSecondary) {
+        // Closing the left pane promotes the right one instead of losing it.
+        setActiveCluster(secondaryId);
+        setSplitCluster(null);
+      } else {
+        setActiveCluster(next ?? null);
+      }
     }
   };
 
@@ -49,7 +77,7 @@ export function ClusterTabs() {
         <button
           type="button"
           className="shell-icon-button h-6 w-6 disabled:opacity-30"
-          title={details ? "Back to previous resource" : "Back to catalog"}
+          title={hasTab ? "Back to previous resource" : "Back to catalog"}
           aria-label="Back"
           disabled={!activeClusterId}
           onClick={goBack}
@@ -67,7 +95,7 @@ export function ClusterTabs() {
         </button>
       </div>
       {ids.length === 0 ? (
-        <span className="px-2 text-[11px] text-theme-text-tertiary">Catalog</span>
+        <span className="px-2 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">Catalog</span>
       ) : null}
       {ids.map((id) => {
         const session = sessions[id];
@@ -77,16 +105,27 @@ export function ClusterTabs() {
           <div
             key={id}
             className={cn(
-              "group/tab flex h-7 max-w-[15rem] shrink-0 items-center gap-1.5 rounded-md border px-2 text-[11px] transition-colors",
+              "group/tab relative flex h-7 max-w-[14rem] shrink-0 items-center gap-1 rounded-t border border-b-0 px-2 text-[calc(11px*var(--font-scale))] transition-colors",
               active
-                ? "border-theme-border bg-theme-surface text-theme-text-primary shadow-theme-sm"
-                : "border-transparent text-theme-text-tertiary hover:bg-theme-hover/60 hover:text-theme-text-secondary",
+                ? "border-theme-border bg-theme-surface text-theme-text-primary"
+                : "border-transparent bg-transparent text-theme-text-tertiary hover:bg-theme-hover/60 hover:text-theme-text-secondary",
             )}
           >
+            <span
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 h-0.5 rounded-t",
+                active ? "bg-skyhook-500" : "bg-transparent",
+              )}
+            />
             <button
               type="button"
               className="flex min-w-0 items-center gap-1.5"
-              onClick={() => setActiveCluster(id)}
+              onClick={() => {
+                // Clicking the right-pane cluster focuses it and swaps the panes.
+                const previous = activeClusterId;
+                setActiveCluster(id);
+                if (secondaryId === id && previous) setSplitCluster(previous);
+              }}
               title={`${cluster?.name ?? id}\n${session.info?.context ?? ""}`}
             >
               <span
@@ -103,11 +142,14 @@ export function ClusterTabs() {
             </button>
             <button
               type="button"
-              className="shrink-0 rounded p-0.5 text-theme-text-tertiary opacity-0 hover:bg-theme-hover hover:text-red-500 group-hover/tab:opacity-100"
+              className={cn(
+                "shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500",
+                active ? "opacity-70" : "opacity-0 group-hover/tab:opacity-70",
+              )}
               title="Disconnect and close cluster tab"
               onClick={() => void closeTab(id)}
             >
-              <X className="h-3 w-3" />
+              <X className="h-2.5 w-2.5" />
             </button>
           </div>
         );
@@ -120,7 +162,100 @@ export function ClusterTabs() {
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
-      <div className="ml-auto flex items-center gap-1 pl-2 text-[10px] text-theme-text-disabled">
+      <Menu
+        width={260}
+        align="start"
+        trigger={({ open, toggle }) => (
+          <button
+            type="button"
+            className={cn(
+              "shell-icon-button h-6 w-6 shrink-0",
+              (open || secondaryId) && "is-active",
+            )}
+            title={
+              secondaryId
+                ? "Split screen: switch or close the second cluster"
+                : "Split screen with another cluster"
+            }
+            aria-label="Split screen"
+            onClick={toggle}
+          >
+            <Columns2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      >
+        {({ close }) => (
+          <>
+            <MenuLabel>Split screen</MenuLabel>
+            {ids.filter((id) => id !== activeClusterId).length === 0 ? (
+              <MenuItem disabled>Open another cluster first</MenuItem>
+            ) : null}
+            {ids
+              .filter((id) => id !== activeClusterId)
+              .map((id) => {
+                const cluster = clusters.find((entry) => entry.id === id);
+                const session = sessions[id];
+                return (
+                  <MenuItem
+                    key={id}
+                    icon={
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          session?.status === "connected"
+                            ? "bg-emerald-500"
+                            : session?.status === "error"
+                              ? "bg-red-500"
+                              : "bg-theme-text-disabled",
+                        )}
+                      />
+                    }
+                    shortcut={secondaryId === id ? "✓" : undefined}
+                    onClick={() => {
+                      setSplitCluster(secondaryId === id ? null : id);
+                      close();
+                    }}
+                  >
+                    {cluster?.name ?? id.split("::").pop()}
+                  </MenuItem>
+                );
+              })}
+            {secondaryId ? (
+              <>
+                <MenuSeparator />
+                <MenuItem
+                  icon={<X className="h-3 w-3" />}
+                  danger
+                  onClick={() => {
+                    setSplitCluster(null);
+                    close();
+                  }}
+                >
+                  Close split
+                </MenuItem>
+              </>
+            ) : null}
+          </>
+        )}
+      </Menu>
+      {secondaryId ? (
+        <span className="flex h-6 max-w-[12rem] shrink-0 items-center gap-1 rounded border border-theme-border bg-theme-surface px-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
+          <Columns2 className="h-3 w-3 shrink-0" />
+          <span className="truncate">
+            {clusters.find((entry) => entry.id === secondaryId)?.name ??
+              secondaryId.split("::").pop()}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 rounded p-0.5 hover:bg-theme-hover hover:text-theme-text-primary"
+            title="Close split"
+            onClick={() => setSplitCluster(null)}
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      ) : null}
+      <div className="ml-auto flex items-center gap-1 pl-2 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
         <Blocks className="h-3 w-3" />
         {ids.length} open
       </div>

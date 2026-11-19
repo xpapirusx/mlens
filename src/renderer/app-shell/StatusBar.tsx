@@ -11,7 +11,13 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
   const sources = useCatalogStore((state) => state.sources);
   const clusters = useCatalogStore((state) => state.clusters);
   const health = useCatalogStore((state) => state.health);
-  const session = useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId] : undefined));
+  // A14: only the two session fields the bar renders — not the whole session.
+  const connected = useSessionStore(
+    (state) => (activeClusterId ? state.sessions[activeClusterId]?.status === "connected" : false),
+  );
+  const activeContext = useSessionStore(
+    (state) => (activeClusterId ? state.sessions[activeClusterId]?.info?.context : undefined),
+  );
   const [info, setInfo] = useState<AppInfo | null>(null);
 
   useEffect(() => {
@@ -20,10 +26,9 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
 
   const activeCluster = clusters.find((cluster) => cluster.id === activeClusterId);
   const clusterHealth = activeClusterId ? health[activeClusterId] : undefined;
-  const connected = session?.status === "connected";
 
   return (
-    <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-tertiary">
+    <footer className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
       <span className="flex items-center gap-1">
         {connected ? (
           <CircleCheck className="h-2.5 w-2.5 text-emerald-500" />
@@ -51,8 +56,8 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
       ) : null}
 
       <span className="ml-auto hidden items-center gap-2 sm:flex">
-        {session?.info?.context ? (
-          <span className="max-w-[16rem] truncate font-mono text-theme-text-disabled">{session.info.context}</span>
+        {activeContext ? (
+          <span className="max-w-[16rem] truncate font-mono text-theme-text-disabled">{activeContext}</span>
         ) : null}
         <span className={cn("text-theme-text-disabled")}>
           Electron {info?.electron ?? "—"} · Node {info?.node ?? "—"}

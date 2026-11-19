@@ -41,7 +41,7 @@ export function Modal({ open, onClose, title, subtitle, children, footer, width 
       >
         <div className="flex shrink-0 items-start gap-3 border-b border-theme-border px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-semibold text-theme-text-primary">{title}</h2>
+            <h2 className="truncate text-[calc(15px*var(--font-scale))] font-semibold text-theme-text-primary">{title}</h2>
             {subtitle ? <p className="mt-0.5 text-xs text-theme-text-tertiary">{subtitle}</p> : null}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close dialog">

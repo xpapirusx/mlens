@@ -1,6 +1,7 @@
 import type { KubeConfig } from "@kubernetes/client-node";
 import type { ApiResourceInfo, PrinterColumn } from "@shared/types";
 import { kubeRequest } from "./http";
+import { mapWithConcurrency } from "./concurrency";
 
 interface RawApiResource {
   name: string;
@@ -253,17 +254,21 @@ export class DiscoveryService {
 
     for (const entry of core.resources ?? []) add(core.groupVersion || "v1", entry);
 
-    const groupResults = await Promise.allSettled(
-      (groups.groups ?? []).map(async (group) => {
-        const preferred = group.preferredVersion ?? group.versions?.[0];
-        if (!preferred) return null;
+    // Bounded fan-out: clusters with 40–60 API groups used to fire that many
+    // requests at once, each with its own connection setup.
+    const groupResults = await mapWithConcurrency(groups.groups ?? [], 6, async (group) => {
+      const preferred = group.preferredVersion ?? group.versions?.[0];
+      if (!preferred) return null;
+      try {
         return await kubeRequest<RawApiResourceList>(this.kc, `/apis/${preferred.groupVersion}`);
-      }),
-    );
+      } catch (error) {
+        console.warn("[discovery] group failed", preferred.groupVersion, error);
+        return null;
+      }
+    });
 
-    for (const result of groupResults) {
-      if (result.status !== "fulfilled" || !result.value) continue;
-      const list = result.value;
+    for (const list of groupResults) {
+      if (!list) continue;
       for (const entry of list.resources ?? []) add(list.groupVersion, entry);
     }
 

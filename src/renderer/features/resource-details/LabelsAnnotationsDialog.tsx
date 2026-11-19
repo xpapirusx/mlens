@@ -169,7 +169,7 @@ export function LabelsAnnotationsDialog({
       {step === "edit" ? (
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary" htmlFor="labels-editor">
+            <label className="mb-1 block text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary" htmlFor="labels-editor">
               Labels
             </label>
             <textarea
@@ -178,11 +178,11 @@ export function LabelsAnnotationsDialog({
               onChange={(event) => setLabels(event.target.value)}
               spellCheck={false}
               placeholder={"app=web\n-tier=frontend\n# -legacy-key removes it"}
-              className="h-40 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[11px] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
+              className="h-40 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary" htmlFor="annotations-editor">
+            <label className="mb-1 block text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary" htmlFor="annotations-editor">
               Annotations
             </label>
             <textarea
@@ -191,10 +191,10 @@ export function LabelsAnnotationsDialog({
               onChange={(event) => setAnnotations(event.target.value)}
               spellCheck={false}
               placeholder={"cluster.x-k8s.io/delete-machine=true\niReallyWantDeleteThis=true"}
-              className="h-40 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[11px] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
+              className="h-40 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
             />
           </div>
-          {!patch ? <div className="text-[11px] text-theme-text-tertiary">Nothing to change yet.</div> : null}
+          {!patch ? <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">Nothing to change yet.</div> : null}
         </div>
       ) : (
         <div className="space-y-2 text-sm text-theme-text-secondary">
@@ -202,12 +202,12 @@ export function LabelsAnnotationsDialog({
             Update <span className="font-medium text-theme-text-primary">{target}</span>
             {object.namespace ? ` in ${object.namespace}` : ""}?
           </p>
-          <ul className="space-y-1 rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[11px] text-theme-text-primary">
+          <ul className="space-y-1 rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
             {rows.map((row) => (
               <li key={row}>{row}</li>
             ))}
           </ul>
-          <p className="text-[11px] text-theme-text-tertiary">
+          <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             Existing keys not listed above stay untouched. Removed keys disappear from the object.
           </p>
         </div>

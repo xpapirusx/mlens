@@ -137,7 +137,7 @@ export function SetImageDialog({
     >
       <div className="space-y-3">
         {[...containers, ...initContainers].length === 0 ? (
-          <div className="text-[12px] text-theme-text-tertiary">This resource has no container template.</div>
+          <div className="text-[calc(12px*var(--font-scale))] text-theme-text-tertiary">This resource has no container template.</div>
         ) : null}
         {[
           { title: "Containers", list: containers },
@@ -145,7 +145,7 @@ export function SetImageDialog({
         ].map((group) =>
           group.list.length === 0 ? null : (
             <div key={group.title}>
-              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <div className="mb-1 flex items-center gap-1.5 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 <Box className="h-3 w-3" />
                 {group.title}
                 <span className="font-mono text-theme-text-disabled">{group.list.length}</span>
@@ -153,7 +153,7 @@ export function SetImageDialog({
               <div className="space-y-2">
                 {group.list.map((container) => (
                   <label key={container.name} className="block">
-                    <span className="mb-0.5 block font-mono text-[10px] text-theme-text-tertiary">
+                    <span className="mb-0.5 block font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                       {container.name}
                     </span>
                     <input
@@ -162,7 +162,7 @@ export function SetImageDialog({
                         setValues((current) => ({ ...current, [container.name]: event.target.value }))
                       }
                       spellCheck={false}
-                      className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[11px] text-theme-text-primary outline-none focus:border-skyhook-500"
+                      className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary outline-none focus:border-skyhook-500"
                     />
                   </label>
                 ))}
@@ -171,11 +171,11 @@ export function SetImageDialog({
           ),
         )}
         {busy ? (
-          <div className="flex items-center gap-1.5 text-[11px] text-theme-text-tertiary">
+          <div className="flex items-center gap-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             <Loader2 className="h-3 w-3 animate-spin" /> Patching pod template…
           </div>
         ) : null}
-        <div className="text-[10px] text-theme-text-disabled">
+        <div className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
           Patches the full container list of the pod template, so other fields stay intact. A rollout is triggered by
           the workload controller.
         </div>

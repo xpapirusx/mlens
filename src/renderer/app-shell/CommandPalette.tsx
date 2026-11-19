@@ -20,6 +20,10 @@ import { getKindIcon, kindLabel } from "../lib/icons";
 import { openCluster, disconnectCluster } from "../lib/cluster-actions";
 import { api, call } from "../lib/api";
 import { cn } from "../lib/cn";
+import type { ApiResourceInfo } from "@shared/types";
+
+// Stable fallback: selector results must keep their identity (React #185).
+const EMPTY_RESOURCES: ApiResourceInfo[] = [];
 
 interface PaletteCommand {
   id: string;
@@ -46,7 +50,10 @@ export function CommandPalette({
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
-  const session = useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId] : undefined));
+  // A14: only the kind list — palette opens don't need the whole session.
+  const resources =
+    useSessionStore((state) => (activeClusterId ? state.sessions[activeClusterId]?.resources : undefined)) ??
+    EMPTY_RESOURCES;
   const selectKind = useSessionStore((state) => state.selectKind);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const closeDetails = useSessionStore((state) => state.closeDetails);
@@ -88,8 +95,8 @@ export function CommandPalette({
       }
     }
 
-    if (activeClusterId && session) {
-      for (const resource of session.resources) {
+    if (activeClusterId) {
+      for (const resource of resources) {
         const Icon = getKindIcon(resource.kind, resource.group);
         output.push({
           id: `kind-${resource.apiVersion}-${resource.kind}`,
@@ -110,7 +117,7 @@ export function CommandPalette({
       });
       output.push({
         id: "close-details",
-        label: "Close resource details",
+        label: "Close active resource tab",
         group: "Actions",
         icon: <X className="h-3.5 w-3.5" />,
         run: () => closeDetails(activeClusterId),
@@ -162,7 +169,7 @@ export function CommandPalette({
   }, [
     clusters,
     activeClusterId,
-    session,
+    resources,
     selectKind,
     openTerminal,
     closeDetails,
@@ -187,7 +194,7 @@ export function CommandPalette({
   // is being typed. Results are capped and debounced so this never becomes a
   // background poll.
   useEffect(() => {
-    if (!open || !activeClusterId || !session?.resources?.length) {
+    if (!open || !activeClusterId || !resources.length) {
       setResourceHits([]);
       setSearchingResources(false);
       return;
@@ -199,7 +206,6 @@ export function CommandPalette({
       return;
     }
     let disposed = false;
-    const resources = session.resources;
     const wanted = [
       "Pod",
       "Deployment",
@@ -264,7 +270,7 @@ export function CommandPalette({
       disposed = true;
       window.clearTimeout(timer);
     };
-  }, [open, query, activeClusterId, session?.resources, openDetails]);
+  }, [open, query, activeClusterId, resources, openDetails]);
 
   useEffect(() => {
     setIndex(0);
@@ -340,7 +346,7 @@ export function CommandPalette({
               return (
                 <div key={command.id}>
                   {showGroup ? (
-                    <div className="px-2 pb-0.5 pt-2 text-[9px] font-semibold uppercase tracking-wider text-theme-text-disabled">
+                    <div className="px-2 pb-0.5 pt-2 text-[calc(9px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-disabled">
                       {command.group}
                     </div>
                   ) : null}
@@ -350,7 +356,7 @@ export function CommandPalette({
                     onMouseEnter={() => setIndex(commandIndex)}
                     onClick={() => run(command)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px]",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[calc(12px*var(--font-scale))]",
                       commandIndex === index
                         ? "selection-strong text-theme-text-primary"
                         : "text-theme-text-secondary",
@@ -361,7 +367,7 @@ export function CommandPalette({
                     </span>
                     <span className="min-w-0 flex-1 truncate">{command.label}</span>
                     {command.hint ? (
-                      <span className="max-w-[12rem] truncate font-mono text-[10px] text-theme-text-disabled">
+                      <span className="max-w-[12rem] truncate font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                         {command.hint}
                       </span>
                     ) : null}
@@ -373,7 +379,7 @@ export function CommandPalette({
           )}
         </div>
 
-        <div className="flex h-7 shrink-0 items-center gap-2 border-t border-theme-border px-3 text-[10px] text-theme-text-disabled">
+        <div className="flex h-7 shrink-0 items-center gap-2 border-t border-theme-border px-3 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
           <Command className="h-2.5 w-2.5" />
           <span>{filtered.length} results</span>
           {searchingResources ? (

@@ -60,7 +60,7 @@ export function CollapseSection({
           <span
             className={cn(
               "truncate font-medium",
-              variant === "card" ? "text-[11px] uppercase tracking-wider" : "text-[13px]",
+              variant === "card" ? "text-[calc(11px*var(--font-scale))] uppercase tracking-wider" : "text-[calc(13px*var(--font-scale))]",
             )}
           >
             {title}

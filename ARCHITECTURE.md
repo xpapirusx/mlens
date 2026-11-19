@@ -417,7 +417,7 @@ status, info, namespaces, resources (discovery),
 namespace scope, selectedKind,
 kindStates[apiVersion|kind] = { search, regex, sort, filters, hiddenColumns },
 expandedGroups, sidebarWidth,
-details { ref, tab } + detailsHistory,
+editor { panes[].{tabs, active, tab, history}, activePaneId, width, minimized, columnSplit, rowSplit },
 dock { open, height, tabs, activeTabId }
 ```
 
@@ -442,9 +442,9 @@ deliberately not stored: list data is fetched live and reconciled by watch/poll.
 Freelens preserves cluster state by keeping every cluster iframe alive. mLens
 does the equivalent in React: `AppShell` mounts one `ClusterWorkspace` per
 visited session and hides inactive ones with `display: none`. The cluster tab
-strip switches those workspaces; the open-resource strip switches the active
-drawer tab within a workspace. Hidden workspaces
-keep their tables, scroll positions, drawers and terminal xterm instances
+strip switches those workspaces; inside a workspace the editor area's pane tab
+strips switch the active resource of each pane. Hidden workspaces
+keep their tables, scroll positions, editor panes and terminal xterm instances
 mounted; polling is disabled while inactive, but watch streams stay connected.
 Terminal tabs are therefore never unmounted on a cluster switch, so running
 shells and pod exec sessions survive until the user closes the tab or

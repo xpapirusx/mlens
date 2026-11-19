@@ -60,25 +60,34 @@ function Card({
 }) {
   return (
     <div className="card-inner flex min-w-0 flex-col gap-1">
-      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-theme-text-tertiary">
+      <div className="flex items-center gap-1.5 text-[calc(10px*var(--font-scale))] font-medium uppercase tracking-wider text-theme-text-tertiary">
         {icon}
         <span className="truncate">{title}</span>
       </div>
       <div
         className={cn(
-          "font-mono text-[22px] font-semibold leading-tight",
+          "font-mono text-[calc(22px*var(--font-scale))] font-semibold leading-tight",
           tone === "warning" ? "text-amber-500" : tone === "success" ? "text-emerald-500" : "text-theme-text-primary",
         )}
       >
         {value}
       </div>
-      {hint ? <div className="truncate text-[10px] text-theme-text-tertiary">{hint}</div> : null}
+      {hint ? <div className="truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{hint}</div> : null}
     </div>
   );
 }
 
+// Stable fallbacks: selector results must keep their identity (React #185).
+const EMPTY_RESOURCES: ApiResourceInfo[] = [];
+const EMPTY_NAMESPACES: string[] = [];
+
 export function ClusterOverview({ clusterId, active }: { clusterId: string; active: boolean }) {
-  const session = useSessionStore((state) => state.sessions[clusterId]);
+  // A14: field-level session selectors (this view polls every 30s+).
+  const status = useSessionStore((state) => state.sessions[clusterId]?.status);
+  const resources = useSessionStore((state) => state.sessions[clusterId]?.resources) ?? EMPTY_RESOURCES;
+  const selectedNamespaces =
+    useSessionStore((state) => state.sessions[clusterId]?.selectedNamespaces) ?? EMPTY_NAMESPACES;
+  const info = useSessionStore((state) => state.sessions[clusterId]?.info) ?? null;
   const selectKind = useSessionStore((state) => state.selectKind);
   const openDetails = useSessionStore((state) => state.openDetails);
   const clusters = useCatalogStore((state) => state.clusters);
@@ -92,8 +101,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const resources = session?.resources ?? [];
-  const namespaces = session?.selectedNamespaces ?? [];
+  const namespaces = selectedNamespaces;
   const singleNamespace = namespaces.length === 1 ? namespaces[0] : undefined;
   const cluster = clusters.find((entry) => entry.id === clusterId);
   const refreshSeconds = settings?.refreshIntervalSeconds ?? 60;
@@ -105,7 +113,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
   }, [counts]);
 
   useEffect(() => {
-    if (!active || !session || session.status !== "connected") return;
+    if (!active || status !== "connected") return;
     let disposed = false;
 
     const load = async (quiet: boolean) => {
@@ -187,7 +195,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
     };
     // `resources` identity is stable for a connected session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, clusterId, session?.status, session?.selectedNamespaces, refreshSeconds, refreshKey]);
+  }, [active, clusterId, status, selectedNamespaces, refreshSeconds, refreshKey]);
 
   const readyNodes = nodes.filter((node) =>
     ((node.status?.conditions ?? []) as Array<Record<string, unknown>>).some(
@@ -223,11 +231,11 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-theme-base">
       <div className="flex h-12 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-base px-4">
         <Layers className="h-4 w-4 text-accent-text" />
-        <h1 className="text-[14px] font-semibold text-theme-text-primary">Cluster overview</h1>
-        <span className="font-mono text-[11px] text-theme-text-tertiary">
-          {cluster?.name ?? ""} {session?.info?.version ? `· ${session.info.version}` : ""}
+        <h1 className="text-[calc(14px*var(--font-scale))] font-semibold text-theme-text-primary">Cluster overview</h1>
+        <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
+          {cluster?.name ?? ""} {info?.version ? `· ${info.version}` : ""}
         </span>
-        <div className="ml-auto flex items-center gap-2 text-[10px] text-theme-text-tertiary">
+        <div className="ml-auto flex items-center gap-2 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {loading ? <Spinner label="" /> : null}
           {updatedAt ? <span>updated {new Date(updatedAt).toLocaleTimeString()}</span> : null}
           <button
@@ -251,7 +259,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[1400px] space-y-4 p-4">
           {error ? (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-red-500">
               {error}
             </div>
           ) : null}
@@ -279,7 +287,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-lg border border-theme-border bg-theme-surface">
-              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 <Cpu className="h-3.5 w-3.5" />
                 Capacity
               </div>
@@ -300,7 +308,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
             </div>
 
             <div className="rounded-lg border border-theme-border bg-theme-surface">
-              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Workloads & config
               </div>
@@ -326,10 +334,10 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
                       title={`Open ${kind}`}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0 text-theme-text-tertiary" />
-                      <span className="min-w-0 flex-1 truncate text-[11px] text-theme-text-secondary">
+                      <span className="min-w-0 flex-1 truncate text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
                         {kindLabel(kind)}
                       </span>
-                      <span className="font-mono text-[11px] text-theme-text-primary">{entry?.value ?? "–"}</span>
+                      <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{entry?.value ?? "–"}</span>
                     </button>
                   );
                 })}
@@ -339,13 +347,13 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
 
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="rounded-lg border border-theme-border bg-theme-surface">
-              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 <TriangleExclamationPoint className="h-3.5 w-3.5" />
                 Recent warnings
               </div>
               <div className="max-h-72 overflow-y-auto">
                 {warnings.length === 0 ? (
-                  <div className="px-3 py-4 text-[11px] text-theme-text-tertiary">
+                  <div className="px-3 py-4 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                     No warning events in the current namespace scope.
                   </div>
                 ) : (
@@ -377,19 +385,19 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
                         <Activity className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate text-[11px] font-medium text-theme-text-primary">
+                            <span className="truncate text-[calc(11px*var(--font-scale))] font-medium text-theme-text-primary">
                               {(event as any).reason ?? "Warning"}
                             </span>
-                            <span className="truncate font-mono text-[10px] text-theme-text-tertiary">
+                            <span className="truncate font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                               {involved.kind}/{involved.name}
                             </span>
                           </div>
-                          <div className="truncate text-[10px] text-theme-text-tertiary">
+                          <div className="truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                             {(event as any).message ?? ""}
                           </div>
                         </div>
                         {event.metadata?.namespace ? (
-                          <span className="shrink-0 font-mono text-[10px] text-theme-text-disabled">
+                          <span className="shrink-0 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                             {event.metadata.namespace}
                           </span>
                         ) : null}
@@ -401,7 +409,7 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
             </div>
 
             <div className="rounded-lg border border-theme-border bg-theme-surface">
-              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <div className="flex items-center gap-2 border-b border-theme-border px-3 py-2 text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 <Network className="h-3.5 w-3.5" />
                 API surface
               </div>
@@ -417,14 +425,14 @@ export function ClusterOverview({ clusterId, active }: { clusterId: string; acti
                 <Card
                   title="Namespaces visible"
                   icon={<Server className="h-3.5 w-3.5" />}
-                  value={String(session?.info?.namespaces.length ?? "–")}
+                  value={String(info?.namespaces.length ?? "–")}
                   hint="in the API discovery scope"
                 />
               </div>
             </div>
           </div>
 
-          <div className="text-[10px] text-theme-text-disabled">
+          <div className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
             Counts use `limit=1` + `remainingItemCount`; warnings are the 20 most recent Warning events in scope.
             No numbers are invented: an unavailable count shows `–`.
           </div>

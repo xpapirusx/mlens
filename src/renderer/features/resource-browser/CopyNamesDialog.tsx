@@ -69,7 +69,7 @@ export function CopyNamesDialog({
     >
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[11px] uppercase tracking-wide text-theme-text-tertiary">Separate by</span>
+          <span className="mr-1 text-[calc(11px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Separate by</span>
           {SEPARATORS.map((option) => (
             <button
               key={option.value}
@@ -78,14 +78,14 @@ export function CopyNamesDialog({
               onClick={() => setSeparator(option.value)}
               className={
                 separator === option.value
-                  ? "rounded-md border border-skyhook-500/50 bg-skyhook-500/15 px-2 py-1 text-[11px] text-accent-text"
-                  : "rounded-md border border-theme-border bg-theme-elevated px-2 py-1 text-[11px] text-theme-text-secondary hover:bg-theme-hover"
+                  ? "rounded-md border border-skyhook-500/50 bg-skyhook-500/15 px-2 py-1 text-[calc(11px*var(--font-scale))] text-accent-text"
+                  : "rounded-md border border-theme-border bg-theme-elevated px-2 py-1 text-[calc(11px*var(--font-scale))] text-theme-text-secondary hover:bg-theme-hover"
               }
             >
               {option.label}
             </button>
           ))}
-          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-theme-text-secondary">
+          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
             <input
               type="checkbox"
               checked={withNamespace}
@@ -99,7 +99,7 @@ export function CopyNamesDialog({
           readOnly
           value={text}
           onFocus={(event) => event.currentTarget.select()}
-          className="h-56 w-full resize-none rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[11px] leading-5 text-theme-text-primary outline-none"
+          className="h-56 w-full resize-none rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-primary outline-none"
         />
       </div>
     </Modal>

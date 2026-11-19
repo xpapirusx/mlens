@@ -1,19 +1,43 @@
-import { useEffect, useState } from "react";
-import { ChevronUp, Server, ServerCrash } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ApiResourceInfo } from "@shared/types";
+import { Check, LoaderCircle, Server, ServerCrash } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
-import { useSessionStore } from "../stores/session-store";
+import {
+  hasEditorTab,
+  useSessionStore,
+} from "../stores/session-store";
 import { ResourceSidebar } from "../features/navigation/ResourceSidebar";
 import { PageTabs } from "../features/resource-browser/PageTabs";
-import { ResourceTabs, ResourceTabsTray } from "../features/resource-details/ResourceTabs";
+import { EditorTray } from "../features/resource-details/ResourceTabs";
+import { EditorArea, EditorPill } from "../features/editor/EditorArea";
 import { ResourceBrowser } from "../features/resource-browser/ResourceBrowser";
-import { ResourceDetails } from "../features/resource-details/ResourceDetails";
 import { TerminalDock } from "../features/terminal/TerminalDock";
 import { Button } from "../design-system/components/Button";
 import { EmptyState } from "../design-system/components/EmptyState";
 import { cn } from "../lib/cn";
 
+const CONNECT_STEPS = [
+  { key: "api", label: "Contacting the API server" },
+  { key: "namespaces", label: "Loading namespaces" },
+  { key: "discovery", label: "Discovering API resources" },
+] as const;
+
+// Stable fallback: selector results must keep their identity (React #185).
+const EMPTY_RESOURCES: ApiResourceInfo[] = [];
+
 export function ClusterWorkspace({ clusterId, active }: { clusterId: string; active: boolean }) {
-  const session = useSessionStore((state) => state.sessions[clusterId]);
+  // A14: field-level session selectors — dock/drawer/kindState writes from
+  // other components no longer re-render the whole workspace subtree.
+  const status = useSessionStore((state) => state.sessions[clusterId]?.status);
+  const connectStage = useSessionStore((state) => state.sessions[clusterId]?.connectStage);
+  const connectPercent = useSessionStore((state) => state.sessions[clusterId]?.connectPercent);
+  const connectError = useSessionStore((state) => state.sessions[clusterId]?.error);
+  const sidebarWidth = useSessionStore((state) => state.sessions[clusterId]?.sidebarWidth);
+  const resources = useSessionStore((state) => state.sessions[clusterId]?.resources) ?? EMPTY_RESOURCES;
+  const editorMinimized = useSessionStore(
+    (state) => state.sessions[clusterId]?.editor.minimized ?? false,
+  );
+  const hasTabs = useSessionStore((state) => hasEditorTab(state.sessions[clusterId]));
   const initialize = useSessionStore((state) => state.initialize);
   const dispose = useSessionStore((state) => state.dispose);
   const setSidebarWidth = useSessionStore((state) => state.setSidebarWidth);
@@ -22,7 +46,12 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
   const clusters = useCatalogStore((state) => state.clusters);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const [resizing, setResizing] = useState(false);
-  const [tabsCollapsed, setTabsCollapsed] = useState(false);
+  const [editorExpanded, setEditorExpanded] = useState(false);
+  const toggleEditorExpanded = useCallback(() => setEditorExpanded((value) => !value), []);
+  /** A15: the width being dragged — written to the DOM directly (no store
+   *  write per pointermove), committed to the store once on pointerup. */
+  const pendingWidth = useRef<number | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     void initialize(clusterId);
@@ -32,12 +61,16 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
     if (!resizing) return;
     const onMove = (event: PointerEvent) => {
       const next = Math.min(Math.max(180, event.clientX - 75), 420);
-      setSidebarWidth(clusterId, next);
+      pendingWidth.current = next;
+      if (sidebarRef.current) sidebarRef.current.style.width = `${next}px`;
     };
     const onUp = () => {
       setResizing(false);
-      const width = useSessionStore.getState().sessions[clusterId]?.sidebarWidth;
-      if (width) void updateSettings({ sidebarWidth: width });
+      const final = pendingWidth.current;
+      pendingWidth.current = null;
+      if (final === null) return;
+      setSidebarWidth(clusterId, final);
+      void updateSettings({ sidebarWidth: final });
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -47,62 +80,97 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
     };
   }, [resizing, clusterId, setSidebarWidth, updateSettings]);
 
-  const width = session?.sidebarWidth ?? settings?.sidebarWidth ?? 236;
+  const width = sidebarWidth ?? settings?.sidebarWidth ?? 236;
   const cluster = clusters.find((entry) => entry.id === clusterId);
+  const stage = connectStage ?? "api";
+  const percent = Math.max(0, Math.min(100, Math.round(connectPercent ?? 5)));
+  const stepIndex =
+    stage === "done"
+      ? CONNECT_STEPS.length
+      : Math.max(0, CONNECT_STEPS.findIndex((step) => step.key === stage));
 
-  if (!session || session.status === "connecting" || session.status === "idle") {
+  if (!status || status === "connecting" || status === "idle") {
     return (
       <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-theme-base">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(74,124,201,0.12),transparent_55%)]" />
-        <div className="relative flex w-full max-w-md flex-col items-center gap-4 rounded-xl border border-theme-border bg-theme-surface p-8 shadow-theme-md">
+        <div className="relative flex w-full max-w-lg flex-col items-center gap-4 rounded-xl border border-theme-border bg-theme-surface p-8 shadow-theme-md">
           <div className="relative flex h-14 w-14 items-center justify-center">
-            <span className="absolute -inset-1.5 rounded-2xl border border-skyhook-500/20" />
-            <span className="absolute -inset-1.5 animate-spin rounded-2xl border-2 border-transparent border-t-skyhook-500" />
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-skyhook-500 to-skyhook-800 text-white shadow-theme-md">
+            <span className="absolute -inset-1.5 rounded-full border border-skyhook-500/20" />
+            <span className="absolute -inset-1.5 animate-spin rounded-full border-2 border-transparent border-t-skyhook-500" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-skyhook-500 to-skyhook-800 text-white shadow-theme-md">
               <Server className="h-5 w-5" />
             </div>
           </div>
           <div className="text-center">
-            <div className="text-[16px] font-semibold text-theme-text-primary">
+            <div className="text-[calc(16px*var(--font-scale))] font-semibold text-theme-text-primary">
               Connecting to {cluster?.name ?? "cluster"}
             </div>
-            <div className="mt-0.5 font-mono text-[11px] text-theme-text-tertiary">{cluster?.context}</div>
+            <div className="mt-0.5 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{cluster?.context}</div>
             {cluster?.server ? (
-              <div className="mt-0.5 max-w-xs truncate font-mono text-[10px] text-theme-text-disabled">
+              <div className="mt-0.5 w-full break-all text-center font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                 {cluster.server}
               </div>
             ) : null}
           </div>
           <div className="relative h-1 w-full overflow-hidden rounded-full bg-theme-elevated">
-            <div className="loading-sweep h-full w-1/3 rounded-full bg-skyhook-500" />
+            <div
+              className="h-full rounded-full bg-skyhook-500 transition-[width] duration-300 ease-out"
+              style={{ width: `${percent}%` }}
+            />
           </div>
-          <div className="w-full space-y-1.5 text-[11px] text-theme-text-tertiary">
-            {["Contacting the API server", "Loading namespaces", "Discovering API resources"].map((step, index) => (
-              <div key={step} className="flex items-center gap-2">
-                <span
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-skyhook-500"
-                  style={{ animationDelay: `${index * 220}ms` }}
-                />
-                {step}
-                <span className="ml-auto font-mono text-[10px] text-theme-text-disabled">…</span>
-              </div>
-            ))}
+          <div className="w-full space-y-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
+            {CONNECT_STEPS.map((step, index) => {
+              const done = index < stepIndex;
+              const current = index === stepIndex && stage !== "done";
+              return (
+                <div key={step.key} className="flex items-center gap-2">
+                  <span className="flex h-3 w-3 shrink-0 items-center justify-center">
+                    {done ? (
+                      <Check className="h-3 w-3 text-emerald-500" />
+                    ) : current ? (
+                      <LoaderCircle className="h-3 w-3 animate-spin text-skyhook-500" />
+                    ) : (
+                      <span className="h-1.5 w-1.5 rounded-full bg-theme-text-disabled/40" />
+                    )}
+                  </span>
+                  <span
+                    className={
+                      done
+                        ? "text-theme-text-secondary"
+                        : current
+                          ? "text-theme-text-primary"
+                          : "text-theme-text-disabled"
+                    }
+                  >
+                    {step.label}
+                  </span>
+                  {done ? (
+                    <span className="ml-auto font-mono text-[calc(10px*var(--font-scale))] text-emerald-500">done</span>
+                  ) : current ? (
+                    <span className="ml-auto font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">loading…</span>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setActiveCluster(null)}>
-            Cancel
-          </Button>
+          <div className="flex w-full items-center justify-between">
+            <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{percent}%</span>
+            <Button variant="ghost" size="sm" onClick={() => setActiveCluster(null)}>
+              Cancel
+            </Button>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (session.status === "error") {
+  if (status === "error") {
     return (
       <div className="flex flex-1 items-center justify-center bg-theme-base">
         <EmptyState
           icon={<ServerCrash />}
           title={`Cannot connect to ${cluster?.name ?? "cluster"}`}
-          description={session.error}
+          description={connectError}
           action={
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setActiveCluster(null)}>
@@ -126,7 +194,7 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      <ResourceSidebar cluster={cluster} clusterId={clusterId} width={width} active={active} />
+      <ResourceSidebar cluster={cluster} clusterId={clusterId} width={width} active={active} rootRef={sidebarRef} />
       <div
         role="separator"
         aria-orientation="vertical"
@@ -138,30 +206,21 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {!tabsCollapsed ? (
-          <ResourceTabs clusterId={clusterId} onCollapse={() => setTabsCollapsed(true)} />
-        ) : null}
-        <PageTabs clusterId={clusterId} resources={session.resources} />
-        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <ResourceBrowser clusterId={clusterId} active={active} />
-          <ResourceDetails clusterId={clusterId} />
-          {session?.details && session.detailsMinimized ? (
-            <button
-              type="button"
-              onClick={() => useSessionStore.getState().restoreDetails(clusterId)}
-              className="absolute bottom-17 right-3 z-40 flex max-w-[70%] items-center gap-1.5 rounded-lg border border-theme-border bg-theme-elevated px-2.5 py-1.5 text-[11px] text-theme-text-secondary shadow-theme-md transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-              title="Show the minimized resource details"
-            >
-              <ChevronUp className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {session.details.ref.kind}/{session.details.ref.name}
-              </span>
-            </button>
-          ) : null}
-        </div>
-        {tabsCollapsed ? (
-          <ResourceTabsTray clusterId={clusterId} onExpand={() => setTabsCollapsed(false)} />
-        ) : null}
+        <PageTabs clusterId={clusterId} resources={resources} />
+        <ResourceBrowser
+          clusterId={clusterId}
+          active={active}
+          side={
+            <EditorArea
+              clusterId={clusterId}
+              active={active}
+              expanded={editorExpanded && hasTabs}
+              onToggleExpanded={toggleEditorExpanded}
+            />
+          }
+          overlay={<EditorPill clusterId={clusterId} />}
+        />
+        {editorMinimized && hasTabs ? <EditorTray clusterId={clusterId} /> : null}
         <TerminalDock clusterId={clusterId} active={active} />
       </div>
     </div>

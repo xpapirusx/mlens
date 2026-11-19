@@ -175,7 +175,7 @@ export function NodeDrainDialog({
       }
     >
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-4 text-[11px] text-theme-text-secondary">
+        <div className="flex flex-wrap items-center gap-4 text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
           <label className="flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -210,45 +210,45 @@ export function NodeDrainDialog({
             <Loader2 className="h-4 w-4 animate-spin text-theme-text-tertiary" />
           </div>
         ) : error ? (
-          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[12px] text-red-500">{error}</div>
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-red-500">{error}</div>
         ) : (
           <>
             <div className="grid grid-cols-4 gap-2">
               <div className="card-inner">
-                <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                <div className="flex items-center gap-1 text-[calc(9px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                   <Boxes className="h-3 w-3" /> Pods
                 </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-theme-text-primary">{plan.length}</div>
+                <div className="mt-1 font-mono text-[calc(18px*var(--font-scale))] font-semibold text-theme-text-primary">{plan.length}</div>
               </div>
               <div className="card-inner">
-                <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                <div className="flex items-center gap-1 text-[calc(9px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                   <CheckCircle2 className="h-3 w-3" /> Evictable
                 </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-emerald-500">{evictable.length}</div>
+                <div className="mt-1 font-mono text-[calc(18px*var(--font-scale))] font-semibold text-emerald-500">{evictable.length}</div>
               </div>
               <div className="card-inner">
-                <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                <div className="flex items-center gap-1 text-[calc(9px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                   <Server className="h-3 w-3" /> DaemonSet
                 </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-theme-text-secondary">{daemonSetCount}</div>
+                <div className="mt-1 font-mono text-[calc(18px*var(--font-scale))] font-semibold text-theme-text-secondary">{daemonSetCount}</div>
               </div>
               <div className="card-inner">
-                <div className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                <div className="flex items-center gap-1 text-[calc(9px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                   <AlertTriangle className="h-3 w-3" /> Blocked
                 </div>
-                <div className="mt-1 font-mono text-[18px] font-semibold text-amber-500">{blocked.length}</div>
+                <div className="mt-1 font-mono text-[calc(18px*var(--font-scale))] font-semibold text-amber-500">{blocked.length}</div>
               </div>
             </div>
 
             <div className="max-h-64 overflow-y-auto rounded-md border border-theme-border">
               {plan.length === 0 ? (
-                <div className="px-3 py-4 text-[11px] text-theme-text-tertiary">No pods on this node.</div>
+                <div className="px-3 py-4 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">No pods on this node.</div>
               ) : (
                 plan.map((entry) => (
                   <div
                     key={`${entry.namespace}/${entry.name}`}
                     className={cn(
-                      "flex items-center gap-2 border-b border-theme-border-subtle px-2.5 py-1.5 text-[11px] last:border-0",
+                      "flex items-center gap-2 border-b border-theme-border-subtle px-2.5 py-1.5 text-[calc(11px*var(--font-scale))] last:border-0",
                       !entry.evictable && "opacity-70",
                     )}
                   >
@@ -259,11 +259,11 @@ export function NodeDrainDialog({
                       )}
                     />
                     <span className="min-w-0 flex-1 truncate font-mono text-theme-text-primary">{entry.name}</span>
-                    <span className="w-24 shrink-0 truncate text-[10px] text-theme-text-tertiary">{entry.namespace}</span>
-                    <span className="w-40 shrink-0 truncate text-[10px] text-theme-text-disabled">
+                    <span className="w-24 shrink-0 truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{entry.namespace}</span>
+                    <span className="w-40 shrink-0 truncate text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                       {entry.owner ?? "unmanaged"}
                     </span>
-                    <span className="w-56 shrink-0 truncate text-[10px] text-amber-600 dark:text-amber-400">
+                    <span className="w-56 shrink-0 truncate text-[calc(10px*var(--font-scale))] text-amber-600 dark:text-amber-400">
                       {entry.reason ?? "evict"}
                     </span>
                   </div>
@@ -271,9 +271,9 @@ export function NodeDrainDialog({
               )}
             </div>
             {mirrorCount > 0 ? (
-              <div className="text-[10px] text-theme-text-disabled">{mirrorCount} mirror pod(s) are ignored.</div>
+              <div className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{mirrorCount} mirror pod(s) are ignored.</div>
             ) : null}
-            <div className="text-[10px] text-theme-text-disabled">
+            <div className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
               The plan is read live from the API. Eviction honours PodDisruptionBudgets; blocked evictions are reported
               after the drain.
             </div>

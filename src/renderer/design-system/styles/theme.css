@@ -8,6 +8,21 @@
   --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 
+  /* Text scale follows the fontScale setting (Tailwind's default values, wrapped
+     in calc) so text-* utilities scale without touching the rem-anchored layout. */
+  --text-xs: calc(0.75rem * var(--font-scale, 1));
+  --text-xs--line-height: calc(1rem * var(--font-scale, 1));
+  --text-sm: calc(0.875rem * var(--font-scale, 1));
+  --text-sm--line-height: calc(1.25rem * var(--font-scale, 1));
+  --text-base: calc(1rem * var(--font-scale, 1));
+  --text-base--line-height: calc(1.5rem * var(--font-scale, 1));
+  --text-lg: calc(1.125rem * var(--font-scale, 1));
+  --text-lg--line-height: calc(1.75rem * var(--font-scale, 1));
+  --text-xl: calc(1.25rem * var(--font-scale, 1));
+  --text-xl--line-height: calc(1.75rem * var(--font-scale, 1));
+  --text-2xl: calc(1.5rem * var(--font-scale, 1));
+  --text-2xl--line-height: calc(2rem * var(--font-scale, 1));
+
   /* Backgrounds */
   --color-theme-sidebar: var(--bg-sidebar);
   --color-theme-base: var(--bg-base);

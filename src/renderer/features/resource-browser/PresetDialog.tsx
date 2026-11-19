@@ -84,9 +84,9 @@ export function PresetDialog({
         onChange={(event) => setText(event.target.value)}
         spellCheck={false}
         placeholder={field === "labels" ? "team=platform\nenv=staging" : "iReallyWantDeleteThis=true"}
-        className="h-64 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[11px] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
+        className="h-64 w-full resize-y rounded-lg border border-theme-border bg-theme-elevated p-2 font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-primary outline-none focus:border-skyhook-500/60"
       />
-      <p className="mt-2 text-[11px] text-theme-text-tertiary">
+      <p className="mt-2 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
         Saved in mLens settings, not on the cluster. Applying writes a merge patch to each selected resource.
       </p>
     </Modal>

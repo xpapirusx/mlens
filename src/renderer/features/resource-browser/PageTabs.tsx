@@ -26,7 +26,7 @@ export function PageTabs({ clusterId, resources }: { clusterId: string; resource
             type="button"
             onClick={() => selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind })}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[12px] transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[calc(12px*var(--font-scale))] transition-colors",
               active
                 ? "bg-theme-surface text-theme-text-primary shadow-theme-sm ring-1 ring-theme-border"
                 : "text-theme-text-tertiary hover:bg-theme-hover/60 hover:text-theme-text-secondary",

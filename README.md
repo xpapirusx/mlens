@@ -17,8 +17,8 @@ Docker, and no Node.js, kubectl or Helm installation required by the end user.
 ## What it looks like
 
 - **Freelens shell:** one window, a cluster hotbar, a catalog/welcome page, a
-  resource sidebar, sibling resource tabs, a right-side details drawer and a bottom
-  terminal dock.
+  resource sidebar, sibling resource tabs, a VS Code-like editor area with split
+  panes and a bottom terminal dock.
 - **Radar tooling:** dense 44px tables with uppercase 12px headers, status badges,
   per-column filters, `/` search with regex, namespace scope, CRD columns,
   compact details tabs, dark console for logs/terminal, DM Sans + DM Mono.
@@ -187,15 +187,26 @@ the Cloud Native Computing Foundation.
 - Multi-select in the catalog: add to favourites, remove clusters from the mLens
   catalog (non-destructive — kubeconfig files are untouched) and restore them
   from the Removed view.
-- Cluster tabs at the top; open-resource tabs inside a cluster.
+- Cluster tabs at the top; a VS Code-like editor area to the right of the table
+  with 1–4 panes, per-pane tab strips, drag-and-drop reordering/moving and
+  Split right/down.
+- Cross-cluster split screen: the Columns2 button in the cluster tab strip shows
+  a second open cluster beside the active one (two full workspaces) with a
+  draggable divider and a chip that closes the split.
 - Concurrent cluster sessions; opening a cluster switches to its tab
-  immediately and plays the connecting animation while discovery runs.
+  immediately and shows a circular connecting spinner with a real step checklist
+  (API server → namespaces → discovery), checkmarks for finished stages and the
+  percentage at the bottom while discovery runs.
   Switching clusters preserves namespace scope,
   selected kind, search/sort/filters, sidebar state, open resource tabs and live
   terminal PTYs.
 - Multiple namespace selection per cluster (all, one, or several). The picker
   keeps **All namespaces** on top, then the currently selected namespaces, then
   the rest alphabetically; search and the system-namespace toggle apply to both.
+  Clicking a Namespace cell scopes the table and keeps the Namespace column in
+  place (it can be hidden via the column picker). Scope changes refetch silently:
+  rows swap in place without the central loading animation, while kind or cluster
+  switches still show it.
 - Sidebar favorites (pinned resource kinds), collapsible groups starting folded
   by default, and a configurable table row height (24–52px).
 - Health, latency, Kubernetes version, context and API server in the UI.
@@ -219,7 +230,12 @@ the Cloud Native Computing Foundation.
   ClusterRoles/Bindings, HPAs, PDBs, CRDs and every served custom resource.
 - Live watch + polling, freshness indicator, counts, search, sorting, per-column
   filters, namespace filters, sortable columns, drag-to-resize columns (double-click
-  to reset), horizontal scrolling, column picker and keyboard navigation.
+  to reset), horizontal scrolling, column picker and keyboard navigation. Large
+  inventories are paged: the footer shows `N of M loaded`, **Load more** fetches
+  the next page, and the table renders only the visible rows (virtualized). Using
+  search or a column filter auto-loads the remaining pages, so a name beyond the
+  first page is still found. Sidebar counts are lazy — only the resource page
+  currently open, plus Nodes and CRD definitions.
 - Radar container squares in the Pods table (state colours, orange restart ring,
   init separator, tooltip with reason/exit code/uptime/last termination) and
   Radar Node columns (CPU/Memory usage bars, **Conditions** whose hover card
@@ -270,10 +286,13 @@ the Cloud Native Computing Foundation.
   suspend/resume (Jobs/CronJobs), set image (workloads, including init
   containers), trigger (CronJobs), cordon/uncordon and drain (Nodes), copy
   kubectl command, delete and force delete (`gracePeriodSeconds: 0`).
-- Columns can be pinned to the left edge; open-resource tabs can be collapsed
-  into a shadow tray above the terminal dock with every tab still clickable.
-- The details drawer can be minimized (chevron) without closing anything: the
-  open-resource tabs stay and a floating pill restores the drawer.
+- Columns can be pinned to the left edge. The table toolbar (Create / Search /
+  live / filters) spans the full width; below it the editor area sits beside the
+  table, resizes on its left edge (down to a 240px table strip), expands over
+  the table and holds up to four panes. Tabs reorder by drag, move between
+  panes, and close via middle-click or the context menu.
+- The editor area can be minimized (chevron) without closing anything: every
+  tab stays and a floating pill or the shadow tray restores it.
 - Reference fields are clickable everywhere: owner references, `volumeName`,
   `claimRef`, `storageClassName`, `serviceAccountName`, HPA `scaleTargetRef`, …,
   plus the Controlled-by column and the PVC Pods/Volume/Storage-class columns.
@@ -292,7 +311,9 @@ Overview / Details / YAML / Events / Related / Logs (Pods) / Metrics inside a
 resizable Freelens-style drawer. The YAML tab hides server-managed metadata
 (`uid`, `resourceVersion`, `generation`, `creationTimestamp`, `managedFields`,
 `selfLink`) by default; the "Ignore server metadata" toggle shows the full stored
-object, and Apply still merges the live object. Kind actions are labelled buttons in a
+object, and Apply still merges the live object. YAML is printed as
+`apiVersion`, `kind`, `metadata`, **`status`**, `spec`, then the rest, so the
+status block sits above a long spec. Kind actions are labelled buttons in a
 right-aligned row under the name (logs/exec/port-forward for Pods,
 scale/restart/set image/pause/suspend/trigger for workloads, cordon/uncordon and
 drain for Nodes); delete/reload/expand/close stay in the header, and reload only
@@ -326,15 +347,21 @@ Secrets reveal only on request.
   the Create dialog.
 - Real Kubernetes pod exec over the exec WebSocket (no kubectl), with TTY resize.
 - Port forwarding over the Kubernetes WebSocket protocol: loopback listener,
-  live forwards panel, start/stop, and one-click port forwarding from the Pod
+  live forwards panel, start/stop, browser opens the forwarded URL on start
+  (checkbox on by default), and one-click port forwarding from the Pod
   Ports table, no kubectl process.
 - xterm.js search, copy/paste, Radar console theme.
 
 ### Themes and layout
 
-- Radar (light/dark/system), **Dracula**, **Freelens** and **Proton** (from
-  luci-theme-proton2025) colour themes; each theme also selects its terminal
-  ANSI palette and a Monaco theme.
+- Radar (light/dark/system), **Dracula**, **Freelens**, **Proton** (from
+  luci-theme-proton2025), **Synthwave '84**, **Dark Islands**, **GitHub**,
+  **Night Owl**, **Material**, **One Dark Pro**, **One Dark**, **Catppuccin**,
+  **Jellybeans** and **Adwaita** colour themes; each theme selects its terminal
+  ANSI palette and Monaco theme. All non-Radar themes force dark mode.
+- **Fonts:** UI font choice (DM Sans, Ubuntu, System UI) plus bundled **Ubuntu**
+  and **Ubuntu Mono** WOFF2 subsets; monospace terminal choices include Ubuntu
+  Mono. The global Font size multiplier still scales all text.
 - Hotbar with **pages** (75px rail, 10 slots per page, 40px cells, 12px spacing
   like Freelens): three-letter short names, seeded tile colours, a status LED,
   press/shake animations, drag-and-drop and a context-menu "Move to slot"
@@ -342,6 +369,18 @@ Secrets reveal only on request.
   remove page), favourites flow into the next page instead of being dropped,
   and the rail scrolls when the window is short. Open clusters stay in the top
   tab strip. Home/Back navigation lives in the tab strip.
+- A **Font size** setting (Settings → Appearance, after the theme controls):
+  a free numeric multiplier between 50% and 200% that proportionally scales
+  every font in the app — UI text, tables, terminal, YAML editor — while
+  keeping the interface geometry (spacing, table row heights, sidebar/dock
+  sizes) fixed. Default 100%, applies immediately and persists in
+  `settings.json` (`fontScale`).
+- Freelens-style settings brought over: **UI font**, **Timezone** (local/UTC),
+  **Editor** (font family, size, tab size, line numbers, minimap), **Terminal**
+  (shell path, copy-on-select) and the bundled Ubuntu fonts. The kubectl/Helm
+  binary, kubeconfig sync, proxy and extension-registry preferences are
+  intentionally absent — mLens talks to the API directly and has no binary
+  dependencies.
 - Reorderable sidebar groups, column order, column widths (remembered per kind
   across clusters), and configurable row height from 24 to 52px.
 - Problems filter for warning/error statuses, plus the regular status badges and
@@ -357,7 +396,7 @@ Secrets reveal only on request.
   ready/updated counts. Status badges with a detail (container message, node
   condition reason) explain themselves on hover; the card also lists the
   resource's `status.conditions`, newest transition first, with state,
-  reason/message, relative age and the exact timestamp. In the details drawer the
+  reason/message, relative age and the exact timestamp. In the editor pane the
   same card is on the header status badge, and a condition's age opens its exact
   transition time.
 

@@ -4,7 +4,7 @@ This is the working plan and status ledger. It distinguishes what is **done and
 verified against real clusters**, what is **partially done**, and what is **not
 started**, so nothing in the product is mistaken for finished work.
 
-Last updated: 2026-11-17 · version 0.1.0
+Last updated: 2026-11-18 · version 2.4.23
 
 ---
 
@@ -208,7 +208,7 @@ configuration).
 | Exec | **Done** |
 | YAML apply / delete / scale / restart | **Done** |
 | Namespace management (list) | **Done** |
-| RBAC-aware UI (hide denied actions) | **Partial** — server errors are shown clearly; actions are not pre-filtered by SelfSubjectAccessReview |
+| RBAC-aware UI (hide denied actions) | **Done** — batched SelfSubjectAccessReview; precise in the details drawer and single-namespace browser views; unknown results keep actions visible. YAML gains a read-only state |
 | Metrics | **Partial** — metrics-server reads; no Prometheus history |
 
 ---
@@ -312,6 +312,7 @@ configuration).
 | CRD printer columns (predicate/`$.`/braced JSONPath) + sidebar drag order | Pass — `readJsonPath` 11/11 on a CAPI-style CR (`Ready → True`, `envoyHosts[0]`, numeric predicate); `mergeGroupOrder` keeps the saved drag order and inserts new categories at their default slot |
 | Helm releases end-to-end, logs search/tint, Favorites collapse, owner chain, labels/annotations + bulk annotate, YAML dock tab | Pass — typecheck + `electron-vite build`; `listHelmReleases`/`getHelmRelease` run against a live cluster (63 releases, values 988 chars / manifest 44184 chars, revision dedupe correct, double-base64 decode confirmed); real-cluster smoke test for the UI parts pending |
 | Log match arrows, Helm revisions/rollback payload, Labels + Copy names, +YAML→dock | Pass — typecheck + build; `getHelmRelease` on a live cluster returns 10 revisions and 44 manifest objects, viewing revision 9 loads its values/manifest; `prepareHelmRollback` produces `sh.helm.release.v1.cert-manager.v11` with Helm's labels and a JSON record that decodes back (no mutation performed); rollback itself not executed against a real cluster |
+| RBAC capability checks | Pass — typecheck + build; batched SelfSubjectAccessReview verified against a live context (`get pods` → `allowed: true`, `cluster-admin` reason). Details/browser actions are gated on explicit denial only. Read-only-user UI smoke test pending |
 
 ---
 
@@ -319,12 +320,9 @@ configuration).
 
 1. **Packaging run per OS** (`dist:mac`, `dist:win`, `dist:linux`) in CI, verify
    node-pty asar unpacking and notarization.
-2. **Capability-aware write actions** using SelfSubjectAccessReview.
-3. **Prometheus history** on top of the live metrics columns.
-4. **Helm** (release secrets parsed in TypeScript, no Helm binary).
-5. **Topology/Timeline**, reusing owner/selector and watch data.
-6. **Remaining Radar workload actions**: revision history + rollback
-   (ReplicaSet revisions), Set image, and CronJob Trigger (create a Job from
-   `jobTemplate`).
-7. **Automated tests**: unit tests for status/format/columns, integration tests
+2. **Prometheus history** on top of the live metrics columns.
+3. **Topology/Timeline**, reusing owner/selector and watch data.
+4. **Remaining Radar workload actions**: revision history + rollback
+   (ReplicaSet revisions). Set image and CronJob Trigger are implemented.
+5. **Automated tests**: unit tests for status/format/columns, integration tests
    against `kind`, Playwright Electron smoke tests.

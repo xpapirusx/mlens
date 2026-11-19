@@ -43,7 +43,7 @@ export function EventsTab({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-base px-3">
-        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-theme-text-secondary">
+        <label className="flex cursor-pointer items-center gap-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
           <input
             type="checkbox"
             checked={warningsOnly}
@@ -56,9 +56,9 @@ export function EventsTab({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Filter events…"
-          className="ml-auto h-6 w-56 rounded border border-theme-border bg-theme-elevated px-2 text-[11px] text-theme-text-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-skyhook-500/60"
+          className="ml-auto h-6 w-56 rounded border border-theme-border bg-theme-elevated px-2 text-[calc(11px*var(--font-scale))] text-theme-text-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-skyhook-500/60"
         />
-        <span className="font-mono text-[10px] text-theme-text-tertiary">{filtered.length}</span>
+        <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{filtered.length}</span>
       </div>
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3">
         {filtered.length === 0 ? (
@@ -87,8 +87,8 @@ export function EventsTab({
                   ) : (
                     <Info className="h-3 w-3 text-skyhook-400" />
                   )}
-                  <span className="text-[12px] font-medium text-theme-text-primary">{typed.reason}</span>
-                  <span className="text-[10px] text-theme-text-tertiary">
+                  <span className="text-[calc(12px*var(--font-scale))] font-medium text-theme-text-primary">{typed.reason}</span>
+                  <span className="text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                     {typed.source?.component}
                     {typed.source?.host ? ` · ${typed.source.host}` : ""}
                   </span>
@@ -96,16 +96,16 @@ export function EventsTab({
                     <span className="badge-sm status-unknown">×{typed.count}</span>
                   ) : null}
                   <span
-                    className="ml-auto text-[10px] text-theme-text-disabled"
+                    className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-disabled"
                     title={formatTimestamp(typed.lastTimestamp ?? typed.eventTime)}
                   >
                     {formatRelativeTime(typed.lastTimestamp ?? typed.eventTime)}
                   </span>
                 </div>
-                <div className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-theme-text-secondary">
+                <div className="mt-1 whitespace-pre-wrap break-words text-[calc(11px*var(--font-scale))] leading-relaxed text-theme-text-secondary">
                   {typed.message}
                 </div>
-                <div className="mt-1 font-mono text-[10px] text-theme-text-disabled">
+                <div className="mt-1 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                   {typed.involvedObject?.kind}/{typed.involvedObject?.name}
                   {typed.metadata?.namespace ? ` · ${typed.metadata.namespace}` : ""}
                 </div>

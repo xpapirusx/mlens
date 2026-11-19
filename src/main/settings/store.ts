@@ -33,6 +33,8 @@ export function defaultSettings(): AppSettings {
     kubeconfigPaths,
     favorites: [],
     recentClusters: [],
+    catalogSort: "status",
+    portForwardOpenBrowser: true,
     refreshIntervalSeconds: 60,
     terminalFontSize: 13,
     terminalFontFamily: "DM Mono",
@@ -41,6 +43,15 @@ export function defaultSettings(): AppSettings {
     sidebarWidth: 236,
     dockHeight: 340,
     tableRowHeight: 44,
+    fontScale: 1,
+    uiFontFamily: "DM Sans",
+    editorFontFamily: "DM Mono",
+    editorFontSize: 12,
+    editorLineNumbers: true,
+    editorMinimap: false,
+    editorTabSize: 2,
+    terminalCopyOnSelect: false,
+    timeZone: "local",
     collapseCatalogGroups: true,
     favoriteKinds: [],
     hiddenClusters: [],
@@ -67,7 +78,27 @@ function clamp(value: number, min: number, max: number): number {
 function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   const out: Partial<AppSettings> = { ...input };
   if (out.theme && !["light", "dark", "system"].includes(out.theme)) delete out.theme;
-  if (out.colorTheme && !["radar", "dracula", "freelens", "proton"].includes(out.colorTheme)) delete out.colorTheme;
+  if (
+    out.colorTheme &&
+    ![
+      "radar",
+      "dracula",
+      "freelens",
+      "proton",
+      "synthwave",
+      "islands",
+      "github",
+      "night-owl",
+      "material",
+      "one-dark-pro",
+      "one-dark",
+      "catppuccin",
+      "jellybeans",
+      "adwaita",
+    ].includes(out.colorTheme)
+  ) {
+    delete out.colorTheme;
+  }
   if (out.kubeconfigPaths) {
     out.kubeconfigPaths = [...new Set(out.kubeconfigPaths.filter((entry) => typeof entry === "string"))];
   }
@@ -77,6 +108,10 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
       .filter((entry) => entry && typeof entry.id === "string" && typeof entry.openedAt === "number")
       .slice(0, 20);
   }
+  if (out.catalogSort && !["status", "name", "recent", "source"].includes(out.catalogSort)) {
+    delete out.catalogSort;
+  }
+  if (typeof out.portForwardOpenBrowser !== "boolean") delete out.portForwardOpenBrowser;
   if (typeof out.refreshIntervalSeconds === "number") {
     out.refreshIntervalSeconds = clamp(Math.round(out.refreshIntervalSeconds), 0, 300);
   }
@@ -94,6 +129,28 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
       ? Math.round(out.tableRowHeight)
       : 44;
   }
+  if (typeof out.fontScale === "number") {
+    out.fontScale = clamp(Math.round(out.fontScale * 100) / 100, 0.5, 2);
+  }
+  if (out.uiFontFamily && !["DM Sans", "Ubuntu", "System UI"].includes(out.uiFontFamily)) {
+    delete out.uiFontFamily;
+  }
+  if (
+    out.editorFontFamily &&
+    !["DM Mono", "Ubuntu Mono", "Menlo", "Monaco", "SFMono-Regular"].includes(out.editorFontFamily)
+  ) {
+    delete out.editorFontFamily;
+  }
+  if (typeof out.editorFontSize === "number") {
+    out.editorFontSize = clamp(Math.round(out.editorFontSize), 8, 24);
+  }
+  if (typeof out.editorTabSize === "number") {
+    out.editorTabSize = clamp(Math.round(out.editorTabSize), 1, 8);
+  }
+  if (typeof out.editorLineNumbers !== "boolean") delete out.editorLineNumbers;
+  if (typeof out.editorMinimap !== "boolean") delete out.editorMinimap;
+  if (typeof out.terminalCopyOnSelect !== "boolean") delete out.terminalCopyOnSelect;
+  if (out.timeZone && !["local", "utc"].includes(out.timeZone)) delete out.timeZone;
   if (out.favoriteKinds) {
     out.favoriteKinds = [...new Set(out.favoriteKinds.filter((entry) => typeof entry === "string"))];
   }
@@ -163,6 +220,8 @@ export class SettingsStore {
   private readonly file: string;
   private state: AppSettings;
   private listeners = new Set<(settings: AppSettings) => void>();
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private dirty = false;
 
   constructor() {
     this.file = path.join(app.getPath("userData"), "settings.json");
@@ -190,7 +249,33 @@ export class SettingsStore {
     }
   }
 
+  /**
+   * A9: coalesce writes. Every update used to pretty-print and write the whole
+   * file synchronously on the main thread — and some paths (font scale, other
+   * settings inputs) call `update` per input event. The in-memory state stays
+   * synchronous; the disk write is debounced and `flush()`ed on quit.
+   */
   private persist(): void {
+    this.dirty = true;
+    if (this.persistTimer) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      this.writeNow();
+    }, 250);
+  }
+
+  /** Synchronous write of any pending change — call before the app quits. */
+  flush(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
+    if (!this.dirty) return;
+    this.writeNow();
+  }
+
+  private writeNow(): void {
+    this.dirty = false;
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true });
       fs.writeFileSync(this.file, JSON.stringify(this.state, null, 2), { mode: 0o600 });

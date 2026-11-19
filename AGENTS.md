@@ -14,8 +14,8 @@ A standalone Electron Kubernetes IDE written entirely in TypeScript/React.
 **Non-negotiable product identity**
 
 - **Application shell = Freelens.** Window chrome, cluster tabs, hotbar, catalog,
-  sidebar tree, sibling resource tabs, bottom dock, right details drawer, keyboard
-  model, state preservation.
+  sidebar tree, sibling resource tabs, bottom dock, right-side editor area with
+  split panes, keyboard model, state preservation.
 - **Kubernetes tooling = Radar.** Design tokens, fonts, icons, table density,
   filters, status language, details composition, logs, terminal surface.
 - **Do not swap or blend these responsibilities.** A control's position and
@@ -74,7 +74,8 @@ src/renderer/
     catalog/                   Welcome + cluster catalog + removal/restore
     navigation/                cluster sidebar, counts
     resource-browser/          Radar table, filters, columns, metrics, dialogs
-    resource-details/          Lens drawer + Radar content + resource tabs
+    resource-details/          Radar details content + inner tabs + tray
+    editor/                    VS Code-like editor area: panes, tab strips, splits
     port-forward/              start dialog + active forwards panel
     terminal/                  xterm view + dock
     settings/                  settings dialog
@@ -93,7 +94,9 @@ src/renderer/
 
 - `selectedNamespaces: string[]` (`[]` = all), selected kind, per-kind search,
   regex, sort, filters, hidden columns, expanded groups, sidebar width;
-- `details { ref, tab }`, `detailsHistory`, `resourceTabs`;
+- `editor { panes, activePaneId, width, minimized, columnSplit, rowSplit }` —
+  the VS Code-like editor area (1–4 panes in a 2×2 grid). Each pane keeps
+  `tabs`, `active`, inner `tab` and a 25-entry `history`;
 - `dock { open, height, tabs, activeTabId }`.
 
 Resource-table sorting has two layers: the session keeps the current per-kind
@@ -104,7 +107,8 @@ last explicit sort wins; a saved key that no longer exists for the kind is
 ignored.
 
 `catalog-store` holds settings, kubeconfig sources, `allClusters`, visible
-`clusters`, health, active cluster, connect/disconnect, hidden clusters.
+`clusters`, health, active cluster, connect/disconnect, hidden clusters, and the
+cross-cluster split (`splitClusterId`, `splitRatio`).
 
 Important:
 
@@ -118,6 +122,24 @@ Important:
   `<kind>|<column>` and `<apiVersion>|<kind>`, so they survive cluster switches.
 - Group expansion and favorite kinds are settings/session state, never local
   component state that resets on navigation.
+- **Session selectors are field-level.** Subscribe to
+  `state.sessions[clusterId]?.<field>` with a module-level constant as the
+  fallback (`?? []` *inside* a selector allocates a new array on every
+  notification — React #185), never to the whole session object: a
+  keystroke-level write (`updateKindState`) must not re-render the workspace,
+  sidebar and drawer. Cluster chrome that only renders status/info (ClusterTabs,
+  Hotbar, CatalogPage, TerminalLauncher, SettingsDialog, AppShell) uses
+  `useChromeSessions()` — a stable signature subscription with `getState()`
+  reads.
+- **Polled hooks keep their identity.** A fetch that found unchanged content
+  returns the previous Map/array reference (`lib/stable.ts` — `sameMapValues`,
+  `sameStringList`): timer ticks must not invalidate `cellContext` and the
+  search/filter/sort memos downstream (A13).
+- **Search and filtering are precomputed.** The haystack is a memo over
+  `items/columns/cellContext` built only while a term is active, the term is
+  debounced (`useDebouncedValue`), search + Problems + column filters run in
+  one pass, and filter popover options are built lazily on open. Never
+  reintroduce per-keystroke O(rows×cols) scans (A10–A11, A20).
 
 ---
 
@@ -131,8 +153,15 @@ Important:
   supported kinds.
 - Lists accept namespace scope; multi-namespace views fetch each scope and merge
   by UID. Watches are per scope and reconnect from the last resourceVersion.
-- Counts use `limit=1` + `remainingItemCount`. Fetch counts only for expanded
-  sidebar groups / favorites, not all 200 kinds. Poll at ≥120s.
+  Client-side search and column filters cover the whole inventory: typing in the
+  search box (or activating a filter) calls `useResourceList.loadAll()`, which
+  follows every continue token (cap 20 pages) silently and reports progress in
+  the footer. Don't "optimize" it back to the first page only.
+- Counts use `limit=1` + `remainingItemCount`. Fetch counts only for the
+  **resource page currently open** in the browser, plus **Nodes** and **CRD
+  definitions**; never for expanded/collapsed sidebar groups, favorites or
+  search results. Group headers show a resource total only when every listable
+  kind in the group has been counted, otherwise the kind count. Poll at ≥120s.
 - Metrics (`metrics.k8s.io`) are optional. Missing metrics must render `–`, never
   zero or invented values. Table metrics are fetched only when CPU/Memory columns
   are visible, at ≥60s.
@@ -145,7 +174,9 @@ Important:
 - Port forwarding is implemented over the Kubernetes WebSocket protocol. The
   server sends the 2-byte little-endian port handshake on channels 0 and 1; the
   client strips it and does not send a port prefix. Do not replace this with a
-  shell-out to kubectl.
+  shell-out to kubectl. Starting a forward opens `http://127.0.0.1:<port>` in
+  the system browser when `settings.portForwardOpenBrowser` is on (default);
+  the start dialog exposes the checkbox.
 - Terminal shells get a generated, context-pinned kubeconfig (0600) via
   `KUBECONFIG`; never modify the user's kubeconfig.
 
@@ -171,6 +202,12 @@ Important:
   `context.podMetrics` / `context.nodeMetrics`), never by requests/allocatable;
   missing samples are 0. Every Age surface uses `AgeProperty`/an Age tooltip with
   `creationTimestamp`.
+- Connecting screen: a **circular** spinner (never a rounded square) over the
+  cluster tile, a real three-step checklist driven by `ClusterSession.connectStage`
+  (`api` → `namespaces` → `discovery` → `done`) with checkmarks/spinner/pending
+  dots, a progress bar fed by `connectPercent`, and the percentage in the bottom
+  row next to Cancel. Steps are set by `session-store.initialize()`, not faked in
+  the component.
 - Table: 44px rows by default (configurable 24–52), 40px header, fixed layout,
   always-visible selection checkbox, column resize (72px min), horizontal scroll,
   column visibility and order, filters/search/sort. The default column order ends
@@ -180,9 +217,25 @@ Important:
   still wins, so a user's own arrangement is remembered. Age is a compact 60px
   column (`compact: true` → `px-2`) and is appended for every discovered kind,
   Helm releases included.
+- Table rows are a memoized `TableRow` (`ResourceTable.tsx`): layout values
+  (`gridTemplate`, `stickyOffsets`, `effectiveWidths`) are memoized and
+  row-level callbacks go through stable `latest`-ref wrappers — fresh inline
+  closures handed to rows defeat the memo. The sidebar drag writes the width
+  straight to the DOM (`rootRef` on the `<aside>`) and commits to the store
+  once on `pointerup`; never call `setSidebarWidth` per pointermove.
+- Logs render from a line array (`lines[]` + a partial tail, cap 20000 lines)
+  through `@tanstack/react-virtual`; the stream flush moves buffered chunks
+  into complete rows every 160ms. Do not go back to a monolithic `text` string
+  (concat + `.slice(-1_500_000)` per flush) or an unvirtualized `lines.map` —
+  chatty containers used to freeze the tab on ~30k DOM rows.
 - The namespace scope picker lists **All namespaces** first, then the currently
   selected namespaces (after a separator), then the rest alphabetically. Search
-  and the system-namespace toggle filter both groups.
+  and the system-namespace toggle filter both groups. Clicking a namespace cell
+  scopes the list; the **Namespace column stays visible even for a single
+  namespace** so the table does not rebuild its columns under the cursor. Hide it
+  through the column picker if it is noise. A namespace-scope change fetches
+  **silently** — current rows stay until the new scope's page arrives, no spinner;
+  only a kind/cluster change or the first load shows the loading state.
 - Status: semantic tone only (`success/warning/error/info/neutral`). Use
   `resourceStatus` and `StatusBadge`; do not invent status strings ad hoc.
   Workloads say **Updating** (warning) while `observedGeneration` lags or
@@ -196,7 +249,9 @@ Important:
   reason/message, relative age and the exact `lastTransitionTime`.
 - Catalog: clusters with a live session (open) sort to the top; Status says
   **Connected**, not the Kubernetes version (version has its own column). A sort
-  control offers open/status, name, recent and kubeconfig source.
+  control offers open/status, name, recent and kubeconfig source; the choice is
+  persisted as `settings.catalogSort`, and the Recent view always orders by
+  `recentClusters`.
 - Sidebar order (Freelens): Favorites, Nodes, Workloads, Config, Control, Network,
   Storage, Namespaces, Events, User Management, Helm, Custom Resources. Nodes/Namespaces/Events
   are direct rows. Config = workload configuration (ConfigMap/Secret/HPA/VPA/PDB/
@@ -243,11 +298,15 @@ Important:
   `resourceVersion`, `generation`, `creationTimestamp`, `managedFields`,
   `selfLink`). The toggle is disabled while editing. Apply is unaffected: main
   merges the live metadata and reuses its `resourceVersion`, so a stripped
-  document still updates the right object.
+  document still updates the right object. YAML is serialized in a display order
+  of `apiVersion`, `kind`, `metadata`, **`status`**, `spec`, then the remaining
+  keys — status sits above spec, not buried under it.
 - Custom resources and CRD definitions open on **Details** by default (Freelens
   field order); their Overview is still one click away and uses Radar-style cards.
-- Details lives in the right drawer; tabs are Overview / Details / YAML / Events /
-  Related / Logs (Pods only) / Metrics. Kind actions are labelled buttons in a
+- Details live in the **editor area** — a resizable column to the right of the
+  table, not a modal and not a new window. Each pane has **Overview / Details /
+  YAML / Events / Related / Logs (Pods only) / Metrics** tabs. Kind actions are
+  labelled buttons in a
   right-aligned row under the resource name (Logs/Exec/Forward for Pods; Scale/Restart/Set image for
   workloads; Pause/Resume for Deployments; Suspend/Resume and Trigger for
   Jobs/CronJobs; Cordon/Uncordon, Drain and Debug shell for Nodes). Delete,
@@ -256,13 +315,31 @@ Important:
   arrow) only refetches data — Restart uses the counter-clockwise arrow. YAML
   and Related are tabs. Workload Scale also appears in the Overview Status
   section, as in Radar.
-- Resource tabs (open resources) and cluster tabs (open clusters) are separate
-  rows. Do not turn the app into a browser-style single tab bar. The open-resource
-  strip can collapse into a shadow tray above the terminal dock; the tabs stay
-  mounted and clickable so the strip can be restored at any time.
+- Cluster tabs (open clusters) and editor tabs (open resources) are separate
+  rows. Do not turn the app into a browser-style single tab bar. Cluster tabs
+  reuse the editor-tab shape (rounded-t chip, top accent when active, close on
+  hover) and keep their health dot. The table
+  toolbar (Create, Search, live status, filters) spans the full content width;
+  the editor area starts **under it**, aligned with the table header. It holds
+  1–4 panes (2×2 max), each with its own VS Code-like tab strip:
+  drag to reorder, drop onto another pane to move a tab, middle-click or the
+  context menu to close (Close/Close others/Close to the right), Split right /
+  Split down, and an overflow menu with every tab plus split actions. The area
+  resizes on its left edge (down to a 240px table strip, so it can stretch much
+  further left than the old drawer), expands over the table, and minimizes into
+  the shadow tray above the dock; tabs stay open and clickable.
+- Cross-cluster split: the **Columns2** button in the cluster tab strip pins a
+  second open cluster, and two full `ClusterWorkspace`s render side by side.
+  Workspaces stay in one keyed list; visibility/width use CSS (`hidden`,
+  flex-grow, `order`) — never unmount one to split. The divider drags 20–80%,
+  the active cluster is the left pane, clicking the right pane's cluster tab
+  swaps roles, and closing either pane promotes the survivor. Both visible
+  workspaces poll; hidden ones keep watches but stay paused.
 - Hotbar: 10 slots **per page** on a 75px rail with 40px tiles and 12px spacing
   (Freelens), favourite clusters only, three-letter short names, seeded solid
   colours, status LED, drag/context-menu repositioning; never gradient avatars.
+  The tile tooltip repeats the status as a dot plus Connected / Connecting… /
+  Connection error / Not connected.
   Pages are Freelens-style: `‹ N ›` arrows plus a badge menu (switch / new /
   remove page, max 12), overflow favourites flow into later pages, and the tile
   list scrolls with a hover-only scrollbar.
@@ -277,8 +354,8 @@ Important:
   Dragging the window works from the shell chrome (top bar, hotbar rail,
   cluster tabs, status bar). Chrome labels are `user-select: none`; `main` and
   dialogs allow text selection.
-- The details drawer can be minimized without closing it: keep the resource
-  tabs, set `detailsMinimized`, and restore from the floating pill.
+- The editor area can be minimized without closing it: keep every pane's tabs,
+  set `editor.minimized`, and restore from the floating pill or the tray.
 - No huge components. Split table/controls/filters/dialogs/renderers.
 - No dead buttons. If not implemented, label it explicitly.
 
@@ -290,9 +367,19 @@ Important:
 - Dracula — `styles/themes.css` (`html.theme-dracula`), terminal palette in
   `TerminalView.tsx`.
 - Freelens — `html.theme-freelens`, teal accent, Freelens terminal palette.
-- Theme classes are applied by `AppShell` from `settings.colorTheme`; Dracula and
-  Freelens force dark mode. Do not add theme-specific one-off component styles;
-  extend tokens.
+- Proton — `html.theme-proton`, slate/blue palette.
+- Synthwave '84, Dark Islands, GitHub, Night Owl, Material, One Dark Pro,
+  One Dark, Catppuccin (Mocha), Jellybeans, Adwaita — `html.theme-*` blocks in
+  `styles/themes.css`, each with its own `mlens-*` Monaco theme and terminal ANSI
+  palette. All are dark themes.
+- Fonts: UI family is `settings.uiFontFamily` (DM Sans, Ubuntu, System UI) and is
+  applied as an inline `--font-sans` override in `AppShell`; Ubuntu + Ubuntu Mono
+  are bundled WOFF2 subsets under `design-system/fonts/` (`fonts.css`). Terminal
+  families are listed in `lib/fonts.ts` (`TERMINAL_FONTS`). Any new theme must add
+  a CSS block, a Monaco theme and a terminal palette.
+- Theme classes are applied by `AppShell` from `settings.colorTheme`; **every
+  theme except Radar forces dark mode**. Do not add theme-specific one-off
+  component styles; extend tokens.
 
 ---
 
@@ -349,6 +436,11 @@ Always run `pnpm typecheck` and `pnpm build` before declaring work done.
     (inherited PATH + `/etc/paths`/`/etc/paths.d` + Homebrew prefixes + the
     login shell's PATH). Do not "fix" such errors by bundling kubectl: extend
     `augmentProcessPath` or surface the hint instead.
+12. **TS quirk: a direct `.constructor === Foo` check on a cast object can
+    collapse its type to `never`** (aliased-condition narrowing kicks in when
+    the result is stored in a const and tested later). Compare through a local
+    first: `const ctor = candidate.constructor; if (ctor === http.Agent) …` —
+    see `reuseAgent` in `src/main/kubernetes/http.ts`.
 
 ---
 

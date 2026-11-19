@@ -30,7 +30,7 @@ import type {
   ScaleRequest,
 } from "@shared/types";
 import { dumpYaml, loadAllYaml } from "@kubernetes/client-node";
-import { buildApiPath, errorMessage, KubeApiError, kubeRequest } from "./http";
+import { buildApiPath, errorMessage, KubeApiError, kubeRequest, stripServerMetadata } from "./http";
 import type { KubeconfigManager } from "./kubeconfig";
 import { ClusterConnection } from "./session";
 import { ResourceWatcher } from "./resource-watcher";
@@ -62,23 +62,7 @@ interface VersionInfo {
 }
 
 import { resourceCountKey } from "@shared/keys";
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (cursor < items.length) {
-      const index = cursor++;
-      results[index] = await worker(items[index]);
-    }
-  });
-  await Promise.all(runners);
-  return results;
-}
+import { mapWithConcurrency } from "./concurrency";
 
 export class ClusterManager {
   private readonly sessions = new Map<ClusterId, ConnectedSession>();
@@ -206,8 +190,13 @@ export class ClusterManager {
       timeoutMs: 45_000,
     });
 
+    // List payloads are the highest-volume path (tables, loadAll, counts of
+    // one row): managedFields is pure overhead there. Details `get` keeps it.
+    const items = result.items ?? [];
+    for (const item of items) stripServerMetadata(item);
+
     return {
-      items: result.items ?? [],
+      items,
       resourceVersion: result.metadata?.resourceVersion,
       continueToken: result.metadata?.continue,
       remainingItemCount: result.metadata?.remainingItemCount,

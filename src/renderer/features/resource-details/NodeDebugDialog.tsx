@@ -200,7 +200,7 @@ export function NodeDebugDialog({
       <div className="h-[46vh] overflow-hidden rounded-lg border border-theme-border">
         <YamlEditor value={yaml} onChange={setYaml} readOnly={running} />
       </div>
-      <div className="mt-2 flex items-center gap-2 text-[11px]">
+      <div className="mt-2 flex items-center gap-2 text-[calc(11px*var(--font-scale))]">
         {running ? (
           <>
             <span className="h-2 w-2 animate-pulse rounded-full bg-skyhook-500" />

@@ -176,3 +176,578 @@ html.theme-proton {
   --scrollbar-thumb: rgba(255, 255, 255, 0.14);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.26);
 }
+
+/*
+ * SynthWave '84 — adapted from robb0wen/synthwave-vscode (MIT).
+ * Purple night sky (#262335), neon pink accent (#ff7edb), cyan/green statuses.
+ */
+html.theme-synthwave {
+  color-scheme: dark;
+
+  --color-brand: #ff7edb;
+  --color-brand-light: #ff9ce6;
+  --brand-rgb: 255 126 219;
+
+  --bg-sidebar: #241b2f;
+  --bg-base: #262335;
+  --bg-surface: #2a2139;
+  --bg-elevated: #34294f;
+  --bg-hover: #37294d;
+  --bg-active: #463465;
+
+  --text-primary: #ffffff;
+  --text-secondary: #d8d3e6;
+  --text-tertiary: #b6b1c2;
+  --text-disabled: #848bbd;
+  --warning-text: #fede5d;
+
+  --border-default: #444251;
+  --border-light: #495495;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #7059ab;
+
+  --accent: #ff7edb;
+  --accent-light: #ff9ce6;
+  --accent-muted: rgba(255, 126, 219, 0.16);
+  --accent-text: #ff9ce6;
+
+  --selection-bg: rgba(255, 126, 219, 0.18);
+  --selection-bg-strong: rgba(255, 126, 219, 0.32);
+  --selection-text: #ffffff;
+  --selection-border: rgba(255, 126, 219, 0.45);
+
+  --color-success: #72f1b8;
+  --color-warning: #fede5d;
+  --color-error: #fe4450;
+  --color-alert: #ff8b39;
+  --color-info: #36f9f6;
+
+  --color-skyhook-300: #ffc2ee;
+  --color-skyhook-400: #ff9ce6;
+  --color-skyhook-500: #ff7edb;
+  --color-skyhook-600: #e85fc2;
+  --color-skyhook-700: #c94aa8;
+  --color-skyhook-800: #a33a89;
+
+  --terminal-bg: #241b2f;
+  --terminal-border: #34294f;
+  --scrollbar-track: #241b2f;
+  --scrollbar-thumb: #37294d;
+  --scrollbar-thumb-hover: #495495;
+}
+
+/*
+ * Dark Islands — adapted from bwya77/vscode-dark-islands (MIT).
+ * Charcoal islands (#181a1d) with a cool blue accent (#548af7).
+ */
+html.theme-islands {
+  color-scheme: dark;
+
+  --color-brand: #548af7;
+  --color-brand-light: #7cacf8;
+  --brand-rgb: 84 138 247;
+
+  --bg-sidebar: #181a1d;
+  --bg-base: #181a1d;
+  --bg-surface: #202226;
+  --bg-elevated: #25262a;
+  --bg-hover: #2a2c31;
+  --bg-active: #303237;
+
+  --text-primary: #d4d5d9;
+  --text-secondary: #bcbec4;
+  --text-tertiary: #8f9298;
+  --text-disabled: #6f737a;
+  --warning-text: #e8a33e;
+
+  --border-default: #303237;
+  --border-light: #3a3c42;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #4e5157;
+
+  --accent: #548af7;
+  --accent-light: #7cacf8;
+  --accent-muted: rgba(84, 138, 247, 0.16);
+  --accent-text: #7cacf8;
+
+  --selection-bg: rgba(84, 138, 247, 0.18);
+  --selection-bg-strong: rgba(84, 138, 247, 0.32);
+  --selection-text: #ffffff;
+  --selection-border: rgba(84, 138, 247, 0.45);
+
+  --color-success: #73b00a;
+  --color-warning: #e8a33e;
+  --color-error: #f75464;
+  --color-alert: #f0b95e;
+  --color-info: #2aacb8;
+
+  --color-skyhook-300: #a9c6fb;
+  --color-skyhook-400: #7cacf8;
+  --color-skyhook-500: #548af7;
+  --color-skyhook-600: #3f74d9;
+  --color-skyhook-700: #335fb8;
+  --color-skyhook-800: #284b92;
+
+  --terminal-bg: #181a1d;
+  --terminal-border: #303237;
+  --scrollbar-track: #161619;
+  --scrollbar-thumb: #303237;
+  --scrollbar-thumb-hover: #4e5157;
+}
+
+/*
+ * GitHub — adapted from primer/github-vscode-theme (MIT), dark palette.
+ * Canvas #0d1117, surface #161b22, Primer blue #58a6ff.
+ */
+html.theme-github {
+  color-scheme: dark;
+
+  --color-brand: #58a6ff;
+  --color-brand-light: #79c0ff;
+  --brand-rgb: 88 166 255;
+
+  --bg-sidebar: #0d1117;
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #21262d;
+  --bg-hover: #30363d;
+  --bg-active: #21262d;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #c9d1d9;
+  --text-tertiary: #8b949e;
+  --text-disabled: #6e7681;
+  --warning-text: #d29922;
+
+  --border-default: #30363d;
+  --border-light: #484f58;
+  --border-subtle: rgba(240, 246, 252, 0.06);
+  --border-emphasis: #58a6ff;
+
+  --accent: #58a6ff;
+  --accent-light: #79c0ff;
+  --accent-muted: rgba(56, 139, 253, 0.15);
+  --accent-text: #79c0ff;
+
+  --selection-bg: rgba(56, 139, 253, 0.2);
+  --selection-bg-strong: rgba(56, 139, 253, 0.35);
+  --selection-text: #f0f6fc;
+  --selection-border: rgba(88, 166, 255, 0.5);
+
+  --color-success: #3fb950;
+  --color-warning: #d29922;
+  --color-error: #f85149;
+  --color-alert: #db6d28;
+  --color-info: #39c5cf;
+
+  --color-skyhook-300: #a5d6ff;
+  --color-skyhook-400: #79c0ff;
+  --color-skyhook-500: #58a6ff;
+  --color-skyhook-600: #388bfd;
+  --color-skyhook-700: #1f6feb;
+  --color-skyhook-800: #1158c7;
+
+  --terminal-bg: #0d1117;
+  --terminal-border: #30363d;
+  --scrollbar-track: #010409;
+  --scrollbar-thumb: #30363d;
+  --scrollbar-thumb-hover: #484f58;
+}
+
+/*
+ * Night Owl — adapted from sdras/night-owl-vscode-theme (MIT).
+ * Deep navy #011627 with blue (#82aaff) and teal (#7fdbca) accents.
+ */
+html.theme-night-owl {
+  color-scheme: dark;
+
+  --color-brand: #82aaff;
+  --color-brand-light: #a6c1ff;
+  --brand-rgb: 130 170 255;
+
+  --bg-sidebar: #011627;
+  --bg-base: #011627;
+  --bg-surface: #0b2942;
+  --bg-elevated: #1d3b53;
+  --bg-hover: #223e57;
+  --bg-active: #1d3b53;
+
+  --text-primary: #d6deeb;
+  --text-secondary: #b7c5d3;
+  --text-tertiary: #89a4bb;
+  --text-disabled: #637777;
+  --warning-text: #ecc48d;
+
+  --border-default: #1d3b53;
+  --border-light: #234d70;
+  --border-subtle: rgba(214, 222, 235, 0.06);
+  --border-emphasis: #2d5f86;
+
+  --accent: #82aaff;
+  --accent-light: #a6c1ff;
+  --accent-muted: rgba(130, 170, 255, 0.16);
+  --accent-text: #a6c1ff;
+
+  --selection-bg: rgba(35, 77, 112, 0.55);
+  --selection-bg-strong: rgba(130, 170, 255, 0.28);
+  --selection-text: #ffffff;
+  --selection-border: rgba(130, 170, 255, 0.45);
+
+  --color-success: #22da6e;
+  --color-warning: #ecc48d;
+  --color-error: #ef5350;
+  --color-alert: #f78c6c;
+  --color-info: #7fdbca;
+
+  --color-skyhook-300: #c3d4ff;
+  --color-skyhook-400: #a6c1ff;
+  --color-skyhook-500: #82aaff;
+  --color-skyhook-600: #5f8ef0;
+  --color-skyhook-700: #4a74cc;
+  --color-skyhook-800: #395aa3;
+
+  --terminal-bg: #011627;
+  --terminal-border: #1d3b53;
+  --scrollbar-track: #011627;
+  --scrollbar-thumb: #1d3b53;
+  --scrollbar-thumb-hover: #2d5f86;
+}
+
+/*
+ * Material — palette inspired by material-extensions/vscode-material-icon-theme
+ * (MIT): Material blue-grey surfaces with the icon set's light-blue accent.
+ */
+html.theme-material {
+  color-scheme: dark;
+
+  --color-brand: #4fc3f7;
+  --color-brand-light: #81d4fa;
+  --brand-rgb: 79 195 247;
+
+  --bg-sidebar: #16191d;
+  --bg-base: #1b1e23;
+  --bg-surface: #22262c;
+  --bg-elevated: #2a2f36;
+  --bg-hover: #343a43;
+  --bg-active: #39404a;
+
+  --text-primary: #e3e6ea;
+  --text-secondary: #b8bec7;
+  --text-tertiary: #8b929c;
+  --text-disabled: #666d78;
+  --warning-text: #ffb74d;
+
+  --border-default: #333941;
+  --border-light: #414851;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #4f5762;
+
+  --accent: #4fc3f7;
+  --accent-light: #81d4fa;
+  --accent-muted: rgba(79, 195, 247, 0.16);
+  --accent-text: #81d4fa;
+
+  --selection-bg: rgba(79, 195, 247, 0.18);
+  --selection-bg-strong: rgba(79, 195, 247, 0.32);
+  --selection-text: #ffffff;
+  --selection-border: rgba(79, 195, 247, 0.45);
+
+  --color-success: #81c784;
+  --color-warning: #ffb74d;
+  --color-error: #e57373;
+  --color-alert: #ff8a65;
+  --color-info: #4dd0e1;
+
+  --color-skyhook-300: #b3e5fc;
+  --color-skyhook-400: #81d4fa;
+  --color-skyhook-500: #4fc3f7;
+  --color-skyhook-600: #29b6f6;
+  --color-skyhook-700: #039be5;
+  --color-skyhook-800: #0277bd;
+
+  --terminal-bg: #1b1e23;
+  --terminal-border: #333941;
+  --scrollbar-track: #16191d;
+  --scrollbar-thumb: #333941;
+  --scrollbar-thumb-hover: #4f5762;
+}
+
+/* One Dark Pro — darker variant of the classic Atom One Dark palette. */
+html.theme-one-dark-pro {
+  color-scheme: dark;
+
+  --color-brand: #61afef;
+  --color-brand-light: #7cc0ff;
+  --brand-rgb: 97 175 239;
+
+  --bg-sidebar: #1e2227;
+  --bg-base: #23272e;
+  --bg-surface: #2a2f37;
+  --bg-elevated: #333842;
+  --bg-hover: #3a3f4b;
+  --bg-active: #3e4451;
+
+  --text-primary: #abb2bf;
+  --text-secondary: #9da5b4;
+  --text-tertiary: #7f848e;
+  --text-disabled: #5c6370;
+  --warning-text: #e5c07b;
+
+  --border-default: #3e4451;
+  --border-light: #4b5263;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #528bff;
+
+  --accent: #61afef;
+  --accent-light: #7cc0ff;
+  --accent-muted: rgba(97, 175, 239, 0.16);
+  --accent-text: #7cc0ff;
+
+  --selection-bg: rgba(97, 175, 239, 0.18);
+  --selection-bg-strong: rgba(97, 175, 239, 0.32);
+  --selection-text: #ffffff;
+  --selection-border: rgba(97, 175, 239, 0.45);
+
+  --color-success: #98c379;
+  --color-warning: #e5c07b;
+  --color-error: #e06c75;
+  --color-alert: #d19a66;
+  --color-info: #56b6c2;
+
+  --color-skyhook-300: #a6d4ff;
+  --color-skyhook-400: #7cc0ff;
+  --color-skyhook-500: #61afef;
+  --color-skyhook-600: #4a95d6;
+  --color-skyhook-700: #3a7bb8;
+  --color-skyhook-800: #2d6193;
+
+  --terminal-bg: #23272e;
+  --terminal-border: #3e4451;
+  --scrollbar-track: #1e2227;
+  --scrollbar-thumb: #3e4451;
+  --scrollbar-thumb-hover: #4b5263;
+}
+
+/* One Dark — classic Atom One Dark (akamud/vscode-theme-onedark). */
+html.theme-one-dark {
+  color-scheme: dark;
+
+  --color-brand: #61afef;
+  --color-brand-light: #7cc0ff;
+  --brand-rgb: 97 175 239;
+
+  --bg-sidebar: #21252b;
+  --bg-base: #282c34;
+  --bg-surface: #2c313a;
+  --bg-elevated: #333842;
+  --bg-hover: #3a3f4b;
+  --bg-active: #3e4451;
+
+  --text-primary: #abb2bf;
+  --text-secondary: #9da5b4;
+  --text-tertiary: #7f848e;
+  --text-disabled: #5c6370;
+  --warning-text: #e5c07b;
+
+  --border-default: #3e4451;
+  --border-light: #4b5263;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #528bff;
+
+  --accent: #61afef;
+  --accent-light: #7cc0ff;
+  --accent-muted: rgba(97, 175, 239, 0.16);
+  --accent-text: #7cc0ff;
+
+  --selection-bg: rgba(97, 175, 239, 0.18);
+  --selection-bg-strong: rgba(97, 175, 239, 0.32);
+  --selection-text: #ffffff;
+  --selection-border: rgba(97, 175, 239, 0.45);
+
+  --color-success: #98c379;
+  --color-warning: #e5c07b;
+  --color-error: #e06c75;
+  --color-alert: #d19a66;
+  --color-info: #56b6c2;
+
+  --color-skyhook-300: #a6d4ff;
+  --color-skyhook-400: #7cc0ff;
+  --color-skyhook-500: #61afef;
+  --color-skyhook-600: #4a95d6;
+  --color-skyhook-700: #3a7bb8;
+  --color-skyhook-800: #2d6193;
+
+  --terminal-bg: #282c34;
+  --terminal-border: #3e4451;
+  --scrollbar-track: #21252b;
+  --scrollbar-thumb: #3e4451;
+  --scrollbar-thumb-hover: #4b5263;
+}
+
+/* Catppuccin — Mocha flavour (catppuccin/vscode, MIT). */
+html.theme-catppuccin {
+  color-scheme: dark;
+
+  --color-brand: #cba6f7;
+  --color-brand-light: #d7bdfa;
+  --brand-rgb: 203 166 247;
+
+  --bg-sidebar: #181825;
+  --bg-base: #1e1e2e;
+  --bg-surface: #313244;
+  --bg-elevated: #313244;
+  --bg-hover: #45475a;
+  --bg-active: #45475a;
+
+  --text-primary: #cdd6f4;
+  --text-secondary: #bac2de;
+  --text-tertiary: #a6adc8;
+  --text-disabled: #6c7086;
+  --warning-text: #f9e2af;
+
+  --border-default: #45475a;
+  --border-light: #585b70;
+  --border-subtle: rgba(205, 214, 244, 0.06);
+  --border-emphasis: #cba6f7;
+
+  --accent: #cba6f7;
+  --accent-light: #d7bdfa;
+  --accent-muted: rgba(203, 166, 247, 0.16);
+  --accent-text: #d7bdfa;
+
+  --selection-bg: rgba(203, 166, 247, 0.2);
+  --selection-bg-strong: rgba(203, 166, 247, 0.35);
+  --selection-text: #1e1e2e;
+  --selection-border: rgba(203, 166, 247, 0.5);
+
+  --color-success: #a6e3a1;
+  --color-warning: #f9e2af;
+  --color-error: #f38ba8;
+  --color-alert: #fab387;
+  --color-info: #94e2d5;
+
+  --color-skyhook-300: #e0c9fb;
+  --color-skyhook-400: #d7bdfa;
+  --color-skyhook-500: #cba6f7;
+  --color-skyhook-600: #b78ae8;
+  --color-skyhook-700: #a072d4;
+  --color-skyhook-800: #855cb4;
+
+  --terminal-bg: #1e1e2e;
+  --terminal-border: #45475a;
+  --scrollbar-track: #181825;
+  --scrollbar-thumb: #313244;
+  --scrollbar-thumb-hover: #45475a;
+}
+
+/* Jellybeans — warm dark palette (siwatts/jellybeans-theme-vscode, MIT). */
+html.theme-jellybeans {
+  color-scheme: dark;
+
+  --color-brand: #8197bf;
+  --color-brand-light: #a8bce0;
+  --brand-rgb: 129 151 191;
+
+  --bg-sidebar: #151515;
+  --bg-base: #151515;
+  --bg-surface: #1f1f1f;
+  --bg-elevated: #262626;
+  --bg-hover: #2f2f2f;
+  --bg-active: #363636;
+
+  --text-primary: #e8e8d3;
+  --text-secondary: #c8c8b8;
+  --text-tertiary: #999988;
+  --text-disabled: #6c6c5f;
+  --warning-text: #d8ad4c;
+
+  --border-default: #333333;
+  --border-light: #444444;
+  --border-subtle: rgba(232, 232, 211, 0.06);
+  --border-emphasis: #8197bf;
+
+  --accent: #8197bf;
+  --accent-light: #a8bce0;
+  --accent-muted: rgba(129, 151, 191, 0.16);
+  --accent-text: #a8bce0;
+
+  --selection-bg: rgba(129, 151, 191, 0.2);
+  --selection-bg-strong: rgba(129, 151, 191, 0.35);
+  --selection-text: #ffffff;
+  --selection-border: rgba(129, 151, 191, 0.45);
+
+  --color-success: #99ad6a;
+  --color-warning: #d8ad4c;
+  --color-error: #cf6a4c;
+  --color-alert: #ffb964;
+  --color-info: #8fbfdc;
+
+  --color-skyhook-300: #c3d2ec;
+  --color-skyhook-400: #a8bce0;
+  --color-skyhook-500: #8197bf;
+  --color-skyhook-600: #6a7fa5;
+  --color-skyhook-700: #56698a;
+  --color-skyhook-800: #445370;
+
+  --terminal-bg: #151515;
+  --terminal-border: #333333;
+  --scrollbar-track: #0f0f0f;
+  --scrollbar-thumb: #333333;
+  --scrollbar-thumb-hover: #555555;
+}
+
+/* Adwaita — GNOME dark palette (piousdeer/vscode-adwaita, MIT). */
+html.theme-adwaita {
+  color-scheme: dark;
+
+  --color-brand: #78aeed;
+  --color-brand-light: #99c1f1;
+  --brand-rgb: 120 174 237;
+
+  --bg-sidebar: #242424;
+  --bg-base: #1e1e1e;
+  --bg-surface: #303030;
+  --bg-elevated: #383838;
+  --bg-hover: #404040;
+  --bg-active: #454545;
+
+  --text-primary: #ffffff;
+  --text-secondary: #deddda;
+  --text-tertiary: #9a9996;
+  --text-disabled: #77767b;
+  --warning-text: #f9f06b;
+
+  --border-default: #3d3d3d;
+  --border-light: #5e5c64;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-emphasis: #78aeed;
+
+  --accent: #78aeed;
+  --accent-light: #99c1f1;
+  --accent-muted: rgba(120, 174, 237, 0.16);
+  --accent-text: #99c1f1;
+
+  --selection-bg: rgba(120, 174, 237, 0.2);
+  --selection-bg-strong: rgba(120, 174, 237, 0.35);
+  --selection-text: #ffffff;
+  --selection-border: rgba(120, 174, 237, 0.45);
+
+  --color-success: #8ff0a4;
+  --color-warning: #f9f06b;
+  --color-error: #f66151;
+  --color-alert: #ffa348;
+  --color-info: #62a0ea;
+
+  --color-skyhook-300: #c4ddfa;
+  --color-skyhook-400: #99c1f1;
+  --color-skyhook-500: #78aeed;
+  --color-skyhook-600: #5a97d6;
+  --color-skyhook-700: #427fbd;
+  --color-skyhook-800: #2f66a0;
+
+  --terminal-bg: #1e1e1e;
+  --terminal-border: #3d3d3d;
+  --scrollbar-track: #1e1e1e;
+  --scrollbar-thumb: #3d3d3d;
+  --scrollbar-thumb-hover: #5e5c64;
+}

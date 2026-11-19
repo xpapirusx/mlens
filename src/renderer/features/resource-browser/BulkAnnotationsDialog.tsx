@@ -98,13 +98,13 @@ export function BulkAnnotationsDialog({
       ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wide text-theme-text-tertiary">
+            <span className="text-[calc(11px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
               {presets.length} saved annotation{presets.length === 1 ? "" : "s"}
             </span>
             <button
               type="button"
               onClick={toggleAll}
-              className="text-[11px] text-accent-text hover:underline"
+              className="text-[calc(11px*var(--font-scale))] text-accent-text hover:underline"
             >
               {allPicked ? "Clear all" : "Select all"}
             </button>
@@ -126,10 +126,10 @@ export function BulkAnnotationsDialog({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-1.5">
-                      <span className="truncate font-mono text-[11px] text-theme-text-primary">{key}</span>
+                      <span className="truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{key}</span>
                       {active ? <Check className="h-3 w-3 shrink-0 text-emerald-500" /> : null}
                     </span>
-                    <span className="mt-0.5 block truncate text-[11px] text-theme-text-tertiary">
+                    <span className="mt-0.5 block truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                       {value || "—"}
                     </span>
                   </span>
@@ -137,7 +137,7 @@ export function BulkAnnotationsDialog({
               );
             })}
           </div>
-          <p className="text-[11px] text-theme-text-tertiary">
+          <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             {chosenKeys.length === 0
               ? "Pick at least one annotation."
               : `${chosenKeys.length} key${chosenKeys.length === 1 ? "" : "s"} will be written to ${targetCount} resource${targetCount === 1 ? "" : "s"}. Selection stays after apply.`}

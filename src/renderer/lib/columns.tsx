@@ -72,7 +72,7 @@ function StatusCell({ object, kind }: { object: AnyObject; kind: string }) {
           ) : null}
           {conditions.length > 0 ? (
             <>
-              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+              <div className="pt-0.5 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">
                 Conditions
               </div>
               <ConditionsTooltip conditions={conditions} />
@@ -95,8 +95,8 @@ function AgeCell({ object }: { object: AnyObject }) {
       wrapperClassName="min-w-0"
       content={
         <div className="space-y-0.5">
-          <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
-          <div className="font-mono text-[11px] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
+          <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">Created</div>
+          <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
         </div>
       }
     >
@@ -328,7 +328,7 @@ function ContainerTooltip({ square }: { square: ContainerSquare }) {
 
 /**
  * Radar's container squares: one 10px tile per container, colour by state, an
- * orange ring while the container is restarting, and a separator between the
+ * muted grey ring while the container has restarts, and a separator between the
  * init block and the main containers.
  */
 function ContainersCell({ object }: { object: AnyObject }) {
@@ -359,7 +359,7 @@ function ContainersCell({ object }: { object: AnyObject }) {
               <span className="mx-0.5 h-3 w-px bg-theme-text-tertiary/40" aria-hidden />
             ) : null}
             <Tooltip content={<ContainerTooltip square={square} />} wrapperClassName="shrink-0">
-              <span className={cn("h-2.5 w-2.5 rounded-sm", background, square.restarts > 0 && "ring-2 ring-orange-400")} />
+              <span className={cn("h-2.5 w-2.5 rounded-sm", background, square.restarts > 0 && "ring-2 ring-theme-text-tertiary")} />
             </Tooltip>
           </Fragment>
         );
@@ -457,36 +457,36 @@ function PodUsageCell({
 
   const tooltip = (
     <div className="w-72 space-y-2 whitespace-normal">
-      <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+      <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
         {kind === "cpu" ? "CPU" : "Memory"} by container
       </div>
       <div className="space-y-1.5">
         {shown.map((row) => (
           <div key={row.name} className="space-y-0.5">
-            <div className="truncate text-[11px] text-theme-text-tertiary">{row.name}</div>
-            <div className="font-mono text-[11px] text-theme-text-primary">{row.detail}</div>
+            <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{row.name}</div>
+            <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{row.detail}</div>
           </div>
         ))}
         {remaining > 0 ? (
-          <div className="border-t border-theme-border/50 pt-1 text-[10px] text-theme-text-tertiary">
+          <div className="border-t border-theme-border/50 pt-1 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
             +{remaining} more
           </div>
         ) : null}
       </div>
       {nodeName ? (
         <div className="space-y-0.5 border-t border-theme-border/50 pt-1">
-          <div className="truncate text-[11px] text-theme-text-tertiary">Node {nodeName}</div>
+          <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">Node {nodeName}</div>
           {nodeUsedPct !== undefined && podSharePct !== undefined && (nodeUsage ?? 0) > 0 ? (
             <div
               className={cn(
-                "font-mono text-[11px]",
+                "font-mono text-[calc(11px*var(--font-scale))]",
                 nodeUsedPct >= 90 ? "text-amber-600 dark:text-amber-400" : "text-theme-text-secondary",
               )}
             >
               {formatPercent(nodeUsedPct)} used · this pod {formatPercent(podSharePct)}
             </div>
           ) : (
-            <div className="text-[11px] text-theme-text-tertiary">node metrics unavailable</div>
+            <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">node metrics unavailable</div>
           )}
         </div>
       ) : null}
@@ -496,7 +496,7 @@ function PodUsageCell({
   if (mode === "none") {
     return (
       <Tooltip content={tooltip} wrapperClassName="min-w-0" delay={200}>
-        <span className="font-mono text-[11px] text-theme-text-secondary">{formats(usage)}</span>
+        <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-secondary">{formats(usage)}</span>
       </Tooltip>
     );
   }
@@ -797,7 +797,7 @@ function WarningsCell({ object, context }: { object: AnyObject; context?: CellCo
     >
       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
         <TriangleExclamationPoint className="h-3.5 w-3.5" />
-        <span className="font-mono text-[11px]">{entry.count}</span>
+        <span className="font-mono text-[calc(11px*var(--font-scale))]">{entry.count}</span>
       </span>
     </Tooltip>
   );
@@ -1637,7 +1637,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
                   </button>
                 ))}
                 {names.length > 3 ? (
-                  <span className="text-[10px] text-theme-text-disabled">+{names.length - 3}</span>
+                  <span className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">+{names.length - 3}</span>
                 ) : null}
               </div>
             );
@@ -2221,13 +2221,13 @@ export function ConditionsTooltip({ conditions }: { conditions: Array<Record<str
               </span>
               <span className="shrink-0 text-theme-text-tertiary">{state}</span>
               {timestamp ? (
-                <span className="ml-auto shrink-0 text-[10px] text-theme-text-disabled">
+                <span className="ml-auto shrink-0 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                   {formatRelativeTime(timestamp)}
                 </span>
               ) : null}
             </div>
             {condition.reason || condition.message ? (
-              <div className="break-words pl-3 text-[10px] leading-snug text-theme-text-tertiary">
+              <div className="break-words pl-3 text-[calc(10px*var(--font-scale))] leading-snug text-theme-text-tertiary">
                 {condition.reason ? (
                   <span className="text-theme-text-secondary">{condition.reason}</span>
                 ) : null}
@@ -2236,7 +2236,7 @@ export function ConditionsTooltip({ conditions }: { conditions: Array<Record<str
               </div>
             ) : null}
             {timestamp ? (
-              <div className="pl-3 text-[10px] text-theme-text-disabled">
+              <div className="pl-3 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                 {formatTimestamp(timestamp)}
               </div>
             ) : null}
@@ -2260,7 +2260,7 @@ export function NodeTaintsTooltip({ taints }: { taints: NodeTaint[] }) {
       {taints.map((taint, index) => (
         <div
           key={`${taint.text}-${index}`}
-          className="flex items-start gap-1.5 font-mono text-[11px] leading-snug"
+          className="flex items-start gap-1.5 font-mono text-[calc(11px*var(--font-scale))] leading-snug"
         >
           <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${taintEffectDot(taint.effect)}`} />
           <span className="min-w-0 break-all text-theme-text-secondary">{taint.text}</span>
@@ -2302,12 +2302,15 @@ export function sortObjects(
 ): AnyObject[] {
   if (!column?.value) return objects;
   const factor = direction === "asc" ? 1 : -1;
-  return [...objects].sort((a, b) => {
-    const left = column.value!(a, context);
-    const right = column.value!(b, context);
-    if (typeof left === "number" && typeof right === "number") return (left - right) * factor;
-    return String(left ?? "").localeCompare(String(right ?? ""), undefined, { numeric: true }) * factor;
+  // A12: evaluate each row's sort value once — calling `column.value` inside
+  // the comparator cost O(n log n) value evaluations per re-sort.
+  const value = column.value;
+  const decorated = objects.map((object) => ({ object, key: value(object, context) }));
+  decorated.sort((a, b) => {
+    if (typeof a.key === "number" && typeof b.key === "number") return (a.key - b.key) * factor;
+    return String(a.key ?? "").localeCompare(String(b.key ?? ""), undefined, { numeric: true }) * factor;
   });
+  return decorated.map((entry) => entry.object);
 }
 
 export function visibleColumns(columns: ColumnDef[], hidden: Set<string>): ColumnDef[] {

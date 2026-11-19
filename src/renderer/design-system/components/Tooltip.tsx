@@ -78,7 +78,7 @@ export function Tooltip({ content, children, side = "bottom", delay = 260, class
           <div
             role="tooltip"
             className={cn(
-              "pointer-events-none fixed z-[100] max-w-xs rounded-md border border-theme-border bg-theme-surface px-2 py-1 text-[11px] leading-snug text-theme-text-secondary shadow-theme-md",
+              "pointer-events-none fixed z-[100] max-w-xs rounded-md border border-theme-border bg-theme-surface px-2 py-1 text-[calc(11px*var(--font-scale))] leading-snug text-theme-text-secondary shadow-theme-md",
               className,
             )}
             style={{

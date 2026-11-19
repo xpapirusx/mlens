@@ -70,13 +70,13 @@ not ship a Go backend.
 ├──────┬───────────────────────────────────────────────────────────────┤
 │      │ Cluster frame                                                 │
 │ Hot  │ ┌────────────┬──────────────────────────────────────────────┐ │
-│      │ │            │ Open-resource tabs · 32px                    │ │
-│ bar  │ │ Sidebar    │ Sibling resource tabs (36px)                 │ │
-│ 75px │ │ 236px      │ ┌──────────────────────────────────────────┐ │ │
-│      │ │ resizable  │ │ Resource browser (Radar table)           │ │ │
-│      │ │ 170–420    │ │                    ┌─────────────────────┼─┤ │
-│      │ │            │ │                    │ Details drawer      │ │ │
-│      │ │            │ └────────────────────┴─────────────────────┘ │ │
+│      │ │            │ Sibling resource tabs (36px)                 │ │
+│ bar  │ │ Sidebar    │ Create · Search · live · filters (48px)      │ │
+│ 75px │ │ 236px      │ ┌─────────────────────────┬──────────────────┐ │ │
+│      │ │ resizable  │ │ Resource browser        │ Editor area      │ │ │
+│      │ │ 170–420    │ │ (Radar table)           │ panes 1–4, 2×2   │ │ │
+│      │ │            │ │                         │ tab strip/pane   │ │ │
+│      │ │            │ └─────────────────────────┴──────────────────┘ │ │
 │      │ │            │ Terminal dock (34px collapsed / 340px open)  │ │
 │      │ └────────────┴──────────────────────────────────────────────┘ │
 ├──────┴───────────────────────────────────────────────────────────────┤
@@ -120,8 +120,8 @@ trade-off is documented in `ARCHITECTURE.md` §10.
 Left → right:
 
 1. Home (catalog).
-2. Back — when the details drawer is open, returns to the previously opened
-   resource; otherwise returns to the catalog.
+2. Back — when the editor area has an active tab, returns to the previously
+   opened resource; otherwise returns to the catalog.
 3. Forward — present but disabled; mLens has no route history yet, and disabled
    is preferable to a fake action.
 4. Active cluster pill: health dot, cluster name, Kubernetes version.
@@ -157,35 +157,56 @@ editors are `no-drag`, so selection, scrolling and editing keep working.
   shake), hover/active ring shadows, and a tooltip with context/server/state.
 - Bottom: import kubeconfig, settings.
 
-### 2.3a Cluster tabs and open-resource tabs
+### 2.3a Cluster tabs and editor tabs
 
 - A 36px cluster tab strip sits directly under the top bar, with Home/Back/Forward
   controls at its left (the old top-bar navigation was moved here). Each visited cluster
   keeps a tab with a health dot; the close button disconnects that cluster and
-  removes its workspace. `+` returns to the catalog. The strip is hidden when no
-  session exists.
-- Inside a cluster, a 32px open-resource strip appears above the sibling-kind
-  tabs. Every resource opened from a table, relation or command palette adds a
-  tab (`name` + kind). Tabs switch the details drawer, keep a 25-entry back
-  stack, and close with X (closing the active tab selects its neighbour).
+  removes its workspace. Cluster tabs share the editor-area tab shape (rounded-t,
+  top accent when active, close on hover). `+` returns to the catalog. The strip
+  is hidden when no session exists.
+- Inside a cluster, the **editor area** appears to the right of the resource
+  table, starting under the table toolbar row (Create / Search / live status),
+  so that toolbar spans the full content width. It holds 1–4 panes in a 2×2
+  grid. Every resource opened from a table,
+  relation or command palette becomes a tab in the focused pane. Each pane has
+  its own VS Code-like tab strip (drag to reorder, drop onto another pane to
+  move, middle-click / context menu to close, overflow menu), its inner
+  Overview/Details/YAML/… tabs and a 25-entry back stack.
 - Inactive cluster workspaces stay mounted (CSS-hidden), exactly like Freelens'
-  hidden cluster frames, so scroll, drawer state and live PTYs survive switching.
-- The open-resource strip can be collapsed into a slim shadow tray directly above
-  the terminal dock. The tray keeps every tab rendered and clickable and offers a
-  chevron to restore the strip to the top.
+  hidden cluster frames, so scroll, editor layout and live PTYs survive switching.
+- The editor area resizes on its left edge and can be expanded over the table.
+  Minimizing it collapses every tab into a slim shadow tray directly above the
+  terminal dock; the tabs stay rendered and clickable, and a chevron restores
+  the editor.
 
 ### 2.3b Cluster catalog selection
 
 Open clusters (a live session exists) sort to the top of the catalog; the Status
 column reads **Connected** and the Kubernetes version lives in the Version column.
 A sort control switches between open/status, name, recently opened and kubeconfig
-source.
+source. The choice is stored in `settings.catalogSort` and survives restarts; the
+**Recent** view always lists the most recently opened clusters first.
 
 Catalog rows have an always-visible checkbox. A selection bar can add the
 selected contexts to favourites or remove them from the catalog. Removal is
 non-destructive: kubeconfig files are never modified. Removed clusters appear in
 a **Removed** catalog view and can be restored; the hotbar, cluster tabs, command
 palette and settings only see visible clusters.
+
+### 2.3c Cross-cluster split screen
+
+- The **Columns2** button beside the cluster tabs opens a picker of other open
+  clusters and pins one as the right pane; both panes are full cluster
+  workspaces (sidebar, table, editor area, dock). A chip next to the button
+  names the pinned cluster and closes the split.
+- The divider between panes is draggable (20–80%); the active cluster is the
+  left pane. Clicking the right pane's cluster tab swaps the two roles; closing
+  either pane keeps the other (the survivor becomes active).
+- Every cluster workspace stays mounted and keyed; the split only toggles CSS
+  visibility/width, so PTYs, scroll and editor panes survive.
+- Both visible workspaces poll; workspaces hidden behind the split keep their
+  watches but pause polling, like inactive cluster tabs.
 
 ### 2.4 Cluster sidebar
 
@@ -258,14 +279,22 @@ contains a single kind.
   cross-cluster session is never ambiguous.
 - Double-clicking the dock header collapses/expands it.
 
-### 2.7 Details drawer
+### 2.7 Editor area
 
 - Right edge, inside the cluster frame, **not** a modal and **not** a new window.
-- Default width 560px; draggable 460px → 74% of the window; expand button morphs
-  to nearly full width.
-- Header: kind outline pill, status badge, API version, Back, Delete, Reload,
-  Expand, Minimize and Close. Minimize hides the drawer without closing it — the
-  open-resource tabs stay and a floating pill at the bottom-right restores it. Delete sits next to Close and always asks for confirmation.
+- A resizable column to the right of the table, starting under the toolbar row
+  (Create / Search / live status), which spans the full width. Holds one to four
+  panes (2×2 grid). Default width 560px, dragged on the left edge down to a
+  240px table strip; Expand takes the full width over the table.
+- Each pane has a VS Code-like tab strip: drag to reorder, drop onto another
+  pane to move a tab, middle-click or right-click for Close / Close others /
+  Close to the right / Split right / Split down / Move to pane. The overflow
+  `…` menu lists every tab and the split actions. A new split opens the same
+  resource in the new pane.
+- Header per pane: kind outline pill, status badge, API version, Back, Delete,
+  Reload, Expand, Minimize and Close. Minimize hides the whole editor area
+  without closing anything — tabs stay and the floating pill / shadow tray
+  restores it. Delete sits next to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
   Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
   ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
@@ -273,9 +302,10 @@ contains a single kind.
   Cordon/Uncordon, Drain and Debug shell (Nodes). Reload (clockwise arrow) refetches data;
   Restart uses the counter-clockwise arrow.
 - Tabs: **Overview, Details, YAML, Events, Related, Logs (Pods only), Metrics**. Related is shown for every kind and lists owners, selectors, services, mounted config, node pods and bound volumes when they exist; the list uses Freelens-style rows (kind, name, namespace, relation, status).
-- `Escape`, `⌘W`/`Ctrl+W` close the drawer when it is open.
-- Opening another row replaces the content and pushes the previous resource onto
-  a 25-entry back stack.
+- `Escape`, `⌘W`/`Ctrl+W` close the active tab.
+- Opening another row replaces the content of the focused pane and pushes the
+  previous resource onto that pane's 25-entry back stack. Related-resource
+  navigation stays inside the same pane.
 
 ### 2.8 Keyboard
 
@@ -285,8 +315,8 @@ contains a single kind.
 | `⌘,` / `Ctrl+,` | Settings |
 | `⌘T` / `Ctrl+T` | New local terminal in the current context |
 | `⌘⇧T` / `Ctrl+Shift+T` | New terminal in a chosen cluster/namespace context |
-| `⌘W` / `Ctrl+W` | Close details drawer (when open) |
-| `Escape` | Close details |
+| `⌘W` / `Ctrl+W` | Close the active editor tab (when open) |
+| `Escape` | Close the active editor tab |
 | `/` | Focus table search (when not typing) |
 | `↑` / `↓` / `Enter` | Move row highlight / open resource |
 | `⌘C` / `Ctrl+C` | Copy terminal selection (otherwise sends ^C) |
@@ -327,6 +357,12 @@ theme hacks.
 Base 14px, line-height 1.5. Table body cells 14px; table headers 12px, 500,
 uppercase, letter-spacing wide. Detail section titles 13px/500; drawer title
 18px/600; dock tabs 12px; terminal 13px/1.2; logs 11px/20px.
+
+The user-adjustable **Font size** setting (Settings → Appearance) multiplies
+every size above by a scale entered as a free numeric value, clamped to
+0.5–2.0 (default 1.0, persisted as `fontScale`); the px values in this section
+are the 100% defaults, and interface geometry (spacing, row heights,
+sidebar/dock sizes) does not scale.
 
 ### 3.2 Colour tokens
 
@@ -655,6 +691,10 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load mo
 - A Pod action opens a start dialog (random local port 30000–65355 by default, pod port), creates a
   loopback listener and tunnels through the Kubernetes WebSocket
   port-forward protocol. The ports table exposes one-click Forward buttons.
+- The start dialog has an **Open in browser** checkbox (on by default, stored as
+  `settings.portForwardOpenBrowser`): on start the system browser opens
+  `http://127.0.0.1:<localPort>`. The one-click Forward action honours the same
+  preference.
 - A **Port forwards** panel in the top bar lists every active forward across
   clusters with local/remote ports, start time, open-in-browser and stop.
 - Stops automatically when the cluster is disconnected or the app quits.
@@ -689,7 +729,8 @@ Per cluster, the following survive switching clusters:
 - per-kind search text, regex flag, sort, column filters, hidden columns and
   column widths;
 - sidebar group expansion (including nested CRD groups) and sidebar width;
-- the open-resource tabs, the active resource, its details tab, and the back stack;
+- the editor area (panes, tabs, active resource, per-pane details tab and back
+  stack, split sizes and width);
 - dock open state, height, terminal tabs and their live PTYs.
 
 Connections themselves also survive: switching clusters does not disconnect the

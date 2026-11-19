@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowUpDown, ChevronDown, ChevronUp, ListFilter, MoreHorizontal } from "lucide-react";
 import type { KubeObject } from "@shared/types";
@@ -50,6 +50,178 @@ interface ResourceTableProps {
   /** Hides the sticky row-actions button (kinds with no applicable actions). */
   hideRowMenu?: boolean;
 }
+
+interface TableRowProps {
+  object: KubeObject;
+  columns: ColumnDef[];
+  index: number;
+  top: number;
+  gridTemplate: string;
+  stickyOffsets: Map<string, number>;
+  rowHeight: number;
+  /** The details drawer points at this row. */
+  selected: boolean;
+  /** This row's checkbox is ticked. */
+  checked: boolean;
+  highlighted: boolean;
+  selectionMode: boolean;
+  hideRowMenu?: boolean;
+  showNamespace: boolean;
+  podMetrics?: Map<string, PodUsage>;
+  nodeMetrics?: Map<string, NodeUsage>;
+  claimPods?: Map<string, string[]>;
+  serviceEndpoints?: Map<string, number>;
+  warnings?: Map<string, import("./useWarningEvents").WarningEntry>;
+  nodePodCounts?: Map<string, number>;
+  onSelectNamespace?: (namespace: string) => void;
+  onOpenNode?: (name: string) => void;
+  onOpenRef?: (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => void;
+  onOpen: (object: KubeObject) => void;
+  onContextMenu: (object: KubeObject, event: React.MouseEvent) => void;
+  onRowMenu?: (object: KubeObject, event: React.MouseEvent) => void;
+  onToggleRow?: (object: KubeObject) => void;
+  setHighlight: (index: number) => void;
+}
+
+/**
+ * A16: one memoized row. The parent table re-renders on scroll, hover and
+ * store writes; without this every re-render re-invoked every visible cell.
+ * All callback props handed to rows are stable wrappers (see the `latest`
+ * refs inside ResourceTable), so only real data changes re-render a row.
+ */
+const TableRow = memo(function TableRow({
+  object,
+  columns,
+  index,
+  top,
+  gridTemplate,
+  stickyOffsets,
+  rowHeight,
+  selected,
+  checked,
+  highlighted,
+  selectionMode,
+  hideRowMenu,
+  showNamespace,
+  podMetrics,
+  nodeMetrics,
+  claimPods,
+  serviceEndpoints,
+  warnings,
+  nodePodCounts,
+  onSelectNamespace,
+  onOpenNode,
+  onOpenRef,
+  onOpen,
+  onContextMenu,
+  onRowMenu,
+  onToggleRow,
+  setHighlight,
+}: TableRowProps) {
+  return (
+    <div
+      role="row"
+      aria-selected={selected}
+      data-index={index}
+      className={cn(
+        "group/row absolute left-0 top-0 grid w-full cursor-pointer border-b-subtle transition-colors",
+        selected
+          ? "selection-strong"
+          : highlighted
+            ? "selection selection-ring"
+            : "hover:bg-theme-hover/40",
+      )}
+      style={{
+        top,
+        height: rowHeight,
+        gridTemplateColumns: gridTemplate,
+      }}
+      onClick={() => {
+        setHighlight(index);
+        onOpen(object);
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        setHighlight(index);
+        onContextMenu(object, event);
+      }}
+    >
+      {selectionMode ? (
+        <div
+          className="flex items-center justify-center border-r-subtle"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleRow?.(object);
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={checked}
+            readOnly
+            className="h-3.5 w-3.5 rounded border-theme-border accent-skyhook-500"
+          />
+        </div>
+      ) : null}
+
+      {columns.map((column, cellIndex) => (
+        <div
+          key={column.key}
+          role="cell"
+          style={
+            stickyOffsets.has(column.key)
+              ? { position: "sticky", left: stickyOffsets.get(column.key), zIndex: 5 }
+              : undefined
+          }
+          className={cn(
+            "flex min-w-0 items-center overflow-hidden",
+            column.compact ? "px-4" : "px-4",
+            cellIndex !== columns.length - 1 && "border-r-subtle",
+            column.align === "right" && "justify-end",
+            stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
+          )}
+        >
+          <div className="min-w-0 w-full">
+            {column.cell(object, {
+              showNamespace,
+              podMetrics,
+              nodeMetrics,
+              onSelectNamespace,
+              onOpenNode,
+              onOpenRef,
+              claimPods,
+              serviceEndpoints,
+              warnings,
+              nodePodCounts,
+            })}
+          </div>
+        </div>
+      ))}
+      <div
+        style={{ position: "sticky", right: 0, zIndex: 6 }}
+        className={cn(
+          "flex items-center justify-center border-l-subtle",
+          selected ? "selection-strong" : "bg-theme-surface",
+        )}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {hideRowMenu ? null : (
+          <button
+            type="button"
+            aria-label="Row actions"
+            title="Actions"
+            className="rounded p-1 text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRowMenu?.(object, event);
+            }}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+});
 
 export function ResourceTable({
   rows,
@@ -105,27 +277,62 @@ export function ResourceTable({
     setHighlight(-1);
   }, [columns]);
 
-  const effectiveWidths = { ...columnWidths, ...previewWidths };
-  const columnWidth = (column: ColumnDef) =>
-    effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
-  const stickyOffsets = new Map<string, number>();
-  let stickyLeft = selectionMode ? 40 : 0;
-  for (const column of columns) {
-    if (!pinnedKeys.has(column.key)) continue;
-    stickyOffsets.set(column.key, stickyLeft);
-    stickyLeft += columnWidth(column);
-  }
-  const gridTemplate = `${selectionMode ? "40px " : ""}${columns
-    .map((column) => formatColumnWidth(column, effectiveWidths[column.key]))
-    .join(" ")} 36px`;
-  const minWidth =
-    (selectionMode ? 40 : 0) +
-    36 +
-    columns.reduce(
-      (sum, column) => sum + (effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
-      0,
-    );
+  // Layout values are memoized: the row memo compares `gridTemplate` and
+  // `stickyOffsets` by identity, so rebuilding them per render would defeat it.
+  const effectiveWidths = useMemo(() => ({ ...columnWidths, ...previewWidths }), [columnWidths, previewWidths]);
+  const stickyOffsets = useMemo(() => {
+    const offsets = new Map<string, number>();
+    let stickyLeft = selectionMode ? 40 : 0;
+    for (const column of columns) {
+      if (!pinnedKeys.has(column.key)) continue;
+      offsets.set(column.key, stickyLeft);
+      stickyLeft += effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+    }
+    return offsets;
+  }, [columns, pinnedKeys, selectionMode, effectiveWidths]);
+  const gridTemplate = useMemo(
+    () =>
+      `${selectionMode ? "40px " : ""}${columns
+        .map((column) => formatColumnWidth(column, effectiveWidths[column.key]))
+        .join(" ")} 36px`,
+    [columns, effectiveWidths, selectionMode],
+  );
+  const minWidth = useMemo(
+    () =>
+      (selectionMode ? 40 : 0) +
+      36 +
+      columns.reduce(
+        (sum, column) => sum + (effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140))),
+        0,
+      ),
+    [columns, effectiveWidths, selectionMode],
+  );
   const allSelected = rows.length > 0 && rows.every((row) => selectedKeys.has(row.metadata?.uid ?? `${row.metadata?.namespace}/${row.metadata?.name}`));
+
+  // A16: stable wrappers for the inline closures the browser passes in — the
+  // row memo would otherwise see new function identities on every render.
+  const latest = useRef({ onOpen, onContextMenu, onRowMenu, onToggleRow, onSelectNamespace, onOpenNode, onOpenRef });
+  latest.current = { onOpen, onContextMenu, onRowMenu, onToggleRow, onSelectNamespace, onOpenNode, onOpenRef };
+  const openRow = useCallback((object: KubeObject) => latest.current.onOpen(object), []);
+  const contextRow = useCallback(
+    (object: KubeObject, event: React.MouseEvent) => latest.current.onContextMenu(object, event),
+    [],
+  );
+  const menuRow = useCallback(
+    (object: KubeObject, event: React.MouseEvent) => latest.current.onRowMenu?.(object, event),
+    [],
+  );
+  const toggleRow = useCallback((object: KubeObject) => latest.current.onToggleRow?.(object), []);
+  const selectNamespace = useCallback(
+    (namespace: string) => latest.current.onSelectNamespace?.(namespace),
+    [],
+  );
+  const openNode = useCallback((name: string) => latest.current.onOpenNode?.(name), []);
+  const openRef = useCallback(
+    (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) =>
+      latest.current.onOpenRef?.(target),
+    [],
+  );
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -195,7 +402,7 @@ export function ResourceTable({
                     : undefined
                 }
                 className={cn(
-                  "group/th relative flex min-w-0 items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-theme-text-secondary",
+                  "group/th relative flex min-w-0 items-center gap-1 text-[calc(11px*var(--font-scale))] font-medium uppercase tracking-wide text-theme-text-secondary",
                   column.compact ? "px-7" : "px-4",
                   stickyOffsets.has(column.key) && "bg-theme-base",
                   index !== columns.length - 1 && "border-r-subtle",
@@ -295,95 +502,36 @@ export function ResourceTable({
                 selectedRef?.name === object.metadata?.name &&
                 (selectedRef?.namespace ?? object.metadata?.namespace) === object.metadata?.namespace;
               return (
-                <div
+                <TableRow
                   key={key}
-                  role="row"
-                  aria-selected={selected}
-                  data-index={virtualRow.index}
-                  className={cn(
-                    "group/row absolute left-0 top-0 grid w-full cursor-pointer border-b-subtle transition-colors",
-                    selected
-                      ? "selection-strong"
-                      : virtualRow.index === highlight
-                        ? "selection selection-ring"
-                        : "hover:bg-theme-hover/40",
-                  )}
-                  style={{
-                    top: virtualRow.start,
-                    height: rowHeight,
-                    gridTemplateColumns: gridTemplate,
-                  }}
-                  onClick={() => {
-                    setHighlight(virtualRow.index);
-                    onOpen(object);
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    setHighlight(virtualRow.index);
-                    onContextMenu(object, event);
-                  }}
-                >
-                  {selectionMode ? (
-                    <div
-                      className="flex items-center justify-center border-r-subtle"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onToggleRow?.(object);
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedKeys.has(object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`)}
-                        readOnly
-                        className="h-3.5 w-3.5 rounded border-theme-border accent-skyhook-500"
-                      />
-                    </div>
-                  ) : null}
-
-                  {columns.map((column, index) => (
-                    <div
-                      key={column.key}
-                      role="cell"
-                      style={
-                        stickyOffsets.has(column.key)
-                          ? { position: "sticky", left: stickyOffsets.get(column.key), zIndex: 5 }
-                          : undefined
-                      }
-                      className={cn(
-                        "flex min-w-0 items-center overflow-hidden",
-                        column.compact ? "px-4" : "px-4",
-                        index !== columns.length - 1 && "border-r-subtle",
-                        column.align === "right" && "justify-end",
-                        stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
-                      )}
-                    >
-                      <div className="min-w-0 w-full">{column.cell(object, { showNamespace, podMetrics, nodeMetrics, onSelectNamespace, onOpenNode, onOpenRef, claimPods, serviceEndpoints, warnings, nodePodCounts })}</div>
-                    </div>
-                  ))}
-                  <div
-                    style={{ position: "sticky", right: 0, zIndex: 6 }}
-                    className={cn(
-                      "flex items-center justify-center border-l-subtle",
-                      selected ? "selection-strong" : "bg-theme-surface",
-                    )}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {hideRowMenu ? null : (
-                      <button
-                        type="button"
-                        aria-label="Row actions"
-                        title="Actions"
-                        className="rounded p-1 text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onRowMenu?.(object, event);
-                        }}
-                      >
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  object={object}
+                  columns={columns}
+                  index={virtualRow.index}
+                  top={virtualRow.start}
+                  gridTemplate={gridTemplate}
+                  stickyOffsets={stickyOffsets}
+                  rowHeight={rowHeight}
+                  selected={selected}
+                  checked={selectedKeys.has(key)}
+                  highlighted={virtualRow.index === highlight}
+                  selectionMode={selectionMode}
+                  hideRowMenu={hideRowMenu}
+                  showNamespace={showNamespace}
+                  podMetrics={podMetrics}
+                  nodeMetrics={nodeMetrics}
+                  claimPods={claimPods}
+                  serviceEndpoints={serviceEndpoints}
+                  warnings={warnings}
+                  nodePodCounts={nodePodCounts}
+                  onSelectNamespace={selectNamespace}
+                  onOpenNode={openNode}
+                  onOpenRef={openRef}
+                  onOpen={openRow}
+                  onContextMenu={contextRow}
+                  onRowMenu={menuRow}
+                  onToggleRow={toggleRow}
+                  setHighlight={setHighlight}
+                />
               );
             })}
           </div>

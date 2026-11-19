@@ -130,7 +130,7 @@ export function EditDataDialog({
       }
     >
       <div className="space-y-2">
-        <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)_32px] gap-2 border-b border-theme-border pb-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+        <div className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.6fr)_32px] gap-2 border-b border-theme-border pb-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
           <span>Key</span>
           <span>Value</span>
           <span />
@@ -141,14 +141,14 @@ export function EditDataDialog({
               value={row.key}
               onChange={(event) => update(row.id, { key: event.target.value })}
               spellCheck={false}
-              className="h-8 w-full rounded border border-theme-border bg-theme-elevated px-2 font-mono text-[11px] text-theme-text-primary focus:outline-none focus:ring-1 focus:ring-skyhook-500"
+              className="h-8 w-full rounded border border-theme-border bg-theme-elevated px-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary focus:outline-none focus:ring-1 focus:ring-skyhook-500"
             />
             <textarea
               value={row.value}
               onChange={(event) => update(row.id, { value: event.target.value })}
               spellCheck={false}
               rows={2}
-              className="min-h-8 w-full resize-y rounded border border-theme-border bg-theme-elevated px-2 py-1 font-mono text-[11px] leading-relaxed text-theme-text-primary focus:outline-none focus:ring-1 focus:ring-skyhook-500"
+              className="min-h-8 w-full resize-y rounded border border-theme-border bg-theme-elevated px-2 py-1 font-mono text-[calc(11px*var(--font-scale))] leading-relaxed text-theme-text-primary focus:outline-none focus:ring-1 focus:ring-skyhook-500"
             />
             <button
               type="button"
@@ -164,7 +164,7 @@ export function EditDataDialog({
           <div className="py-6 text-center text-xs text-theme-text-tertiary">No keys. Add one to start.</div>
         ) : null}
       </div>
-      <p className="mt-3 text-[10px] text-theme-text-tertiary">
+      <p className="mt-3 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
         Saving sends a merge patch on <span className="inline-code">data</span>. Removed keys are deleted.
       </p>
     </Modal>

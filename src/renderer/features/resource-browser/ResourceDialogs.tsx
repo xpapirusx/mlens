@@ -59,7 +59,7 @@ export function ScaleDialog({
         }}
         className="mt-1 h-8 w-full rounded-md border border-theme-border bg-theme-elevated px-2 text-sm text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
       />
-      <p className="mt-2 text-[11px] text-theme-text-tertiary">
+      <p className="mt-2 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
         Uses a merge patch on <span className="inline-code">spec.replicas</span>. Zero scales the workload down.
       </p>
     </Modal>

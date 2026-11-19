@@ -46,14 +46,14 @@ export function ContainerLaunchParams({ container }: { container: Record<string,
     <div className="mt-1.5">
       <button
         type="button"
-        className="flex items-center gap-1 rounded text-[11px] text-theme-text-tertiary transition-colors hover:text-theme-text-primary"
+        className="flex items-center gap-1 rounded text-[calc(11px*var(--font-scale))] text-theme-text-tertiary transition-colors hover:text-theme-text-primary"
         onClick={() => setOpen((value) => !value)}
         title={open ? "Hide command and arguments" : "Show command and arguments"}
         aria-expanded={open}
       >
         <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} />
         <span>Launch parameters</span>
-        <span className="font-mono text-[10px] text-theme-text-disabled">{summary.join(" · ")}</span>
+        <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{summary.join(" · ")}</span>
       </button>
       {open ? (
         <div className="group relative mt-1 rounded-md border border-theme-border-subtle bg-theme-base">
@@ -65,7 +65,7 @@ export function ContainerLaunchParams({ container }: { container: Record<string,
           >
             <Copy className="h-3 w-3" />
           </button>
-          <pre className="overflow-auto whitespace-pre-wrap break-all p-2 pr-7 font-mono text-[10px] leading-[1.5] text-theme-text-secondary">
+          <pre className="overflow-auto whitespace-pre-wrap break-all p-2 pr-7 font-mono text-[calc(10px*var(--font-scale))] leading-[1.5] text-theme-text-secondary">
             {yaml}
           </pre>
         </div>

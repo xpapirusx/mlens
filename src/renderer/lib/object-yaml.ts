@@ -35,5 +35,23 @@ export function objectYaml(
 ): string {
   if (!object) return "";
   const value = ignoreServerMetadata ? withoutServerMetadata(object) : object;
-  return stringify(value, { lineWidth: 0 });
+  return stringify(orderForDisplay(value), { lineWidth: 0 });
+}
+
+/**
+ * Display order: identity first, then the server-reported `status`, then the
+ * desired `spec`. The API returns `spec` before `status`, which buries the
+ * status block under a long spec in the YAML tab; the user reads status first.
+ * Every other key keeps the API's order.
+ */
+function orderForDisplay(object: KubeObject): Record<string, unknown> {
+  const source = object as Record<string, unknown>;
+  const ordered: Record<string, unknown> = {};
+  for (const key of ["apiVersion", "kind", "metadata", "status", "spec"]) {
+    if (key in source) ordered[key] = source[key];
+  }
+  for (const [key, value] of Object.entries(source)) {
+    if (!(key in ordered)) ordered[key] = value;
+  }
+  return ordered;
 }

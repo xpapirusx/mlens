@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ApiResourceInfo, KubeObject } from "@shared/types";
 import { api, call } from "../../lib/api";
+import { sameStringList } from "../../lib/stable";
 
 /**
  * Maps `${namespace}/${claimName}` → pod names that mount the claim. Only used
@@ -21,6 +22,7 @@ export function useClaimPods({
   refreshSeconds: number;
 }): Map<string, string[]> {
   const [pods, setPods] = useState<KubeObject[]>([]);
+  const stableRef = useRef<Map<string, string[]>>(new Map());
   const enabled = active && resource?.kind === "PersistentVolumeClaim";
   const scopeKey = namespaces.join("|");
 
@@ -55,18 +57,30 @@ export function useClaimPods({
   }, [enabled, clusterId, scopeKey, refreshSeconds]);
 
   return useMemo(() => {
-    const map = new Map<string, string[]>();
+    const built = new Map<string, string[]>();
     for (const pod of pods) {
       const namespace = pod.metadata?.namespace ?? "";
       for (const volume of ((pod.spec?.volumes ?? []) as Array<Record<string, any>>)) {
         const claim = volume.persistentVolumeClaim?.claimName;
         if (!claim) continue;
         const key = `${namespace}/${claim}`;
-        const list = map.get(key) ?? [];
+        const list = built.get(key) ?? [];
         if (pod.metadata?.name && !list.includes(pod.metadata.name)) list.push(pod.metadata.name);
-        map.set(key, list);
+        built.set(key, list);
       }
     }
-    return map;
+    // A13: unchanged content keeps the previous identity (see lib/stable.ts).
+    const prev = stableRef.current;
+    if (
+      prev.size === built.size &&
+      [...prev].every(([key, list]) => {
+        const other = built.get(key);
+        return other !== undefined && sameStringList(list, other);
+      })
+    ) {
+      return prev;
+    }
+    stableRef.current = built;
+    return built;
   }, [pods]);
 }

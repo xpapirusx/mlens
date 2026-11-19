@@ -120,7 +120,7 @@ function RuleCard({ rule }: { rule: RbacPolicyRule }) {
   return (
     <div className="space-y-1.5 rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-2">
       <div className="flex flex-wrap items-center gap-1">
-        <span className="w-24 shrink-0 text-[10px] uppercase tracking-wide text-theme-text-tertiary">Verbs</span>
+        <span className="w-24 shrink-0 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Verbs</span>
         {(rule.verbs ?? []).map((verb) => (
           <span key={verb} className={cn("badge-sm", rbacVerbClass(verb))}>
             {verb}
@@ -128,7 +128,7 @@ function RuleCard({ rule }: { rule: RbacPolicyRule }) {
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-1">
-        <span className="w-24 shrink-0 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+        <span className="w-24 shrink-0 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
           {isNonResource ? "URLs" : "Resources"}
         </span>
         {(isNonResource ? urls : resources).map((entry) => (
@@ -140,7 +140,7 @@ function RuleCard({ rule }: { rule: RbacPolicyRule }) {
       </div>
       {!isNonResource && groups.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="w-24 shrink-0 text-[10px] uppercase tracking-wide text-theme-text-tertiary">API groups</span>
+          <span className="w-24 shrink-0 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">API groups</span>
           {groups.map((group) => (
             <ResourceChip key={group} className="status-unknown">
               {group === "" ? "core" : group}
@@ -150,7 +150,7 @@ function RuleCard({ rule }: { rule: RbacPolicyRule }) {
       ) : null}
       {names.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="w-24 shrink-0 text-[10px] uppercase tracking-wide text-theme-text-tertiary">Names</span>
+          <span className="w-24 shrink-0 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Names</span>
           {names.map((entry) => (
             <ResourceChip key={entry} className="status-neutral">
               {entry}
@@ -176,7 +176,7 @@ function BindingRow({
   const clusterScoped = binding.kind === "ClusterRoleBinding";
   return (
     <div className="rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-2">
-      <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+      <div className="flex flex-wrap items-center gap-1.5 text-[calc(12px*var(--font-scale))]">
         <span className={cn("badge-sm", clusterScoped ? "status-violet" : "status-neutral")}>
           {binding.kind === "ClusterRoleBinding" ? "CRB" : "RB"}
         </span>
@@ -205,7 +205,7 @@ function BindingRow({
         {binding.roleRef.kind === "ClusterRole" && binding.kind === "RoleBinding" && binding.namespace ? (
           <span className="badge-sm status-unknown">scoped to {binding.namespace}</span>
         ) : null}
-        {inherited ? <span className="text-[11px] italic text-theme-text-tertiary">inherited</span> : null}
+        {inherited ? <span className="text-[calc(11px*var(--font-scale))] italic text-theme-text-tertiary">inherited</span> : null}
       </div>
       {subjects.length > 0 ? (
         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -232,7 +232,7 @@ function BindingRow({
             ),
           )}
           {subjects.length > 6 ? (
-            <span className="text-[11px] text-theme-text-tertiary">+{subjects.length - 6} more</span>
+            <span className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">+{subjects.length - 6} more</span>
           ) : null}
         </div>
       ) : null}
@@ -282,7 +282,7 @@ export function ServiceAccountRbacSections({
   return (
     <>
       {blast.length > 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Permissive grant detected</div>
           <ul className="mt-1.5 space-y-1 text-xs">
             {blast.map((reason, index) => (
@@ -345,7 +345,7 @@ export function ServiceAccountRbacSections({
         count={data.flat.length}
       >
         {data.truncated ? (
-          <div className="mb-2 text-[11px] text-orange-600 dark:text-orange-400">
+          <div className="mb-2 text-[calc(11px*var(--font-scale))] text-orange-600 dark:text-orange-400">
             The rule list is capped; this is a partial view of the grant.
           </div>
         ) : null}
@@ -354,7 +354,7 @@ export function ServiceAccountRbacSections({
             <RulePreviewLine key={index} rule={rule} />
           ))}
           {data.flat.length > 50 ? (
-            <div className="text-[11px] text-theme-text-tertiary">+{data.flat.length - 50} more rules</div>
+            <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">+{data.flat.length - 50} more rules</div>
           ) : null}
         </div>
       </DetailSection>
@@ -376,10 +376,10 @@ export function ServiceAccountRbacSections({
                 onClick={() => onNavigate("Pod", pod.metadata?.name ?? "", pod.metadata?.namespace)}
                 title={`Open Pod ${pod.metadata?.namespace}/${pod.metadata?.name}`}
               >
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-theme-text-primary">
+                <span className="min-w-0 flex-1 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                   {pod.metadata?.name}
                 </span>
-                <span className="shrink-0 text-[11px] text-theme-text-tertiary">{pod.metadata?.namespace}</span>
+                <span className="shrink-0 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{pod.metadata?.namespace}</span>
               </button>
             ))}
           </div>
@@ -410,7 +410,7 @@ export function RoleRbacSections({ object }: { object: AnyObject }) {
   return (
     <>
       {hasWildcard ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Wildcard permissions</div>
           <div className="mt-1 text-xs">
             This role grants at least one <span className="inline-code">*</span> — anything bound to it can act on
@@ -538,7 +538,7 @@ export function RoleBindingRbacSections({
   return (
     <>
       {subjects.length === 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">No subjects</div>
           <div className="mt-1 text-xs">
             This binding has no subjects — it has no effect until subjects are added.
@@ -547,7 +547,7 @@ export function RoleBindingRbacSections({
       ) : null}
 
       {wideGroup ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Wide grant: {wideGroup.name}</div>
           <div className="mt-1 text-xs">
             This binding grants {roleRef.kind} “{roleRef.name}” to {WIDE_GROUPS[wideGroup.name ?? ""]}.
@@ -556,7 +556,7 @@ export function RoleBindingRbacSections({
       ) : null}
 
       {isClusterScoped ? (
-        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-sky-700 dark:text-sky-300">
           A ClusterRoleBinding grants permissions across all namespaces.
         </div>
       ) : null}
@@ -633,7 +633,7 @@ export function RoleBindingRbacSections({
               return (
                 <div
                   key={`${subject.kind}-${subject.namespace}-${subject.name}-${index}`}
-                  className="flex flex-wrap items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-1.5 text-[12px]"
+                  className="flex flex-wrap items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-1.5 text-[calc(12px*var(--font-scale))]"
                 >
                   <span
                     className={cn(
@@ -656,7 +656,7 @@ export function RoleBindingRbacSections({
                     <span className="truncate font-medium text-theme-text-primary">{subject.name}</span>
                   )}
                   {wide ? <span className="badge-sm status-degraded">wide</span> : null}
-                  <span className="ml-auto font-mono text-[10px] text-theme-text-tertiary">
+                  <span className="ml-auto font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                     Namespace: {subject.namespace ?? "–"}
                   </span>
                 </div>

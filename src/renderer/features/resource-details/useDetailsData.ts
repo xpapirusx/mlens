@@ -15,16 +15,23 @@ export function useResourceObject(
   clusterId: string,
   ref: ResourceKey | null,
   refreshSeconds: number,
+  active = true,
 ): ResourceObjectState {
   const [object, setObject] = useState<KubeObject | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const gen = useRef(0);
+  const objectRef = useRef<KubeObject | null>(null);
+  useEffect(() => {
+    objectRef.current = object;
+  }, [object]);
 
   const refresh = useCallback(async () => {
     if (!ref) return;
     const current = ++gen.current;
-    setLoading(true);
+    // Only the first load shows the spinner — polling must not flip `loading`
+    // (and re-render the whole drawer) every tick.
+    if (!objectRef.current) setLoading(true);
     try {
       // Helm releases are parsed from secrets in main, not read from an API
       // resource, so this one kind takes a different path.
@@ -35,7 +42,15 @@ export function useResourceObject(
             )
           : await call(api.resources.get(ref));
       if (current !== gen.current) return;
-      setObject(next);
+      // A18: keep the previous identity while the resourceVersion is
+      // unchanged — a ≤15s poll otherwise re-renders the whole Overview tab
+      // for an object that did not change.
+      setObject((previous) => {
+        const previousRv = previous?.metadata?.resourceVersion;
+        const nextRv = next.metadata?.resourceVersion;
+        if (previous && nextRv && previousRv === nextRv) return previous;
+        return next;
+      });
       setError(null);
     } catch (fetchError) {
       if (current !== gen.current) return;
@@ -46,13 +61,20 @@ export function useResourceObject(
   }, [clusterId, ref]);
 
   useEffect(() => {
+    // Switching resources: drop the cached object synchronously so the next
+    // refresh shows the first-load spinner instead of a stale "Live data".
+    objectRef.current = null;
     setObject(null);
     setError(null);
     void refresh();
     if (!refreshSeconds) return;
-    const timer = window.setInterval(() => void refresh(), Math.max(5, refreshSeconds) * 1000);
+    const timer = window.setInterval(() => {
+      // A18: hidden clusters and a hidden window must not poll the drawer.
+      if (!active || document.hidden) return;
+      void refresh();
+    }, Math.max(5, refreshSeconds) * 1000);
     return () => window.clearInterval(timer);
-  }, [refresh, refreshSeconds]);
+  }, [refresh, refreshSeconds, active]);
 
   return { object, loading, error, refresh };
 }
@@ -349,6 +371,12 @@ export function useRelatedResources(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  // A19: key the effect on uid+resourceVersion instead of the object identity
+  // — a drawer poll re-fetches the object every ≤15s, and depending on the
+  // object used to re-fetch every related list with it.
+  const subject = object
+    ? `${object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`}:${object.metadata?.resourceVersion ?? ""}`
+    : "";
 
   useEffect(() => {
     if (!ref || !object || !enabled) {
@@ -511,9 +539,11 @@ export function useRelatedResources(
     return () => {
       disposed = true;
     };
-    // `resources` is intentionally excluded: discovery data doesn't change the relations.
+    // `object` is intentionally excluded: `subject` (uid + resourceVersion)
+    // changes exactly when the object's content changes; discovery data
+    // doesn't change the relations either.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusterId, ref, object, enabled]);
+  }, [clusterId, ref, subject, enabled]);
 
   return { groups, loading, error, warnings };
 }

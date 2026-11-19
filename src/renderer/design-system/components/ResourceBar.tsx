@@ -62,12 +62,12 @@ export function ResourceBar({
 
   const numbers = (
     <div className="flex min-w-0 items-baseline justify-between gap-1">
-      <span className="min-w-0 truncate font-mono text-[11px] text-theme-text-secondary">
+      <span className="min-w-0 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
         {used}
         <span className="text-theme-text-tertiary"> / {total}</span>
       </span>
       {showPercent ? (
-        <span className="shrink-0 font-mono text-[10px] text-theme-text-tertiary">
+        <span className="shrink-0 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {Math.round(clamped)}%
         </span>
       ) : null}
@@ -77,7 +77,7 @@ export function ResourceBar({
   const body =
     layout === "inline" ? (
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-theme-text-secondary">
+        <span className="shrink-0 whitespace-nowrap font-mono text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
           {used}
           <span className="text-theme-text-tertiary"> / {total}</span>
         </span>
@@ -94,7 +94,7 @@ export function ResourceBar({
           ) : null}
         </div>
         {showPercent ? (
-          <span className="w-8 shrink-0 text-right font-mono text-[10px] text-theme-text-tertiary">
+          <span className="w-8 shrink-0 text-right font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
             {Math.round(clamped)}%
           </span>
         ) : null}

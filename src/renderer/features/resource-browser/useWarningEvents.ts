@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KubeObject } from "@shared/types";
 import { api, call } from "../../lib/api";
 
@@ -27,6 +27,7 @@ export function useWarningEvents({
   refreshSeconds: number;
 }): Map<string, WarningEntry> {
   const [events, setEvents] = useState<KubeObject[]>([]);
+  const stableRef = useRef<Map<string, WarningEntry>>(new Map());
   const enabled = active;
   const scopeKey = namespaces.join("|");
 
@@ -70,7 +71,7 @@ export function useWarningEvents({
   }, [enabled, clusterId, scopeKey, refreshSeconds]);
 
   return useMemo(() => {
-    const map = new Map<string, WarningEntry>();
+    const built = new Map<string, WarningEntry>();
     const stamp = (event: KubeObject): number => {
       const value =
         (event.lastTimestamp as string | undefined) ??
@@ -87,18 +88,37 @@ export function useWarningEvents({
       if (!involved?.name) continue;
       const key = `${involved.namespace ?? ""}/${involved.name}`;
       const at = stamp(event);
-      const current = map.get(key);
+      const current = built.get(key);
       if (current && (current.at ?? "") >= String(at)) {
         current.count += 1;
         continue;
       }
-      map.set(key, {
+      built.set(key, {
         count: (current?.count ?? 0) + 1,
         message: String(event.message ?? ""),
         reason: event.reason as string | undefined,
         at: String(at),
       });
     }
-    return map;
+    // A13: keep the previous map identity while the content is unchanged, so
+    // the 30s warning poll stops invalidating `cellContext` downstream.
+    const prev = stableRef.current;
+    if (
+      prev.size === built.size &&
+      [...prev].every(([key, entry]) => {
+        const other = built.get(key);
+        return (
+          other !== undefined &&
+          other.count === entry.count &&
+          other.message === entry.message &&
+          other.reason === entry.reason &&
+          other.at === entry.at
+        );
+      })
+    ) {
+      return prev;
+    }
+    stableRef.current = built;
+    return built;
   }, [events]);
 }

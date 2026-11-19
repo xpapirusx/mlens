@@ -43,7 +43,7 @@ import type {
   ScaleRequest,
   TerminalDataPayload,
   TerminalExitPayload,
-  WatchEventPayload,
+  WatchEventBatch,
   WatchResourcesRequest,
 } from "./types";
 
@@ -152,7 +152,7 @@ export interface MlensApi {
     scale(request: ScaleRequest): Promise<void>;
     restart(request: RestartRequest): Promise<void>;
     evict(request: EvictPodRequest): Promise<void>;
-    onWatchEvent(callback: (event: WatchEventPayload) => void): () => void;
+    onWatchEvent(callback: (event: WatchEventBatch) => void): () => void;
   };
   pods: {
     containers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]>;

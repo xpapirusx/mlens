@@ -27,7 +27,7 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
     rows: [
       { keys: ["↑", "↓"], label: "Move the row highlight" },
       { keys: ["↵"], label: "Open the highlighted resource" },
-      { keys: ["Esc"], label: "Close details / menu" },
+      { keys: ["Esc"], label: "Close active tab / menu" },
       { keys: ["⌘", "W"], label: "Close the details drawer" },
     ],
   },
@@ -67,7 +67,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
       <div className="grid gap-4 sm:grid-cols-2">
         {GROUPS.map((group) => (
           <section key={group.title}>
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+            <div className="mb-1.5 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary">
               {group.title}
             </div>
             <div className="overflow-hidden rounded-md border border-theme-border">
@@ -83,7 +83,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
                       </kbd>
                     ))}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[11px] text-theme-text-secondary">{row.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-[calc(11px*var(--font-scale))] text-theme-text-secondary">{row.label}</span>
                 </div>
               ))}
             </div>

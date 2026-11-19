@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowDownToLine,
   ChevronDown,
@@ -91,11 +92,11 @@ export function LogsTab({
     <div className="flex h-full min-h-0 flex-col">
       {pods.length > 1 || object.kind !== "Pod" ? (
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-base px-2">
-          <span className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">Pod</span>
+          <span className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Pod</span>
           <select
             value={podName}
             onChange={(event) => setPodName(event.target.value)}
-            className="h-6 max-w-[18rem] rounded border border-theme-border bg-theme-elevated px-1.5 text-[11px] text-theme-text-primary focus:outline-none"
+            className="h-6 max-w-[18rem] rounded border border-theme-border bg-theme-elevated px-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-primary focus:outline-none"
           >
             {pods.map((entry) => (
               <option key={entry.name} value={entry.name}>
@@ -103,7 +104,7 @@ export function LogsTab({
               </option>
             ))}
           </select>
-          <span className="font-mono text-[10px] text-theme-text-disabled">
+          <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
             {pod.namespace}/{pod.name}
           </span>
         </div>
@@ -189,6 +190,30 @@ async function findPods(clusterId: string, object: KubeObject): Promise<PodOptio
     .map(toOption);
 }
 
+/** Level of a log line for the CSS tint — crit beats error beats warn. */
+const levelOf = (line: string): "crit" | "error" | "warn" | null => {
+  if (/\b(crit|critical|fatal|panic)\b/i.test(line)) return "crit";
+  if (/\b(error|exception|traceback)\b/i.test(line)) return "error";
+  if (/\bwarn(ing)?\b/i.test(line)) return "warn";
+  return null;
+};
+
+const LEVEL_TINT: Record<string, string> = {
+  crit: "bg-red-500/15 text-red-300",
+  error: "bg-red-500/10 text-red-400",
+  warn: "bg-amber-500/10 text-amber-300",
+};
+
+/** A17: hard cap on retained lines — replaces the old 1.5MB string slice. */
+const MAX_LOG_LINES = 20_000;
+/** A single line longer than this is force-split (no newline in sight). */
+const MAX_PARTIAL_LINE = 100_000;
+
+function appendLines(current: string[], next: string[]): string[] {
+  const merged = current.concat(next);
+  return merged.length > MAX_LOG_LINES ? merged.slice(merged.length - MAX_LOG_LINES) : merged;
+}
+
 function LogsViewer({
   clusterId,
   namespace,
@@ -205,7 +230,10 @@ function LogsViewer({
   const [previous, setPrevious] = useState(false);
   const [timestamps, setTimestamps] = useState(false);
   const [tailLines, setTailLines] = useState(500);
-  const [text, setText] = useState("");
+  // A17: lines live as an array of strings — a 1.5MB `text` state used to be
+  // re-concatenated and re-split every 160ms, then rendered as tens of
+  // thousands of DOM rows.
+  const [lines, setLines] = useState<string[]>([]);
   const [connection, setConnection] = useState<"connecting" | "streaming" | "ended" | "error">("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -215,6 +243,8 @@ function LogsViewer({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const bufferRef = useRef("");
+  /** Trailing line that has not seen its newline yet. */
+  const partialRef = useRef("");
   const streamIdRef = useRef("");
 
   // Stream lifecycle. Changing container / follow / previous / tail restarts it.
@@ -224,34 +254,57 @@ function LogsViewer({
     streamIdRef.current = streamId;
     let disposed = false;
 
-    setText("");
+    setLines([]);
     setStreamError(null);
     setConnection("connecting");
     bufferRef.current = "";
+    partialRef.current = "";
+
+    /** Move buffered chunks into `lines` as complete rows (A17). */
+    const drain = () => {
+      const chunk = bufferRef.current;
+      if (!chunk) return;
+      bufferRef.current = "";
+      setConnection("streaming");
+      const data = partialRef.current + chunk;
+      const cut = data.lastIndexOf("\n");
+      if (cut === -1) {
+        // No newline yet: keep it as the tail, force-splitting a runaway line.
+        if (data.length > MAX_PARTIAL_LINE) {
+          const head = data.slice(0, MAX_PARTIAL_LINE);
+          partialRef.current = data.slice(MAX_PARTIAL_LINE);
+          setLines((current) => appendLines(current, [head]));
+        } else {
+          partialRef.current = data;
+        }
+        return;
+      }
+      partialRef.current = data.slice(cut + 1);
+      setLines((current) => appendLines(current, data.slice(0, cut).split("\n")));
+    };
 
     const offChunk = api.logs.onChunk((payload) => {
       if (payload.streamId !== streamId || disposed) return;
       bufferRef.current += payload.chunk;
-      if (bufferRef.current.length > 1_500_000) {
-        const cut = bufferRef.current.lastIndexOf("\n", bufferRef.current.length - 1_000_000);
-        bufferRef.current = bufferRef.current.slice(cut >= 0 ? cut + 1 : -1_000_000);
-      }
+      if (bufferRef.current.length > 1_500_000) drain();
     });
 
     const offEnd = api.logs.onEnd((payload) => {
       if (payload.streamId !== streamId || disposed) return;
+      // Flush the tail: a stream that ends without a newline still has a
+      // final line sitting in `partialRef`.
+      drain();
+      if (partialRef.current) {
+        const tail = partialRef.current;
+        partialRef.current = "";
+        setLines((current) => appendLines(current, [tail]));
+      }
       setConnection(payload.error ? "error" : "ended");
       if (payload.error) setStreamError(payload.error);
     });
 
     const flush = window.setInterval(() => {
-      if (disposed) return;
-      if (bufferRef.current) {
-        const chunk = bufferRef.current;
-        bufferRef.current = "";
-        setText((current) => (current + chunk).slice(-1_500_000));
-        setConnection("streaming");
-      }
+      if (!disposed) drain();
     }, 160);
 
     void api.logs
@@ -281,7 +334,6 @@ function LogsViewer({
     };
   }, [clusterId, namespace, pod, container, follow, previous, timestamps, tailLines, nonce]);
 
-  const lines = useMemo(() => text.split("\n"), [text]);
   const matches = useMemo(() => {
     const term = query.trim();
     if (!term) return null;
@@ -297,13 +349,36 @@ function LogsViewer({
     });
     return indices;
   }, [matches]);
+  // A17: with a query active, virtualize the matching subset — the old
+  // render skipped non-matches in place, which absolute rows cannot do.
+  const visible = useMemo(() => {
+    if (!matches) return null;
+    const out: Array<{ text: string; index: number }> = [];
+    for (let index = 0; index < lines.length; index += 1) {
+      if (matches[index]) out.push({ text: lines[index], index });
+    }
+    return out;
+  }, [lines, matches]);
+
+  const virtualizer = useVirtualizer({
+    count: visible ? visible.length : lines.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 20,
+    overscan: 20,
+  });
+
   const [matchCursor, setMatchCursor] = useState(0);
 
   const scrollToLine = (lineNumber: number) => {
-    const container = scrollRef.current;
-    if (!container) return;
-    const line = container.querySelector<HTMLElement>(`[data-line="${lineNumber}"]`);
-    line?.scrollIntoView({ block: "center" });
+    const target = visible ? visible.findIndex((entry) => entry.index === lineNumber) : lineNumber;
+    if (target < 0) return;
+    virtualizer.scrollToIndex(target, { align: "center" });
+    // The row exists only after the jump renders — centre it precisely.
+    window.requestAnimationFrame(() => {
+      scrollRef.current
+        ?.querySelector<HTMLElement>(`[data-line="${lineNumber}"]`)
+        ?.scrollIntoView({ block: "center" });
+    });
   };
 
   /** Enter / Shift+Enter and the arrows walk the matches, Radar-style. */
@@ -334,24 +409,11 @@ function LogsViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, matchIndices]);
 
-  /** Level of a log line for the CSS tint — crit beats error beats warn. */
-  const levelOf = (line: string): "crit" | "error" | "warn" | null => {
-    if (/\b(crit|critical|fatal|panic)\b/i.test(line)) return "crit";
-    if (/\b(error|exception|traceback)\b/i.test(line)) return "error";
-    if (/\bwarn(ing)?\b/i.test(line)) return "warn";
-    return null;
-  };
-  const LEVEL_TINT: Record<string, string> = {
-    crit: "bg-red-500/15 text-red-300",
-    error: "bg-red-500/10 text-red-400",
-    warn: "bg-amber-500/10 text-amber-300",
-  };
-
   useEffect(() => {
     if (!stick) return;
     const element = scrollRef.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [text, stick]);
+  }, [lines, stick]);
 
   // Ctrl/Cmd+F opens the log search, like Radar — but never steals the key
   // from a focused input or from a terminal (xterm binds it itself).
@@ -371,6 +433,8 @@ function LogsViewer({
   }, []);
 
   const download = () => {
+    const tail = partialRef.current;
+    const text = lines.join("\n") + (tail ? `\n${tail}` : "");
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -386,7 +450,7 @@ function LogsViewer({
         <select
           value={container}
           onChange={(event) => setContainer(event.target.value)}
-          className="h-6 max-w-[13rem] rounded border border-white/10 bg-white/5 px-1.5 text-[11px] text-slate-200 focus:outline-none"
+          className="h-6 max-w-[13rem] rounded border border-white/10 bg-white/5 px-1.5 text-[calc(11px*var(--font-scale))] text-slate-200 focus:outline-none"
           title="Container"
         >
           {containers.map((name) => (
@@ -399,7 +463,7 @@ function LogsViewer({
         <select
           value={tailLines}
           onChange={(event) => setTailLines(Number(event.target.value))}
-          className="h-6 rounded border border-white/10 bg-white/5 px-1 text-[10px] text-slate-300 focus:outline-none"
+          className="h-6 rounded border border-white/10 bg-white/5 px-1 text-[calc(10px*var(--font-scale))] text-slate-300 focus:outline-none"
           title="Tail lines"
         >
           {[200, 500, 1000, 5000].map((value) => (
@@ -452,7 +516,11 @@ function LogsViewer({
             type="button"
             title="Clear"
             className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-            onClick={() => setText("")}
+            onClick={() => {
+              setLines([]);
+              bufferRef.current = "";
+              partialRef.current = "";
+            }}
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -477,10 +545,10 @@ function LogsViewer({
               }
             }}
             placeholder="Find in logs…"
-            className="h-5 min-w-0 flex-1 bg-transparent text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none"
+            className="h-5 min-w-0 flex-1 bg-transparent text-[calc(11px*var(--font-scale))] text-slate-200 placeholder:text-slate-500 focus:outline-none"
           />
           {query ? (
-            <span className="shrink-0 font-mono text-[10px] text-slate-400">
+            <span className="shrink-0 font-mono text-[calc(10px*var(--font-scale))] text-slate-400">
               {matchIndices.length > 0 ? `${matchCursor + 1} / ${matchIndices.length}` : "0 results"}
             </span>
           ) : null}
@@ -515,7 +583,7 @@ function LogsViewer({
         </div>
       ) : null}
 
-      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/5 bg-[#111b2e]/60 px-2 text-[10px] text-slate-500">
+      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/5 bg-[#111b2e]/60 px-2 text-[calc(10px*var(--font-scale))] text-slate-500">
         <span
           className={cn(
             "h-1.5 w-1.5 shrink-0 rounded-full",
@@ -543,7 +611,7 @@ function LogsViewer({
         {streamError ? <span className="truncate text-red-400">{streamError}</span> : null}
         <button
           type="button"
-          className="ml-auto shrink-0 text-[10px] text-slate-400 hover:text-slate-200"
+          className="ml-auto shrink-0 text-[calc(10px*var(--font-scale))] text-slate-400 hover:text-slate-200"
           onClick={() => {
             setStick(true);
             const element = scrollRef.current;
@@ -556,7 +624,7 @@ function LogsViewer({
 
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto px-2 py-1 font-mono text-[11px] leading-5 selectable"
+        className="min-h-0 flex-1 overflow-auto px-2 py-1 font-mono text-[calc(11px*var(--font-scale))] leading-5 selectable"
         onScroll={(event) => {
           const element = event.currentTarget;
           setStick(element.scrollHeight - element.scrollTop - element.clientHeight < 40);
@@ -567,28 +635,35 @@ function LogsViewer({
             <Spinner className="text-slate-500" label="Connecting to log stream…" />
           </div>
         ) : null}
-        {lines.map((line, index) => {
-          if (query && matches && !matches[index]) return null;
-          const level = levelOf(line);
-          return (
-            <div
-              key={index}
-              data-line={index}
-              className={cn(
-                "flex whitespace-pre-wrap break-all rounded-sm hover:bg-white/5",
-                level && LEVEL_TINT[level],
-              )}
-            >
-              <span className="w-10 shrink-0 select-none pr-2 text-right text-slate-600">{index + 1}</span>
-              <span className={cn(!level && "text-slate-300")}>
-                <Highlighted text={line} query={query.trim()} />
-              </span>
-            </div>
-          );
-        })}
+        <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const entry = visible
+              ? visible[virtualRow.index]
+              : { text: lines[virtualRow.index], index: virtualRow.index };
+            const level = levelOf(entry.text);
+            return (
+              <div
+                key={entry.index}
+                data-line={entry.index}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className={cn(
+                  "absolute left-0 top-0 flex w-full whitespace-pre-wrap break-all rounded-sm hover:bg-white/5",
+                  level && LEVEL_TINT[level],
+                )}
+                style={{ top: virtualRow.start }}
+              >
+                <span className="w-10 shrink-0 select-none pr-2 text-right text-slate-600">{entry.index + 1}</span>
+                <span className={cn(!level && "text-slate-300")}>
+                  <Highlighted text={entry.text} query={query.trim()} />
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111b2e] px-3 text-[10px] text-slate-500">
+      <div className="flex h-6 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111b2e] px-3 text-[calc(10px*var(--font-scale))] text-slate-500">
         <span>{lines.length} lines</span>
         {query ? <span>{matchCount} matches</span> : null}
         <span className="ml-auto">
@@ -640,7 +715,7 @@ function Toggle({
       title={title}
       onClick={onClick}
       className={cn(
-        "flex h-6 items-center gap-1 rounded border px-1.5 text-[10px] transition-colors",
+        "flex h-6 items-center gap-1 rounded border px-1.5 text-[calc(10px*var(--font-scale))] transition-colors",
         active
           ? "border-skyhook-500/60 bg-skyhook-500/20 text-skyblue-200"
           : "border-white/10 bg-white/5 text-slate-400 hover:text-slate-200",

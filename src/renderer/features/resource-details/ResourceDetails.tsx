@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity,
   ArrowLeft,
@@ -25,7 +25,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { ApiResourceInfo, KubeObject } from "@shared/types";
+import type { ApiResourceInfo, KubeObject, ResourceKey } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore, type DetailTab } from "../../stores/session-store";
 import { getKindIcon, kindColor, kindLabel } from "../../lib/icons";
@@ -84,7 +84,7 @@ function DrawerStatus({ object, kind }: { object: KubeObject; kind?: string }) {
           ) : null}
           {conditions.length > 0 ? (
             <>
-              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+              <div className="pt-0.5 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">
                 Conditions
               </div>
               <ConditionsTooltip conditions={conditions} />
@@ -98,44 +98,62 @@ function DrawerStatus({ object, kind }: { object: KubeObject; kind?: string }) {
   );
 }
 
-export function ResourceDetails({ clusterId }: { clusterId: string }) {
-  const details = useSessionStore((state) => state.sessions[clusterId]?.details ?? null);
-  const minimized = useSessionStore((state) => state.sessions[clusterId]?.detailsMinimized ?? false);
-  const resources = useSessionStore((state) => state.sessions[clusterId]?.resources ?? []);
-  const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
-  const closeDetails = useSessionStore((state) => state.closeDetails);
+// Stable fallbacks: selector results must keep their identity (React #185).
+const EMPTY_RESOURCES: ApiResourceInfo[] = [];
+
+export function ResourceDetails({
+  clusterId,
+  active,
+  paneId,
+  refKey,
+  tab: activeTab,
+  historyDepth,
+  expanded,
+  onToggleExpanded,
+}: {
+  clusterId: string;
+  active: boolean;
+  paneId: string;
+  refKey: ResourceKey;
+  tab: DetailTab;
+  historyDepth: number;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  // Stable fallbacks: a fresh `[]` per notification re-renders while the
+  // session is absent (React #185 pattern).
+  const resources = useSessionStore((state) => state.sessions[clusterId]?.resources) ?? EMPTY_RESOURCES;
+  const setPaneTab = useSessionStore((state) => state.setPaneTab);
+  const paneBack = useSessionStore((state) => state.paneBack);
+  const closePaneTab = useSessionStore((state) => state.closePaneTab);
   const minimizeDetails = useSessionStore((state) => state.minimizeDetails);
-  const detailsBack = useSessionStore((state) => state.detailsBack);
-  const detailsHistory = useSessionStore((state) => state.sessions[clusterId]?.detailsHistory ?? []);
-  const openDetails = useSessionStore((state) => state.openDetails);
+  const openInPane = useSessionStore((state) => state.openInPane);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const settings = useCatalogStore((state) => state.settings);
 
+  // Alias kept so the (large) drawer body keeps reading `details.ref`.
+  const details = { ref: refKey };
+
   const refreshSeconds = settings?.refreshIntervalSeconds ?? 30;
-  const data = useResourceObject(clusterId, details?.ref ?? null, Math.min(15, refreshSeconds || 15));
+  const data = useResourceObject(clusterId, refKey, Math.min(15, refreshSeconds || 15), active);
   const object = data.object;
 
   const resource: ApiResourceInfo | undefined = useMemo(
     () =>
-      details
-        ? resources.find(
-            (entry) => entry.apiVersion === details.ref.apiVersion && entry.kind === details.ref.kind,
-          )
-        : undefined,
-    [resources, details],
+      resources.find(
+        (entry) => entry.apiVersion === refKey.apiVersion && entry.kind === refKey.kind,
+      ),
+    [resources, refKey],
   );
 
-  const isHelmRelease = details?.ref.kind === "HelmRelease" && details?.ref.apiVersion === "helm.sh/v1";
-  const requestedTab: DetailTab = details?.tab ?? "overview";
+  const isHelmRelease = refKey.kind === "HelmRelease" && refKey.apiVersion === "helm.sh/v1";
+  const requestedTab: DetailTab = activeTab;
   // A Helm release only has the Overview surface — values and manifests live
   // there, and the other tabs would query a kind the API server does not serve.
   const tab: DetailTab = isHelmRelease && requestedTab !== "overview" ? "overview" : requestedTab;
-  const events = useEvents(clusterId, details?.ref ?? null, refreshSeconds, tab === "events");
-  const related = useRelatedResources(clusterId, details?.ref ?? null, object, tab === "related");
+  const events = useEvents(clusterId, refKey, refreshSeconds, tab === "events");
+  const related = useRelatedResources(clusterId, refKey, object, tab === "related");
 
-  const [width, setWidth] = useState(560);
-  const [expanded, setExpanded] = useState(false);
-  const [resizing, setResizing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [forwardPort, setForwardPort] = useState<number | null>(null);
@@ -146,27 +164,6 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   const [drainOpen, setDrainOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [details?.ref.name, details?.ref.kind]);
-
-  useEffect(() => {
-    if (!resizing) return;
-    const onMove = (event: PointerEvent) => {
-      const next = window.innerWidth - event.clientX;
-      setWidth(Math.min(Math.max(460, next), Math.floor(window.innerWidth * 0.74)));
-    };
-    const onUp = () => setResizing(false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-  }, [resizing]);
-
-  if (!details || minimized) return null;
 
   const navigate = (kind: string, name: string, namespace?: string, apiVersion?: string) => {
     if (!kind || !name) return;
@@ -180,7 +177,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
       return;
     }
     const isNamespaced = target ? target.namespaced : Boolean(namespace);
-    openDetails(clusterId, {
+    openInPane(clusterId, paneId, {
       clusterId,
       apiVersion: chosenApiVersion,
       kind: target?.kind ?? kind,
@@ -211,7 +208,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   };
 
   const quickPortForward = async (port: number) => {
-    if (!details?.ref.namespace) return;
+    if (!details.ref.namespace) return;
     try {
       const info = await call(
         api.portForward.start({
@@ -226,6 +223,9 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         `Forwarding localhost:${info.localPort} → ${details.ref.name}:${port}`,
         "Manage it in the Port forwards panel (Plug in the top bar).",
       );
+      if (settings?.portForwardOpenBrowser ?? true) {
+        void api.app.openExternal(`http://127.0.0.1:${info.localPort}`);
+      }
     } catch (error) {
       toast.error("Cannot start port forward", errorText(error));
     }
@@ -247,7 +247,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
       );
       toast.success(`${details.ref.kind} deleted`, details.ref.name);
       setConfirmDelete(false);
-      closeDetails(clusterId);
+      closePaneTab(clusterId, paneId, refKey);
     } catch (error) {
       toast.error("Delete failed", errorText(error));
     } finally {
@@ -383,25 +383,10 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
   };
 
   return (
-    <aside
-      className={cn(
-        "absolute inset-y-0 right-0 z-30 flex flex-col border-l border-theme-border bg-theme-surface shadow-drawer",
-        resizing && "select-none",
-      )}
-      style={{ width: expanded ? "calc(100% - 16px)" : width }}
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-theme-surface"
       aria-label="Resource details"
     >
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        className="absolute bottom-0 left-0 top-0 z-10 w-1.5 cursor-col-resize hover:bg-skyhook-500/50"
-        onPointerDown={(event) => {
-          event.preventDefault();
-          setExpanded(false);
-          setResizing(true);
-        }}
-      />
-
       <div className="shrink-0 border-b border-theme-border">
         <div className="flex items-center gap-1.5 px-3 pt-2.5">
           <span className={cn("kind-outline", kindColor(details.ref.kind))}>
@@ -412,14 +397,14 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           {object?.metadata?.deletionTimestamp ? (
             <span className="badge-sm status-degraded">Terminating</span>
           ) : null}
-          <span className="ml-1 font-mono text-[10px] text-theme-text-disabled">{details.ref.apiVersion}</span>
+          <span className="ml-1 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{details.ref.apiVersion}</span>
 
           <div className="ml-auto flex items-center gap-0.5">
             <button
               type="button"
               className="shell-icon-button h-6 w-6 disabled:opacity-30"
-              onClick={() => detailsBack(clusterId)}
-              disabled={detailsHistory.length === 0}
+              onClick={() => paneBack(clusterId, paneId)}
+              disabled={historyDepth === 0}
               title="Back to the previously opened resource"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -442,8 +427,8 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
-              onClick={() => setExpanded((value) => !value)}
-              title={expanded ? "Restore drawer" : "Expand drawer"}
+              onClick={onToggleExpanded}
+              title={expanded ? "Restore editor area" : "Expand editor area"}
             >
               {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>
@@ -451,15 +436,15 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
               type="button"
               className="shell-icon-button h-6 w-6"
               onClick={() => minimizeDetails(clusterId)}
-              title="Minimize details (open resource tabs stay)"
+              title="Minimize the editor area (open tabs stay)"
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
               className="shell-icon-button h-6 w-6"
-              onClick={() => closeDetails(clusterId)}
-              title="Close details"
+              onClick={() => closePaneTab(clusterId, paneId, refKey)}
+              title="Close tab"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -467,7 +452,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         </div>
 
         <div className="flex items-center gap-2 px-3 pb-2 pt-1">
-          <h2 className="min-w-0 truncate text-[16px] font-semibold text-theme-text-primary" title={details.ref.name}>
+          <h2 className="min-w-0 truncate text-[calc(16px*var(--font-scale))] font-semibold text-theme-text-primary" title={details.ref.name}>
             {details.ref.name}
           </h2>
           <button
@@ -479,12 +464,12 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
             <Copy className="h-3 w-3" />
           </button>
           {details.ref.namespace ? (
-            <span className="shrink-0 rounded bg-theme-elevated px-1.5 py-0.5 font-mono text-[10px] text-theme-text-tertiary">
+            <span className="shrink-0 rounded bg-theme-elevated px-1.5 py-0.5 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
               {details.ref.namespace}
             </span>
           ) : null}
           {object ? (
-            <span className="ml-auto shrink-0 text-[10px] text-theme-text-disabled">
+            <span className="ml-auto shrink-0 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
               {formatAge(object.metadata?.creationTimestamp)} old
             </span>
           ) : null}
@@ -493,7 +478,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         <div className="flex flex-wrap items-center justify-end gap-1 px-3 pb-1.5">
           {isPod ? (
             <>
-              <DetailAction icon={<ScrollText />} label="Logs" onClick={() => setDetailsTab(clusterId, "logs")} />
+              <DetailAction icon={<ScrollText />} label="Logs" onClick={() => setPaneTab(clusterId, paneId, "logs")} />
               <DetailAction icon={<SquareTerminal />} label="Exec" onClick={() => void openShell()} />
               <DetailAction icon={<Plug />} label="Forward" onClick={() => setForwardPort(8080)} />
             </>
@@ -584,7 +569,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         <div className="px-1.5">
           <Tabs<DetailTab>
             value={tab}
-            onChange={(next) => setDetailsTab(clusterId, next)}
+            onChange={(next) => setPaneTab(clusterId, paneId, next)}
             tabs={isHelmRelease ? [
               { id: "overview", label: "Overview", icon: <Layers /> },
             ] : [
@@ -595,7 +580,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 label: "Events",
                 icon: <Activity />,
                 badge: events.events.length ? (
-                  <span className="rounded bg-theme-elevated px-1 font-mono text-[9px] text-theme-text-tertiary">
+                  <span className="rounded bg-theme-elevated px-1 font-mono text-[calc(9px*var(--font-scale))] text-theme-text-tertiary">
                     {events.events.length}
                   </span>
                 ) : null,
@@ -605,7 +590,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
                 label: "Related",
                 icon: <Network />,
                 badge: related.groups.length ? (
-                  <span className="rounded bg-theme-elevated px-1 font-mono text-[9px] text-theme-text-tertiary">
+                  <span className="rounded bg-theme-elevated px-1 font-mono text-[calc(9px*var(--font-scale))] text-theme-text-tertiary">
                     {related.groups.reduce((sum, group) => sum + group.items.length, 0)}
                   </span>
                 ) : null,
@@ -697,7 +682,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
         )}
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-disabled">
+      <div className="flex h-6 shrink-0 items-center gap-2 border-t border-theme-border bg-theme-base px-3 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
         <ChevronLeft className="h-2.5 w-2.5" />
         <span className="font-mono">{resource?.plural ?? details.ref.kind}</span>
         <span className="ml-auto">{data.loading ? "Refreshing…" : "Live data"}</span>
@@ -796,7 +781,7 @@ export function ResourceDetails({ clusterId }: { clusterId: string }) {
           </>
         }
       />
-    </aside>
+    </div>
   );
 }
 
@@ -816,7 +801,7 @@ function DetailAction({
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-40 [&>svg]:h-3.5 [&>svg]:w-3.5"
+      className="flex h-6 items-center gap-1 rounded px-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-40 [&>svg]:h-3.5 [&>svg]:w-3.5"
     >
       {icon}
       {label}

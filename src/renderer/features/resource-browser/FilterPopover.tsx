@@ -87,7 +87,7 @@ export function FilterPopover({
       style={{ left: position.left, top: position.top }}
     >
       <div className="flex items-center justify-between border-b border-theme-border px-2 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+        <span className="text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary">
           {column.label}
         </span>
         <button
@@ -132,7 +132,7 @@ export function FilterPopover({
               <span className={cn("min-w-0 flex-1 truncate", checked ? "text-theme-text-primary" : "text-theme-text-secondary")}>
                 {option.value}
               </span>
-              <span className="font-mono text-[10px] text-theme-text-disabled">{option.count}</span>
+              <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{option.count}</span>
             </button>
           );
         })}
@@ -144,14 +144,14 @@ export function FilterPopover({
       <div className="flex items-center justify-between border-t border-theme-border px-2 py-1.5">
         <button
           type="button"
-          className="text-[11px] text-theme-text-tertiary hover:text-theme-text-primary"
+          className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary hover:text-theme-text-primary"
           onClick={() => onChange([])}
         >
           Clear
         </button>
         <button
           type="button"
-          className="text-[11px] font-medium text-accent-text hover:underline"
+          className="text-[calc(11px*var(--font-scale))] font-medium text-accent-text hover:underline"
           onClick={onClose}
         >
           Done

@@ -17,7 +17,9 @@ import { YamlDockTab } from "./YamlDockTab";
 import { TerminalLauncher, type TerminalMode } from "./TerminalLauncher";
 
 export function TerminalDock({ clusterId, active }: { clusterId: string; active: boolean }) {
-  const session = useSessionStore((state) => state.sessions[clusterId]);
+  // A14: the dock reads only its own slice — kindState/search writes above
+  // no longer re-render every terminal.
+  const dock = useSessionStore((state) => state.sessions[clusterId]?.dock);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const openYamlTab = useSessionStore((state) => state.openYamlTab);
   const closeTerminal = useSessionStore((state) => state.closeTerminal);
@@ -25,7 +27,6 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
   const setDock = useSessionStore((state) => state.setDock);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
 
-  const dock = session?.dock;
   const [resizing, setResizing] = useState(false);
   const [launcher, setLauncher] = useState<{ open: boolean; mode: TerminalMode }>({
     open: false,
@@ -240,7 +241,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
                 <div className="flex items-stretch gap-2">
                   <button
                     type="button"
-                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[11px] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
+                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[calc(11px*var(--font-scale))] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
                     onClick={() => openTerminal(clusterId, { type: "local" })}
                   >
                     <SquareTerminal className="h-4 w-4" />
@@ -248,7 +249,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
                   </button>
                   <button
                     type="button"
-                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[11px] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
+                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[calc(11px*var(--font-scale))] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
                     onClick={() => openLauncher("pod")}
                   >
                     <Container className="h-4 w-4" />
@@ -256,7 +257,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
                   </button>
                   <button
                     type="button"
-                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[11px] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
+                    className="flex w-28 flex-col items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-2.5 text-[calc(11px*var(--font-scale))] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/10 hover:text-slate-100"
                     onClick={() => openYamlTab(clusterId)}
                   >
                     <FileCode className="h-4 w-4" />

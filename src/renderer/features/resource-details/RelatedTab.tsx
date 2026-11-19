@@ -111,13 +111,13 @@ export function RelatedTab({
             shortcut=""
           />
         </div>
-        <span className="font-mono text-[10px] text-theme-text-tertiary">
+        <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {filteredCount} / {totalCount}
         </span>
         {hasFilters ? (
           <button
             type="button"
-            className="flex h-6 items-center gap-1 rounded border border-theme-border px-1.5 text-[10px] text-theme-text-secondary transition-colors hover:bg-theme-hover"
+            className="flex h-6 items-center gap-1 rounded border border-theme-border px-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-secondary transition-colors hover:bg-theme-hover"
             onClick={() => {
               setQuery("");
               setRegex(false);
@@ -144,7 +144,7 @@ export function RelatedTab({
                   )
                 }
                 className={cn(
-                  "flex h-6 items-center gap-1 rounded-full border px-2 text-[10px] transition-colors",
+                  "flex h-6 items-center gap-1 rounded-full border px-2 text-[calc(10px*var(--font-scale))] transition-colors",
                   active
                     ? "border-skyhook-500/50 bg-skyhook-500/10 text-accent-text"
                     : "border-theme-border bg-theme-elevated text-theme-text-secondary hover:bg-theme-hover",
@@ -166,13 +166,13 @@ export function RelatedTab({
     return (
       <div>
         {warnings?.length ? (
-          <div className="m-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+          <div className="m-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(11px*var(--font-scale))] text-amber-700 dark:text-amber-300">
             <div className="flex items-center gap-1.5 font-medium">
               <AlertTriangle className="h-3 w-3" />
               Some relations could not be read (RBAC or API errors)
             </div>
             {warnings.map((warning) => (
-              <div key={warning} className="mt-1 break-words font-mono text-[10px] opacity-80">
+              <div key={warning} className="mt-1 break-words font-mono text-[calc(10px*var(--font-scale))] opacity-80">
                 {warning}
               </div>
             ))}
@@ -209,10 +209,10 @@ export function RelatedTab({
         visibleGroups.map((group) => (
           <div key={group.title}>
             <div className="mb-1.5 flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <span className="text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 {group.title}
               </span>
-              <span className="rounded bg-theme-elevated px-1 font-mono text-[10px] text-theme-text-tertiary">
+              <span className="rounded bg-theme-elevated px-1 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                 {group.items.length}
                 {hasFilters && group.items.length !== (originalCounts.get(group.title) ?? 0)
                   ? ` / ${originalCounts.get(group.title) ?? 0}`
@@ -233,14 +233,14 @@ export function RelatedTab({
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0 text-theme-text-tertiary" />
-                    <span className="w-28 shrink-0 truncate text-[10px] text-theme-text-tertiary">{item.kind}</span>
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-theme-text-primary">
+                    <span className="w-28 shrink-0 truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{item.kind}</span>
+                    <span className="min-w-0 flex-1 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                       {item.name}
                     </span>
                     {item.namespace ? (
-                      <span className="max-w-[8rem] truncate text-[10px] text-theme-text-disabled">{item.namespace}</span>
+                      <span className="max-w-[8rem] truncate text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{item.namespace}</span>
                     ) : null}
-                    <span className="hidden w-32 truncate text-[10px] text-theme-text-tertiary lg:block">
+                    <span className="hidden w-32 truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary lg:block">
                       {item.relationship}
                     </span>
                     {item.status ? (
@@ -254,11 +254,11 @@ export function RelatedTab({
         ))
       )}
       {warnings?.length ? (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[calc(10px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           Some relations could not be read: {warnings[0]}
         </div>
       ) : null}
-      <div className="flex items-center gap-1.5 text-[10px] text-theme-text-disabled">
+      <div className="flex items-center gap-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
         <Puzzle className="h-3 w-3" />
         Relationships are computed from the live API, not inferred from static manifests.
       </div>

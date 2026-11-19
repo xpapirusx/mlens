@@ -46,7 +46,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
         <button
           type="button"
           onClick={onOpenPalette}
-          className="app-no-drag flex h-7 w-full max-w-md items-center gap-2 rounded-lg border border-theme-border bg-theme-surface px-2.5 text-left text-[11px] text-theme-text-tertiary transition-colors hover:border-theme-border-light hover:bg-theme-elevated"
+          className="app-no-drag flex h-7 w-full max-w-md items-center gap-2 rounded-lg border border-theme-border bg-theme-surface px-2.5 text-left text-[calc(11px*var(--font-scale))] text-theme-text-tertiary transition-colors hover:border-theme-border-light hover:bg-theme-elevated"
         >
           <Command className="h-3.5 w-3.5" />
           <span className="flex-1 truncate">Search clusters, resources and actions…</span>

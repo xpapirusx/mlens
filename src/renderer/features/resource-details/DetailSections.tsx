@@ -22,8 +22,8 @@ export function AgeProperty({ timestamp }: { timestamp?: string }) {
           side="top"
           content={
             <div className="space-y-0.5">
-              <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
-              <div className="font-mono text-[11px] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
+              <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">Created</div>
+              <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{formatTimestamp(timestamp)}</div>
             </div>
           }
         >
@@ -52,7 +52,7 @@ export function Property({
   const display = value === undefined || value === null || value === "" ? "–" : value;
 
   return (
-    <div className={cn("flex items-start gap-2 text-[13px]", className)}>
+    <div className={cn("flex items-start gap-2 text-[calc(13px*var(--font-scale))]", className)}>
       <span className="w-40 shrink-0 text-theme-text-tertiary">{label}</span>
       <span
         className={cn(
@@ -102,7 +102,7 @@ export function DetailSection({
         <>
           {title}
           {count !== undefined ? (
-            <span className="ml-1.5 rounded bg-theme-elevated px-1 py-px font-mono text-[10px] text-theme-text-tertiary">
+            <span className="ml-1.5 rounded bg-theme-elevated px-1 py-px font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
               {count}
             </span>
           ) : null}
@@ -138,7 +138,7 @@ export function ConditionsList({ conditions }: { conditions: Array<Record<string
         const tone = condition.status === "True" ? (negativeType ? "error" : "success") : positive ? "warning" : "neutral";
         return (
           <div key={`${condition.type}-${index}`} className="flex items-start gap-2">
-            <span className="w-12 shrink-0 pt-0.5 text-right text-[10px] text-theme-text-disabled">
+            <span className="w-12 shrink-0 pt-0.5 text-right text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
               {condition.lastTransitionTime ? (
                 <Tooltip
                   side="top"
@@ -163,16 +163,16 @@ export function ConditionsList({ conditions }: { conditions: Array<Record<string
             />
             <div className="min-w-0 flex-1 pb-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[13px] font-medium text-theme-text-primary">{condition.type}</span>
+                <span className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-primary">{condition.type}</span>
                 <span className={cn("badge-sm", toneClass(conditionTone(condition.status)))}>
                   {condition.status ?? "Unknown"}
                 </span>
                 {condition.reason ? (
-                  <span className={cn("text-[10px]", toneTextClass(tone as never))}>{condition.reason}</span>
+                  <span className={cn("text-[calc(10px*var(--font-scale))]", toneTextClass(tone as never))}>{condition.reason}</span>
                 ) : null}
               </div>
               {condition.message ? (
-                <div className="mt-0.5 break-words text-[11px] leading-relaxed text-theme-text-tertiary">
+                <div className="mt-0.5 break-words text-[calc(11px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">
                   {condition.message}
                 </div>
               ) : null}
@@ -213,8 +213,8 @@ export function NestedObject({ value, depth = 0 }: { value: unknown; depth?: num
   return (
     <div className={cn("space-y-1", depth > 0 && "border-l border-theme-border pl-2")}>
       {entries.map(([key, entry]) => (
-        <div key={key} className="flex items-start gap-2 text-[12px]">
-          <span className="w-36 shrink-0 truncate font-mono text-[11px] text-theme-text-tertiary" title={key}>
+        <div key={key} className="flex items-start gap-2 text-[calc(12px*var(--font-scale))]">
+          <span className="w-36 shrink-0 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary" title={key}>
             {key}
           </span>
           <div className="min-w-0 flex-1 text-theme-text-primary">
@@ -249,7 +249,7 @@ export function KeyValueList({
   return (
     <div className="space-y-2">
       {meta ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-theme-text-tertiary">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {meta}
         </div>
       ) : null}
@@ -259,13 +259,13 @@ export function KeyValueList({
         return (
           <div key={key} className="rounded-md border border-theme-border-subtle bg-theme-base px-2.5 py-2">
             <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-[11px] font-medium text-theme-text-secondary" title={key}>
+              <span className="min-w-0 flex-1 truncate font-mono text-[calc(11px*var(--font-scale))] font-medium text-theme-text-secondary" title={key}>
                 {key}
               </span>
               {secret ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded px-1 py-0.5 text-[10px] text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
+                  className="shrink-0 rounded px-1 py-0.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
                   onClick={() =>
                     setRevealed((current) => {
                       const next = new Set(current);
@@ -314,12 +314,12 @@ function ValueBlock({ value, masked }: { value: string; masked?: boolean }) {
   const overflow = allLines.length - lines.length;
   return (
     <div className="mt-1 flex max-h-64 overflow-auto rounded border border-theme-border-subtle bg-theme-base">
-      <div className="sticky left-0 shrink-0 select-none border-r border-theme-border-subtle bg-theme-elevated px-1.5 py-1 text-right font-mono text-[10px] leading-[1.45] text-theme-text-disabled">
+      <div className="sticky left-0 shrink-0 select-none border-r border-theme-border-subtle bg-theme-elevated px-1.5 py-1 text-right font-mono text-[calc(10px*var(--font-scale))] leading-[1.45] text-theme-text-disabled">
         {lines.map((_, index) => (
           <div key={index}>{index + 1}</div>
         ))}
       </div>
-      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all px-2 py-1 font-mono text-[11px] leading-[1.45] text-theme-text-primary">
+      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all px-2 py-1 font-mono text-[calc(11px*var(--font-scale))] leading-[1.45] text-theme-text-primary">
         {lines.join("\n")}
         {overflow > 0 ? `\n… +${overflow} lines` : ""}
       </pre>

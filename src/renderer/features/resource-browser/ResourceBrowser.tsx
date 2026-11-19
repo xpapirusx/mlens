@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowLeftRight,
   Ban,
@@ -25,9 +25,9 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { KubeObject, ResourceKey, TableSort } from "@shared/types";
+import type { ApiResourceInfo, KubeObject, ResourceKey, TableSort } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore, type DetailTab, type KindState } from "../../stores/session-store";
+import { useSessionStore, type DetailTab, type KindState, emptyKindState } from "../../stores/session-store";
 import { findResource, HELM_RELEASES_RESOURCE } from "../../lib/catalog";
 import { resourceStatus } from "../../lib/status";
 import { getColumnsForKind, sortObjects, WARNING_KINDS, type CellContext, type ColumnDef } from "../../lib/columns";
@@ -40,7 +40,7 @@ import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/co
 import { ContextMenu } from "../../design-system/components/ContextMenu";
 import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
-import { useResourceList } from "./useResourceList";
+import { useDebouncedValue, useResourceList } from "./useResourceList";
 import { useResourceMetrics } from "./useResourceMetrics";
 import { ResourceTable } from "./ResourceTable";
 import { NamespacePicker, ColumnPicker } from "./TableControls";
@@ -93,8 +93,41 @@ function rowKey(object: KubeObject): string {
   return object.metadata?.uid ?? `${object.metadata?.namespace}/${object.metadata?.name}`;
 }
 
-export function ResourceBrowser({ clusterId, active }: { clusterId: string; active: boolean }) {
-  const session = useSessionStore((state) => state.sessions[clusterId]);
+// Stable fallbacks: selector results must keep their identity between store
+// notifications (a fresh `[]` per call is the classic React #185 loop).
+const EMPTY_RESOURCES: ApiResourceInfo[] = [];
+const EMPTY_NAMESPACES: string[] = [];
+const EMPTY_KIND_STATES: Record<string, KindState> = {};
+const EMPTY_FILTER_OPTIONS: ReturnType<typeof buildFilterOptions> = [];
+
+export function ResourceBrowser({
+  clusterId,
+  active,
+  side,
+  overlay,
+}: {
+  clusterId: string;
+  active: boolean;
+  /** Editor area; rendered beside the table, below the toolbar row. */
+  side?: ReactNode;
+  /** Absolutely positioned layer (minimized-editor pill) inside the row. */
+  overlay?: ReactNode;
+}) {
+  // A14: field-level session selectors — a keystroke in search updates only
+  // `kindStates`, not every subscriber of the whole session object.
+  const hasSession = useSessionStore((state) => Boolean(state.sessions[clusterId]));
+  const selectedRef = useSessionStore((state) => {
+    const session = state.sessions[clusterId];
+    const pane = session?.editor.panes.find((entry) => entry.id === session.editor.activePaneId);
+    return pane?.active ?? null;
+  });
+  const resources = useSessionStore((state) => state.sessions[clusterId]?.resources) ?? EMPTY_RESOURCES;
+  const selectedKind = useSessionStore((state) => state.sessions[clusterId]?.selectedKind) ?? null;
+  const selectedNamespaces =
+    useSessionStore((state) => state.sessions[clusterId]?.selectedNamespaces) ?? EMPTY_NAMESPACES;
+  const kindStates = useSessionStore((state) => state.sessions[clusterId]?.kindStates) ?? EMPTY_KIND_STATES;
+  const namespaces = useSessionStore((state) => state.sessions[clusterId]?.namespaces) ?? EMPTY_NAMESPACES;
+  const sessionInfo = useSessionStore((state) => state.sessions[clusterId]?.info) ?? null;
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const allClusters = useCatalogStore((state) => state.allClusters);
@@ -107,11 +140,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const setDetailsTab = useSessionStore((state) => state.setDetailsTab);
   const openTerminal = useSessionStore((state) => state.openTerminal);
-  const details = session?.details;
 
   const resource = useMemo(() => {
-    const selected = session?.selectedKind ?? null;
-    const found = findResource(session?.resources ?? [], selected);
+    const selected = selectedKind;
+    const found = findResource(resources, selected);
     if (found) return found;
     // Helm releases are parsed from secrets, so discovery never lists them:
     // the synthetic resource stands in for the selected kind.
@@ -119,25 +151,21 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       return HELM_RELEASES_RESOURCE;
     }
     return undefined;
-  }, [session?.resources, session?.selectedKind]);
+  }, [resources, selectedKind]);
 
-  const selectedNamespaces = session?.selectedNamespaces ?? [];
   const refreshSeconds = active ? (settings?.refreshIntervalSeconds ?? 30) : 0;
   const list = useResourceList({ clusterId, resource, namespaces: selectedNamespaces, refreshSeconds });
 
-  const kindState: KindState = session && resource
-    ? (session.kindStates[`${resource.apiVersion}|${resource.kind}`] ?? {
-        search: "",
-        regex: false,
-        sort: null,
-        filters: {},
-        hiddenColumns: [],
-        columnWidths: {},
-        pinnedColumns: [],
-      })
-    : { search: "", regex: false, sort: null, filters: {}, hiddenColumns: [], columnWidths: {}, pinnedColumns: [] };
+  const kindState: KindState = hasSession && resource
+    ? (kindStates[`${resource.apiVersion}|${resource.kind}`] ?? emptyKindState())
+    : emptyKindState();
 
-  const showNamespace = Boolean(resource?.namespaced && selectedNamespaces.length !== 1);
+  // Keep the Namespace column even when a single namespace is selected.
+  // Clicking a namespace cell scopes the list; flipping the column off at that
+  // moment rebuilds `columns`, resets table highlight/layout and yanks the
+  // column out from under the cursor. Filtering should remove rows, not
+  // columns — the column picker can still hide it on purpose.
+  const showNamespace = Boolean(resource?.namespaced);
   const baseColumns = useMemo(
     () => (resource ? getColumnsForKind(resource, showNamespace) : []),
     [resource, showNamespace],
@@ -185,11 +213,11 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const kindStateKey = resource ? `${resource.apiVersion}|${resource.kind}` : null;
   useEffect(() => {
     if (!resource || !kindStateKey) return;
-    if (session.kindStates[kindStateKey]) return;
+    if (kindStates[kindStateKey]) return;
     const defaults = columns.filter((column) => column.defaultHidden).map((column) => column.key);
     if (defaults.length === 0) return;
     updateKindState(clusterId, resource.apiVersion, resource.kind, { hiddenColumns: defaults });
-  }, [kindStateKey, resource, columns, session.kindStates, clusterId, updateKindState]);
+  }, [kindStateKey, resource, columns, kindStates, clusterId, updateKindState]);
 
   const hidden = useMemo(() => new Set(kindState.hiddenColumns), [kindState.hiddenColumns]);
   const pinnedKeys = useMemo(() => new Set(kindState.pinnedColumns), [kindState.pinnedColumns]);
@@ -227,7 +255,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   });
   const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
     const lower = target.kind.toLowerCase();
-    const match = (session?.resources ?? []).find(
+    const match = resources.find(
       (entry) => entry.kind.toLowerCase() === lower && (!target.apiVersion || entry.apiVersion === target.apiVersion),
     );
     const apiVersion = target.apiVersion ?? match?.apiVersion;
@@ -253,7 +281,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const metrics = useResourceMetrics({
     clusterId,
     resource,
-    resources: session?.resources ?? [],
+    resources,
     namespaces: selectedNamespaces,
     refreshSeconds,
     active: active && visible.some((column) => column.key === "cpu" || column.key === "memory"),
@@ -272,19 +300,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     [showNamespace, claimPods, serviceEndpoints, warningEvents, nodePodCounts, metrics],
   );
 
-  const filterData = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof buildFilterOptions>>();
-    for (const column of columns) {
-      if (!column.filterValue) continue;
-      // Namespace has a dedicated scope picker, so it must not open a second
-      // namespace menu from the column header.
-      if (column.key === "namespace") continue;
-      const options = buildFilterOptions(list.items, column, cellContext);
-      if (options.length >= 2 && options.length <= 60) map.set(column.key, options);
-    }
-    return map;
-  }, [columns, list.items, cellContext]);
-
   const searchError = useMemo(() => {
     if (!kindState.search || !kindState.regex) return false;
     try {
@@ -295,69 +310,121 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     }
   }, [kindState.search, kindState.regex]);
 
+  // A10: the input writes the store per keystroke (the box stays instant),
+  // but the full inventory scan runs only after typing pauses.
+  const debouncedSearch = useDebouncedValue(kindState.search, 200);
 
   const [problemsOnly, setProblemsOnly] = useState(false);
 
-  const problemCount = useMemo(
-    () =>
-      resource
-        ? list.items.filter((object) => {
-            const tone = resourceStatus(object, resource.kind).tone;
-            return tone === "warning" || tone === "error";
-          }).length
-        : 0,
-    [list.items, resource],
-  );
+  // A20: which columns can be filtered is a property of the columns. The
+  // option lists used to be built for every filterable column over the whole
+  // inventory on every list/context change; they are now built when the
+  // popover opens (`filterOptions` below).
+  const filterableKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const column of columns) {
+      if (!column.filterValue) continue;
+      // Namespace has a dedicated scope picker, so it must not open a second
+      // namespace menu from the column header.
+      if (column.key === "namespace") continue;
+      keys.add(column.key);
+    }
+    return keys;
+  }, [columns]);
 
-  const filtered = useMemo(() => {
-    let rows = list.items;
-    const term = kindState.search.trim();
-    if (term) {
-      let regex: RegExp | null = null;
-      if (kindState.regex) {
-        try {
-          regex = new RegExp(term, "i");
-        } catch {
-          regex = null;
+  // A11: the search haystack (name, namespace, every column value, label
+  // keys) is built once per list/columns/context change — and only while a
+  // search is active — instead of per keystroke for every row.
+  const searching = debouncedSearch.trim().length > 0;
+  const haystacks = useMemo(() => {
+    if (!searching) return null;
+    const built = new Array<string>(list.items.length);
+    for (let index = 0; index < list.items.length; index += 1) {
+      const row = list.items[index];
+      built[index] = [
+        row.metadata?.name,
+        row.metadata?.namespace,
+        ...columns.map((column) => column.value?.(row, cellContext)),
+        ...Object.keys(row.metadata?.labels ?? {}),
+      ]
+        .filter((value) => value !== undefined && value !== null)
+        .join(" ")
+        .toLowerCase();
+    }
+    return built;
+  }, [searching, list.items, columns, cellContext]);
+
+  // A20: one pass over the inventory that counts problems and applies the
+  // search, the Problems toggle and the column filters together — three
+  // separate memos used to walk the whole list on every change.
+  const { rows: filtered, problemCount } = useMemo(() => {
+    const term = debouncedSearch.trim();
+    let regex: RegExp | null = null;
+    if (term && kindState.regex) {
+      try {
+        regex = new RegExp(term, "i");
+      } catch {
+        regex = null;
+      }
+    }
+    const needle = term.toLowerCase();
+    const filterColumns = Object.entries(kindState.filters)
+      .filter(([, values]) => values.length > 0)
+      .map(([key, values]) => ({ column: columns.find((entry) => entry.key === key), values }));
+    const hay = haystacks;
+    const useSearch = searching && hay !== null;
+    const narrowing = useSearch || (problemsOnly && Boolean(resource)) || filterColumns.length > 0;
+
+    let problems = 0;
+    const rows: KubeObject[] = [];
+    for (let index = 0; index < list.items.length; index += 1) {
+      const row = list.items[index];
+      let isProblem = false;
+      if (resource) {
+        const tone = resourceStatus(row, resource.kind).tone;
+        isProblem = tone === "warning" || tone === "error";
+        if (isProblem) problems += 1;
+      }
+      if (!narrowing) continue;
+      if (useSearch) {
+        const entry = hay![index];
+        if (regex ? !regex.test(entry) : !entry.includes(needle)) continue;
+      }
+      if (problemsOnly && resource && !isProblem) continue;
+      let passes = true;
+      for (const { column, values } of filterColumns) {
+        const value = column?.filterValue?.(row);
+        if (value === undefined || !values.includes(value)) {
+          passes = false;
+          break;
         }
       }
-      const needle = term.toLowerCase();
-      rows = rows.filter((row) => {
-        const haystack = [
-          row.metadata?.name,
-          row.metadata?.namespace,
-          ...columns.map((column) => column.value?.(row, cellContext)),
-          ...Object.keys(row.metadata?.labels ?? {}),
-        ]
-          .filter((value) => value !== undefined && value !== null)
-          .join(" ");
-        return regex ? regex.test(haystack) : haystack.toLowerCase().includes(needle);
-      });
+      if (!passes) continue;
+      rows.push(row);
     }
+    return narrowing ? { rows, problemCount: problems } : { rows: list.items, problemCount: problems };
+  }, [
+    list.items,
+    resource,
+    debouncedSearch,
+    searching,
+    haystacks,
+    kindState.regex,
+    kindState.filters,
+    problemsOnly,
+    columns,
+  ]);
 
-    if (problemsOnly && resource) {
-      rows = rows.filter((object) => {
-        const tone = resourceStatus(object, resource.kind).tone;
-        return tone === "warning" || tone === "error";
-      });
-    }
-
-    const activeFilters = Object.entries(kindState.filters).filter(([, values]) => values.length > 0);
-    if (activeFilters.length > 0) {
-      rows = rows.filter((row) =>
-        activeFilters.every(([key, values]) => {
-          const column = columns.find((entry) => entry.key === key);
-          const value = column?.filterValue?.(row);
-          return value !== undefined && values.includes(value);
-        }),
-      );
-    }
-    return rows;
-  }, [list.items, kindState.search, kindState.regex, kindState.filters, columns, problemsOnly, resource, cellContext]);
-
+  const sortedRef = useRef<ReturnType<typeof sortObjects>>([]);
   const sorted = useMemo(() => {
     const sortColumn = columns.find((column) => column.key === effectiveSort.key);
-    return sortObjects(filtered, sortColumn, effectiveSort.direction, cellContext);
+    const next = sortObjects(filtered, sortColumn, effectiveSort.direction, cellContext);
+    // A12: keep the previous identity when the order did not change (context
+    // refreshes rebuild the same order) so the memoized table rows skip.
+    const prev = sortedRef.current;
+    if (prev.length === next.length && next.every((row, index) => row === prev[index])) return prev;
+    sortedRef.current = next;
+    return next;
   }, [filtered, effectiveSort.key, effectiveSort.direction, columns, cellContext]);
 
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
@@ -366,6 +433,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
   const [busy, setBusy] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // A20: filter option lists are built only while the popover is open, from
+  // the current rows — closing it costs nothing on later list changes.
+  const filterOptions = useMemo(() => {
+    if (!filterPanel) return EMPTY_FILTER_OPTIONS;
+    const column = columns.find((entry) => entry.key === filterPanel.key);
+    return column ? buildFilterOptions(list.items, column, cellContext) : EMPTY_FILTER_OPTIONS;
+  }, [filterPanel, list.items, columns, cellContext]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -382,15 +457,25 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
   useEffect(() => {
     // Filters may reference columns hidden by a kind switch.
-    if (filterPanel && !filterData.has(filterPanel.key)) setFilterPanel(null);
-  }, [filterPanel, filterData]);
+    if (filterPanel && !filterableKeys.has(filterPanel.key)) setFilterPanel(null);
+  }, [filterPanel, filterableKeys]);
 
   useEffect(() => {
     setSelectedKeys(new Set());
     setProblemsOnly(false);
   }, [kindStateKey, selectedNamespaces.join(",")]);
 
-  if (!session) return null;
+  // Search and column filters run client-side over loaded rows. Pull the
+  // remaining pages, so a name in page 2/3 (4000+ inventories) is still found.
+  const wantsEveryPage =
+    debouncedSearch.trim().length > 0 ||
+    Object.values(kindState.filters).some((values) => values.length > 0);
+  useEffect(() => {
+    if (!wantsEveryPage || !list.hasMore) return;
+    void list.loadAll();
+  }, [wantsEveryPage, list.hasMore, list.loadAll]);
+
+  if (!hasSession) return null;
 
   const setKindPatch = (patch: Partial<typeof kindState>) => {
     if (!resource) return;
@@ -437,8 +522,6 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     });
     if (tab) setDetailsTab(clusterId, tab);
   };
-
-  const selectedRef = details?.ref ?? null;
 
   const openExec = async (object: KubeObject) => {
     if (!resource) return;
@@ -629,7 +712,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           {field === "labels" ? "Label" : "Annotate"} {selectedKeys.size} selected
         </MenuLabel>
         {entries.length === 0 ? (
-          <div className="px-2 py-1.5 text-[11px] text-theme-text-tertiary">
+          <div className="px-2 py-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             No saved {noun}s yet — add one below.
           </div>
         ) : null}
@@ -767,7 +850,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
     }
   };
 
-  if (session?.selectedKind?.kind === "__overview__") {
+  if (selectedKind?.kind === "__overview__") {
     return <ClusterOverview clusterId={clusterId} active={active} />;
   }
 
@@ -873,10 +956,10 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       <div className="flex h-12 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b border-theme-border bg-theme-base px-3">
         <Icon className="h-4 w-4 shrink-0 text-accent-text" />
         <div className="flex min-w-0 items-baseline gap-2">
-          <h1 className="truncate text-[14px] font-semibold text-theme-text-primary">
+          <h1 className="truncate text-[calc(14px*var(--font-scale))] font-semibold text-theme-text-primary">
             {kindLabel(resource.kind, resource.plural)}
           </h1>
-          <span className="font-mono text-[11px] text-theme-text-tertiary tabular-nums">
+          <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary tabular-nums">
             {filtered.length !== list.items.length ? `${filtered.length} / ` : ""}
             {list.total ?? list.items.length}
           </span>
@@ -891,7 +974,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {resource.namespaced ? (
             <NamespacePicker
-              namespaces={session.namespaces}
+              namespaces={namespaces}
               value={selectedNamespaces}
               onChange={(next) => setSelectedNamespaces(clusterId, next)}
               showSystemNamespaces={settings?.showSystemNamespaces ?? false}
@@ -912,7 +995,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             />
           </div>
 
-          {[...filterData.keys()].slice(0, 3).map((key) => {
+          {[...filterableKeys].slice(0, 3).map((key) => {
             const column = columns.find((entry) => entry.key === key);
             if (!column) return null;
             const count = kindState.filters[key]?.length ?? 0;
@@ -922,7 +1005,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
                 type="button"
                 onClick={(event) => openFilter(column, event)}
                 className={cn(
-                  "hidden h-8 items-center gap-1 rounded-lg border px-2 text-[11px] transition-colors lg:flex",
+                  "hidden h-8 items-center gap-1 rounded-lg border px-2 text-[calc(11px*var(--font-scale))] transition-colors lg:flex",
                   count > 0
                     ? "border-skyhook-500/40 bg-skyhook-500/10 text-accent-text"
                     : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
@@ -968,7 +1051,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             type="button"
             onClick={() => setProblemsOnly((value) => !value)}
             className={cn(
-              "flex h-8 items-center gap-1 rounded-lg border px-2 text-[11px] transition-colors",
+              "flex h-8 items-center gap-1 rounded-lg border px-2 text-[calc(11px*var(--font-scale))] transition-colors",
               problemsOnly
                 ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
                 : "border-theme-border bg-theme-surface text-theme-text-secondary hover:bg-theme-hover",
@@ -1014,11 +1097,15 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         </div>
       </div>
 
+      {/* Toolbar above spans the full width; the table and the editor area
+          share this row, so the editor starts under Create/Search/live. */}
+      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {compareSelection ? (
-        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[calc(11px*var(--font-scale))]">
           <ArrowLeftRight className="h-3 w-3 shrink-0 text-accent-text" />
           <span className="shrink-0 text-accent-text">For comparison</span>
-          <span className="min-w-0 truncate font-mono text-[11px] text-theme-text-primary">
+          <span className="min-w-0 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
             {compareSelection.kind}/{compareSelection.namespace ? `${compareSelection.namespace}/` : ""}
             {compareSelection.name}
           </span>
@@ -1039,7 +1126,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       ) : null}
 
       {problemsOnly ? (
-        <div className="flex h-7 shrink-0 items-center gap-2 border-b border-theme-border bg-amber-500/5 px-3 text-[11px] text-amber-700 dark:text-amber-300">
+        <div className="flex h-7 shrink-0 items-center gap-2 border-b border-theme-border bg-amber-500/5 px-3 text-[calc(11px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <TriangleExclamationPoint className="h-3 w-3" />
           Showing {problemCount} resource{problemCount === 1 ? "" : "s"} with warning/error status
           <button type="button" className="ml-auto underline" onClick={() => setProblemsOnly(false)}>
@@ -1050,11 +1137,11 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
 
       {activeFilterChips.length > 0 ? (
         <div className="flex h-8 shrink-0 items-center gap-1.5 overflow-x-auto border-b border-theme-border bg-theme-base/60 px-3">
-          <span className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">Filters</span>
+          <span className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Filters</span>
           {activeFilterChips.map((chip) => (
             <span
               key={chip.key}
-              className="flex items-center gap-1 rounded-md border border-skyhook-500/30 bg-skyhook-500/10 px-1.5 py-0.5 text-[11px] text-accent-text"
+              className="flex items-center gap-1 rounded-md border border-skyhook-500/30 bg-skyhook-500/10 px-1.5 py-0.5 text-[calc(11px*var(--font-scale))] text-accent-text"
             >
               <span className="text-theme-text-tertiary">{chip.label}:</span>
               <span className="max-w-[16rem] truncate">{chip.values.join(", ")}</span>
@@ -1073,7 +1160,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           ))}
           <button
             type="button"
-            className="ml-auto shrink-0 text-[11px] text-theme-text-tertiary hover:text-theme-text-primary"
+            className="ml-auto shrink-0 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary hover:text-theme-text-primary"
             onClick={clearFilters}
           >
             Clear all
@@ -1114,7 +1201,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             setMenu({ object, x: rect.left, y: rect.bottom + 4 });
           }}
           onBackgroundClick={() => {
-            if (details) closeDetails(clusterId);
+            if (selectedRef) closeDetails(clusterId);
           }}
           pinnedKeys={pinnedKeys}
           onFilterColumn={openFilter}
@@ -1134,7 +1221,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
             delete next[`${resource.kind}|${key}`];
             void updateSettings({ tableColumnWidths: next });
           }}
-          filterableKeys={new Set(filterData.keys())}
+          filterableKeys={filterableKeys}
           rowHeight={settings?.tableRowHeight ?? 44}
           podMetrics={metrics.pods}
           nodeMetrics={metrics.nodes}
@@ -1168,7 +1255,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
       )}
 
       {selectedKeys.size > 0 ? (
-        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[11px]">
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-theme-border bg-skyhook-500/10 px-3 text-[calc(11px*var(--font-scale))]">
           <span className="font-medium text-accent-text">{selectedKeys.size} selected</span>
           <button
             type="button"
@@ -1247,8 +1334,14 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         </div>
       ) : null}
 
-      <div className="flex h-7 shrink-0 items-center gap-3 border-t border-theme-border bg-theme-base px-3 text-[10px] text-theme-text-tertiary">
-        <span>{list.items.length} loaded</span>
+      <div className="flex h-7 shrink-0 items-center gap-3 border-t border-theme-border bg-theme-base px-3 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
+        <span>
+          {list.items.length} loaded
+          {list.total !== null && list.total > list.items.length ? ` of ${list.total}` : ""}
+        </span>
+        {list.loadingAll ? (
+          <span className="text-accent-text">fetching all pages for search…</span>
+        ) : null}
         <span className="text-theme-text-disabled">·</span>
         <span className="font-mono">{resource.apiVersion}/{resource.kind}</span>
         <span className="text-theme-text-disabled">·</span>
@@ -1256,14 +1349,30 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
         {list.hasMore ? (
           <button
             type="button"
-            className="ml-auto text-accent-text hover:underline"
+            className="ml-auto text-accent-text hover:underline disabled:opacity-50"
             onClick={() => void list.loadMore()}
+            disabled={list.loadingAll}
+            title="Fetch the next page; the table only renders the visible rows"
           >
-            Load more
+            {list.loadingAll ? (
+              "Loading…"
+            ) : (
+              <>
+                Load more
+                {list.total !== null
+                  ? ` (+${Math.max(0, list.total - list.items.length)})`
+                  : ""}
+              </>
+            )}
           </button>
         ) : (
           <span className="ml-auto">{filtered.length} visible</span>
         )}
+      </div>
+
+        </div>
+        {side}
+        {overlay}
       </div>
 
       {filterPanel ? (
@@ -1271,7 +1380,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
           x={filterPanel.x}
           y={filterPanel.y}
           column={columns.find((column) => column.key === filterPanel.key)!}
-          options={filterData.get(filterPanel.key) ?? []}
+          options={filterOptions}
           selected={kindState.filters[filterPanel.key] ?? []}
           onChange={(values) =>
             setKindPatch({ filters: { ...kindState.filters, [filterPanel.key]: values } })
@@ -1497,7 +1606,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
               const namespaceFlag =
                 contextObject.metadata?.namespace ? ` -n ${contextObject.metadata.namespace}` : "";
               void navigator.clipboard.writeText(
-                `kubectl get ${resource.plural} ${contextObject.metadata?.name}${namespaceFlag} --context ${session.info?.context ?? ""}`,
+                `kubectl get ${resource.plural} ${contextObject.metadata?.name}${namespaceFlag} --context ${sessionInfo?.context ?? ""}`,
               );
               toast.success("kubectl command copied");
             }
@@ -1618,7 +1727,7 @@ export function ResourceBrowser({ clusterId, active }: { clusterId: string; acti
               Permanently delete <span className="font-medium text-theme-text-primary">{selectedObjects.length}</span>{" "}
               resource{selectedObjects.length === 1 ? "" : "s"}? This cannot be undone.
             </p>
-            <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-theme-border bg-theme-base p-2 font-mono text-[11px]">
+            <ul className="mt-2 max-h-40 overflow-y-auto rounded border border-theme-border bg-theme-base p-2 font-mono text-[calc(11px*var(--font-scale))]">
               {selectedObjects.slice(0, 50).map((object) => (
                 <li key={rowKey(object)} className="truncate">
                   {object.metadata?.namespace ? `${object.metadata.namespace}/` : ""}
@@ -1745,7 +1854,7 @@ function Freshness({
   const age = lastUpdated ? Math.max(0, Math.round((Date.now() - lastUpdated) / 1000)) : null;
 
   return (
-    <div className="ml-2 hidden items-center gap-1.5 text-[10px] text-theme-text-tertiary sm:flex">
+    <div className="ml-2 hidden items-center gap-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary sm:flex">
       {loading ? (
         <LoaderCircle className="h-3 w-3 animate-spin" />
       ) : watchState === "error" ? (

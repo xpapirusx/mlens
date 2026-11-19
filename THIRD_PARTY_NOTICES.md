@@ -32,6 +32,112 @@ Copyright (c) Freelens Authors; Copyright (c) OpenLens Authors.
 
 ---
 
+## Synthwave '84
+
+- Source: https://github.com/robb0wen/synthwave-vscode
+- License: MIT
+- Use: colour palette of the **Synthwave '84** theme — `html.theme-synthwave`
+  token values, the `mlens-synthwave` Monaco theme and its terminal ANSI palette
+  are derived from the VS Code theme's colours (base `#262335`, pink `#FF7EDB`,
+  pink/cyan/green status hues).
+
+---
+
+## Dark Islands
+
+- Source: https://github.com/bwya77/vscode-dark-islands
+- License: MIT
+- Use: colour palette of the **Dark Islands** theme — `html.theme-islands`,
+  `mlens-islands` Monaco theme and terminal ANSI palette derived from
+  `themes/islands-dark.json` (charcoal `#181A1D`, blue `#548AF7`).
+
+---
+
+## GitHub VS Code theme
+
+- Source: https://github.com/primer/github-vscode-theme
+- License: MIT
+- Use: colour palette of the **GitHub** theme — `html.theme-github`,
+  `mlens-github` Monaco theme and terminal ANSI palette derived from Primer's
+  dark palette (`#0D1117`, `#161B22`, accent `#58A6FF`).
+
+---
+
+## Night Owl
+
+- Source: https://github.com/sdras/night-owl-vscode-theme
+- License: MIT
+- Use: colour palette of the **Night Owl** theme — `html.theme-night-owl`,
+  `mlens-night-owl` Monaco theme and terminal ANSI palette derived from
+  `Night Owl-color-theme.json` (navy `#011627`, blue `#82AAFF`, teal `#7FDBCA`).
+
+---
+
+## Material Icon Theme
+
+- Source: https://github.com/material-extensions/vscode-material-icon-theme
+- License: MIT
+- Use: the **Material** colour theme's blue-grey surfaces and Material accent
+  palette are inspired by the icon set's Material colour family. mLens does not
+  embed the icon files themselves.
+
+---
+
+## One Dark Pro
+
+- Source: https://github.com/Binaryify/OneDark-Pro
+- License: MIT
+- Use: palette of the **One Dark Pro** theme (`html.theme-one-dark-pro`,
+  `mlens-one-dark-pro` Monaco theme, terminal ANSI palette).
+
+---
+
+## One Dark (akamud)
+
+- Source: https://github.com/akamud/vscode-theme-onedark
+- License: MIT
+- Use: palette of the **One Dark** theme (`html.theme-one-dark`,
+  `mlens-one-dark` Monaco theme, terminal ANSI palette).
+
+---
+
+## Catppuccin VS Code
+
+- Source: https://github.com/catppuccin/vscode
+- License: MIT
+- Use: palette of the **Catppuccin** theme (Mocha flavour) —
+  `html.theme-catppuccin`, `mlens-catppuccin` Monaco theme, terminal ANSI palette.
+
+---
+
+## Jellybeans Theme
+
+- Source: https://github.com/siwatts/jellybeans-theme-vscode
+- License: MIT
+- Use: palette of the **Jellybeans** theme (`html.theme-jellybeans`,
+  `mlens-jellybeans` Monaco theme, terminal ANSI palette).
+
+---
+
+## Adwaita for VS Code
+
+- Source: https://github.com/piousdeer/vscode-adwaita
+- License: MIT
+- Use: palette of the **Adwaita** theme (`html.theme-adwaita`,
+  `mlens-adwaita` Monaco theme, terminal ANSI palette).
+
+---
+
+## Ubuntu Font Family
+
+- Source: https://github.com/canonical/Ubuntu-fonts and Google Fonts
+- License: Ubuntu Font Licence 1.0 (`licenses/Ubuntu-Font-Licence-1.0.txt`)
+- Use: bundled `Ubuntu` and `Ubuntu Mono` WOFF2 subsets in
+  `src/renderer/design-system/fonts/` (`fonts.css`), offered as UI and terminal
+  font choices. Files were generated from the Google Fonts CSS API.
+
+---
+
 ## Skyhook Radar
 
 - Source: https://github.com/skyhook-io/radar

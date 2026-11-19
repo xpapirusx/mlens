@@ -34,14 +34,14 @@ function stripAnsi(text: string): string {
 function TextBlock({ text, empty }: { text: string; empty: string }) {
   if (!text.trim()) return <div className="text-xs text-theme-text-tertiary">{empty}</div>;
   return (
-    <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-theme-border bg-theme-base p-2 font-mono text-[11px] leading-5 text-theme-text-secondary">
+    <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-theme-border bg-theme-base p-2 font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-secondary">
       {text}
     </pre>
   );
 }
 
 const ROW_BUTTON =
-  "flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-medium transition-colors";
+  "flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[calc(11px*var(--font-scale))] font-medium transition-colors";
 const VIEW_BUTTON =
   "border-theme-border-light bg-theme-elevated text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary";
 const ROLLBACK_BUTTON =
@@ -192,7 +192,7 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
   return (
     <div className="space-y-4">
       {viewed ? (
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-skyhook-500/30 bg-skyhook-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-skyhook-500/30 bg-skyhook-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-sky-700 dark:text-sky-300">
           <span>
             Viewing revision {viewed.viewedRevision} — values, manifests and notes below are from that
             revision.
@@ -353,17 +353,17 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
                   title={`Open ${entry.kind}/${entry.name}`}
                 >
                   <span className="badge-sm status-violet shrink-0">{entry.kind}</span>
-                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-theme-text-primary">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                     {entry.name}
                   </span>
                   {entry.namespace && entry.namespace !== namespace ? (
-                    <span className="shrink-0 text-[11px] text-theme-text-tertiary">{entry.namespace}</span>
+                    <span className="shrink-0 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{entry.namespace}</span>
                   ) : null}
                 </button>
               ))}
           </div>
           {resources.length > 60 ? (
-            <div className="mt-1 text-[11px] text-theme-text-tertiary">
+            <div className="mt-1 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
               Showing the first {resources.length} objects of this manifest.
             </div>
           ) : null}
@@ -444,7 +444,7 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
       >
         <TextBlock text={shownManifest} empty="No rendered manifests are stored with this release." />
         {truncated ? (
-          <div className="mt-1.5 text-[11px] text-theme-text-tertiary">
+          <div className="mt-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             Values/manifests were cut short for display; the full text stays in the Secret.
           </div>
         ) : null}
@@ -531,7 +531,7 @@ export function HelmReleaseOverview({ object, clusterId, onNavigate, onRefresh }
             <span className="font-medium text-theme-text-primary">new revision</span> — history stays
             append-only, exactly like Helm.
           </p>
-          <p className="text-[11px] text-theme-text-tertiary">
+          <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             Nothing is deleted: the current revision's record and values remain in their Secrets and can be
             rolled forward to again.
           </p>

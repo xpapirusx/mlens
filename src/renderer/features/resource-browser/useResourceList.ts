@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ApiResourceInfo, KubeObject, WatchEventPayload } from "@shared/types";
+import type { ApiResourceInfo, KubeObject, WatchEventBatch, WatchEventPayload } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
 import { helmRow } from "../../lib/helm";
 import { toast } from "../../design-system/components/Toast";
@@ -7,6 +7,8 @@ import { toast } from "../../design-system/components/Toast";
 export interface ResourceListState {
   items: KubeObject[];
   loading: boolean;
+  /** True while "load every page" (search across all names) is running. */
+  loadingAll: boolean;
   error: string | null;
   watchState: "connecting" | "live" | "error" | "off";
   lastUpdated: number | null;
@@ -14,6 +16,8 @@ export interface ResourceListState {
   total: number | null;
   refresh: (silent?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
+  /** Follows every continue token so client-side search sees all names. */
+  loadAll: () => Promise<void>;
 }
 
 function mergeByUid(items: KubeObject[]): KubeObject[] {
@@ -23,6 +27,59 @@ function mergeByUid(items: KubeObject[]): KubeObject[] {
     byUid.set(key, item);
   }
   return [...byUid.values()];
+}
+
+/**
+ * A3: apply a whole watch batch in one pass. One event used to mean one
+ * `findIndex` + one array copy + one render of the workspace. Every event is
+ * resolved against the original list (uid first, then name — the same
+ * fallback the single-event path had, so a recreated object still matches its
+ * old row), the last op per row wins, then at most one new array is built.
+ */
+function applyWatchEvents(current: KubeObject[], events: WatchEventPayload[]): KubeObject[] {
+  const slots = new Map<string, number>();
+  for (let i = 0; i < current.length; i++) {
+    const meta = current[i].metadata;
+    if (meta?.uid) slots.set(meta.uid, i);
+    if (meta?.name) slots.set(`${meta.namespace}/${meta.name}`, i);
+  }
+
+  const slotOps = new Map<number, WatchEventPayload>();
+  const newOps = new Map<string, WatchEventPayload>();
+  let relevant = 0;
+  for (const event of events) {
+    const object = event.object;
+    if (!object?.metadata?.name) continue;
+    if (event.type !== "ADDED" && event.type !== "MODIFIED" && event.type !== "DELETED") continue;
+    relevant += 1;
+    const meta = object.metadata;
+    const key = meta.uid ?? `${meta.namespace}/${meta.name}`;
+    const byUid = meta.uid ? slots.get(meta.uid) : undefined;
+    const target = byUid ?? slots.get(`${meta.namespace}/${meta.name}`) ?? -1;
+    if (target === -1) newOps.set(key, event);
+    else slotOps.set(target, event);
+  }
+  if (relevant === 0) return current;
+
+  const next: KubeObject[] = [];
+  let changed = false;
+  for (let i = 0; i < current.length; i++) {
+    const event = slotOps.get(i);
+    if (event) {
+      changed = true;
+      if (event.type !== "DELETED" && event.object) next.push(event.object);
+      continue;
+    }
+    next.push(current[i]);
+  }
+  // New objects land at the front, like the single-event path did.
+  const added: KubeObject[] = [];
+  for (const event of newOps.values()) {
+    if (event.type === "DELETED" || !event.object) continue; // was never in the list
+    added.push(event.object);
+    changed = true;
+  }
+  return changed ? [...added, ...next] : current;
 }
 
 /**
@@ -42,6 +99,7 @@ export function useResourceList(options: {
   const { clusterId, resource, namespaces, refreshSeconds } = options;
   const [items, setItems] = useState<KubeObject[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [watchState, setWatchState] = useState<ResourceListState["watchState"]>("off");
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
@@ -60,6 +118,10 @@ export function useResourceList(options: {
    * the table would stay on "Loading…" forever.
    */
   const inFlightScope = useRef<string | null>(null);
+  const loadingAllRef = useRef(false);
+  /** Whether the next fetch follows a namespace-only change (keep rows, no spinner). */
+  const silentScopeChange = useRef(false);
+  const previousResourceKey = useRef<string | null>(null);
 
   const apiVersion = resource?.apiVersion;
   const kind = resource?.kind;
@@ -73,7 +135,7 @@ export function useResourceList(options: {
   const fetchPage = useCallback(
     async (token: string | undefined, silent: boolean) => {
       if (!resource || !apiVersion || !kind) return;
-      if (inFlightScope.current === scopeKey) return;
+      if (inFlightScope.current === scopeKey) return null;
       inFlightScope.current = scopeKey;
       const current = ++generation.current;
       if (!silent) setLoading(true);
@@ -103,7 +165,7 @@ export function useResourceList(options: {
           }
           setLastUpdated(Date.now());
           setLoading(false);
-          return;
+          return undefined;
         }
         if (scopes.length === 1) {
           const result = await call(
@@ -121,11 +183,14 @@ export function useResourceList(options: {
           setError(null);
           setContinueToken(result.continueToken);
           setItems((previous) => (token ? [...previous, ...result.items] : result.items));
-          setTotal(token ? null : result.items.length + (result.remainingItemCount ?? 0));
+          setTotal((current) =>
+            token ? current : result.items.length + (result.remainingItemCount ?? 0),
+          );
           if (!token && !loadedOnce.current) {
             loadedOnce.current = true;
             setListEpoch((value) => value + 1);
           }
+          return result.continueToken;
         } else {
           const results = await Promise.all(
             scopes.map((scope) =>
@@ -141,7 +206,10 @@ export function useResourceList(options: {
             ),
           );
           if (current !== generation.current) return;
-          resourceVersionRef.current = undefined;
+          // A2: every namespace list carries a cluster-wide resourceVersion —
+          // keep it so the per-namespace watches resume from the list instead
+          // of replaying the whole collection as per-object events.
+          resourceVersionRef.current = results.find((result) => result.resourceVersion)?.resourceVersion;
           setError(null);
           setContinueToken(undefined);
           setItems(mergeByUid(results.flatMap((result) => result.items)));
@@ -152,9 +220,11 @@ export function useResourceList(options: {
           }
         }
         setLastUpdated(Date.now());
+        return undefined;
       } catch (fetchError) {
-        if (current !== generation.current) return;
+        if (current !== generation.current) return undefined;
         setError(errorText(fetchError));
+        return undefined;
       } finally {
         if (inFlightScope.current === scopeKey) inFlightScope.current = null;
         if (current === generation.current) setLoading(false);
@@ -164,14 +234,61 @@ export function useResourceList(options: {
     [clusterId, apiVersion, kind, resource, scopeKey],
   );
 
-  const refresh = useCallback(async (silent = false) => fetchPage(undefined, silent), [fetchPage]);
+  const refresh = useCallback(
+    async (silent = false) => {
+      await fetchPage(undefined, silent);
+    },
+    [fetchPage],
+  );
 
   const loadMore = useCallback(async () => {
     if (!continueToken) return;
     await fetchPage(continueToken, true);
   }, [continueToken, fetchPage]);
 
+  /**
+   * Pull every remaining page (capped) so table search and column filters cover
+   * the whole inventory, not only the first 2000 rows. Silent: rows appear as
+   * pages arrive and the footer reports progress.
+   */
+  const loadAll = useCallback(async () => {
+    if (loadingAllRef.current) return;
+    let token: string | null | undefined = continueToken;
+    if (!token) return;
+    loadingAllRef.current = true;
+    setLoadingAll(true);
+    let pages = 0;
+    let skips = 0;
+    try {
+      while (token && pages < 20) {
+        const next = await fetchPage(token, true);
+        if (next === null) {
+          // A poll/refresh holds the scope; wait and retry the same page.
+          skips += 1;
+          if (skips > 20) break;
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+          continue;
+        }
+        skips = 0;
+        pages += 1;
+        token = next;
+      }
+    } finally {
+      loadingAllRef.current = false;
+      setLoadingAll(false);
+    }
+  }, [continueToken, fetchPage]);
+
   useEffect(() => {
+    const resourceKey = `${clusterId}|${apiVersion ?? ""}|${kind ?? ""}`;
+    const resourceChanged = previousResourceKey.current !== resourceKey;
+    previousResourceKey.current = resourceKey;
+    // A namespace-scope change is not a different kind: keep the current rows
+    // on screen and refetch silently, so clicking a Namespace cell swaps the
+    // data without the central loading spinner. Kind/cluster switches still
+    // clear and show the spinner.
+    silentScopeChange.current = !resourceChanged && loadedOnce.current;
+    if (!resourceChanged) return;
     setItems([]);
     setContinueToken(undefined);
     setTotal(null);
@@ -187,7 +304,9 @@ export function useResourceList(options: {
       setError(null);
       return;
     }
-    void refresh(false);
+    const silent = silentScopeChange.current;
+    silentScopeChange.current = false;
+    void refresh(silent);
     // A Create-from-YAML apply in the dock does not know which table is open:
     // every mounted list refetches when this fires.
     const onApplied = () => void refresh(true);
@@ -213,7 +332,11 @@ export function useResourceList(options: {
       setWatchState("off");
       return;
     }
-    if (!multiple && !resourceVersionRef.current) {
+    // A2: both single- and multi-scope watches start from the list's
+    // resourceVersion — a watch without one replays the entire collection as
+    // per-object events (the multi-namespace path did exactly that). The
+    // effect re-runs via `listEpoch` once the first list arrives.
+    if (!resourceVersionRef.current) {
       setWatchState("off");
       return;
     }
@@ -227,37 +350,32 @@ export function useResourceList(options: {
     let disposed = false;
     setWatchState("connecting");
 
-    const off = api.resources.onWatchEvent((payload: WatchEventPayload) => {
-      if (disposed || !ids.includes(payload.subscriptionId)) return;
-      if (payload.type === "ERROR") {
-        setWatchState("error");
-        return;
+    const off = api.resources.onWatchEvent((batch: WatchEventBatch) => {
+      if (disposed) return;
+      let nextState: ResourceListState["watchState"] | null = null;
+      const data: WatchEventPayload[] = [];
+      for (const entry of batch.events) {
+        if (!ids.includes(entry.subscriptionId)) continue;
+        if (entry.type === "ERROR") {
+          nextState = "error";
+          continue;
+        }
+        // Everything else — including the synthetic BOOKMARK ping main sends
+        // when the stream is established — means the watch is live.
+        nextState = "live";
+        if (entry.object?.metadata?.name) data.push(entry);
       }
-      setWatchState("live");
-      const object = payload.object;
-      if (!object?.metadata?.name) return;
+      if (nextState !== null) setWatchState(nextState);
+      if (data.length === 0) return;
 
-      setItems((current) => {
-        const index = current.findIndex(
-          (candidate) =>
-            (object.metadata.uid && candidate.metadata.uid === object.metadata.uid) ||
-            (candidate.metadata.name === object.metadata.name &&
-              candidate.metadata.namespace === object.metadata.namespace),
-        );
-        if (payload.type === "DELETED") {
-          if (index === -1) return current;
-          const next = [...current];
-          next.splice(index, 1);
-          return next;
-        }
-        if (payload.type === "ADDED" || payload.type === "MODIFIED") {
-          if (index === -1) return [object, ...current];
-          const next = [...current];
-          next[index] = object;
-          return next;
-        }
-        return current;
-      });
+      // Track the newest cluster-wide resourceVersion so a later scope switch
+      // resumes without replaying the whole collection (A2).
+      for (const entry of data) {
+        const resourceVersion = entry.object?.metadata?.resourceVersion;
+        if (resourceVersion) resourceVersionRef.current = resourceVersion;
+      }
+
+      setItems((current) => applyWatchEvents(current, data));
       setLastUpdated(Date.now());
     });
 
@@ -269,7 +387,7 @@ export function useResourceList(options: {
           apiVersion,
           kind,
           namespace: scopes[index],
-          resourceVersion: multiple ? undefined : resourceVersionRef.current,
+          resourceVersion: resourceVersionRef.current,
         })
         .catch((watchError) => {
           if (disposed) return;
@@ -289,6 +407,7 @@ export function useResourceList(options: {
   return {
     items,
     loading,
+    loadingAll,
     error,
     watchState,
     lastUpdated,
@@ -296,6 +415,7 @@ export function useResourceList(options: {
     total,
     refresh,
     loadMore,
+    loadAll,
   };
 }
 

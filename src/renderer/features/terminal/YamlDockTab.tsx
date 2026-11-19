@@ -6,9 +6,9 @@ import { toast } from "../../design-system/components/Toast";
 import { cn } from "../../lib/cn";
 
 const BUTTON =
-  "rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-slate-200 transition-colors hover:bg-white/10 disabled:opacity-40";
+  "rounded-md border border-white/15 bg-white/5 px-2 py-0.5 text-[calc(11px*var(--font-scale))] text-slate-200 transition-colors hover:bg-white/10 disabled:opacity-40";
 const BUTTON_PRIMARY =
-  "rounded-md border border-skyhook-500/50 bg-skyhook-500/20 px-2 py-0.5 text-[11px] text-sky-200 transition-colors hover:bg-skyhook-500/30 disabled:opacity-40";
+  "rounded-md border border-skyhook-500/50 bg-skyhook-500/20 px-2 py-0.5 text-[calc(11px*var(--font-scale))] text-sky-200 transition-colors hover:bg-skyhook-500/30 disabled:opacity-40";
 
 function documentCount(yaml: string): number {
   if (!yaml.trim()) return 0;
@@ -63,8 +63,8 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
     <div className={cn("flex h-full min-h-0 flex-col", !active && "hidden")}>
       <div className="flex h-8 shrink-0 items-center gap-2 border-b border-white/10 bg-[#111b2e] px-2">
         <FileCode className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-        <span className="text-[11px] text-slate-300">Create from YAML</span>
-        <span className="hidden truncate text-[10px] text-slate-500 sm:inline">
+        <span className="text-[calc(11px*var(--font-scale))] text-slate-300">Create from YAML</span>
+        <span className="hidden truncate text-[calc(10px*var(--font-scale))] text-slate-500 sm:inline">
           one document, or several separated by ---
         </span>
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -92,7 +92,7 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
         <YamlEditor value={yaml} onChange={setYaml} readOnly={false} />
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111b2e] px-3 text-[10px] text-slate-500">
+      <div className="flex h-6 shrink-0 items-center gap-3 border-t border-white/10 bg-[#111b2e] px-3 text-[calc(10px*var(--font-scale))] text-slate-500">
         <span className="shrink-0">
           {documentCount(yaml)} document{documentCount(yaml) === 1 ? "" : "s"}
         </span>

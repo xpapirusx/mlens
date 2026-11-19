@@ -18,6 +18,17 @@ export function formatRelativeTime(timestamp?: string, now = Date.now()): string
   return age === "–" ? age : `${age} ago`;
 }
 
+/**
+ * Global timestamp display preference. AppShell calls this on every settings
+ * change; all `formatTimestamp` call sites respect it without threading the
+ * setting through every component.
+ */
+let preferredTimeZone: string | undefined;
+
+export function setTimeZonePreference(value?: "local" | "utc"): void {
+  preferredTimeZone = value === "utc" ? "UTC" : undefined;
+}
+
 export function formatTimestamp(timestamp?: string): string {
   if (!timestamp) return "–";
   const date = new Date(timestamp);
@@ -29,6 +40,7 @@ export function formatTimestamp(timestamp?: string): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    ...(preferredTimeZone ? { timeZone: preferredTimeZone } : {}),
   });
 }
 

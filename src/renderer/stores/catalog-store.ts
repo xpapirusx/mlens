@@ -22,6 +22,12 @@ interface CatalogStore {
    */
   compareSelection: ResourceKey | null;
   setCompareSelection: (selection: ResourceKey | null) => void;
+  /** Secondary cluster shown to the right of the active one (screen split). */
+  splitClusterId: ClusterId | null;
+  /** Fraction of the main area given to the primary workspace (0.2–0.8). */
+  splitRatio: number;
+  setSplitCluster: (id: ClusterId | null) => void;
+  setSplitRatio: (ratio: number) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   loadCatalog: () => Promise<void>;
@@ -51,6 +57,13 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
 
   compareSelection: null,
   setCompareSelection: (selection) => set({ compareSelection: selection }),
+  splitClusterId: null,
+  splitRatio: 0.5,
+  setSplitCluster: (id) =>
+    set((state) => ({
+      splitClusterId: id && id === state.activeClusterId ? null : id,
+    })),
+  setSplitRatio: (ratio) => set({ splitRatio: Math.min(0.8, Math.max(0.2, ratio)) }),
 
   loadSettings: async () => {
     try {
@@ -132,6 +145,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       await call(api.clusters.disconnect(id));
       set((state) => ({
         activeClusterId: state.activeClusterId === id ? null : state.activeClusterId,
+        splitClusterId: state.splitClusterId === id ? null : state.splitClusterId,
         health: { ...state.health, [id]: { id, status: "disconnected", checkedAt: Date.now() } },
       }));
     } catch (error) {
@@ -147,6 +161,8 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         useSessionStore.getState().dispose(activeId);
         set({ activeClusterId: null });
       }
+      const splitId = get().splitClusterId;
+      if (splitId?.startsWith(`${path}::`)) set({ splitClusterId: null });
       await get().loadCatalog();
     } catch (error) {
       toast.error("Cannot remove kubeconfig", errorText(error));

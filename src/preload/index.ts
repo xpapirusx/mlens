@@ -44,7 +44,7 @@ import type {
   ScaleRequest,
   TerminalDataPayload,
   TerminalExitPayload,
-  WatchEventPayload,
+  WatchEventBatch,
   WatchResourcesRequest,
 } from "@shared/types";
 
@@ -99,7 +99,7 @@ const api: MlensApi = {
     scale: (request: ScaleRequest) => ipcRenderer.invoke(IPC.resourcesScale, request) as Promise<void>,
     restart: (request: RestartRequest) => ipcRenderer.invoke(IPC.resourcesRestart, request) as Promise<void>,
     evict: (request: EvictPodRequest) => ipcRenderer.invoke(IPC.resourcesEvict, request) as Promise<void>,
-    onWatchEvent: (callback) => on<WatchEventPayload>(IPC.resourcesWatchEvent, callback),
+    onWatchEvent: (callback) => on<WatchEventBatch>(IPC.resourcesWatchEvent, callback),
   },
   pods: {
     containers: (clusterId: ClusterId, namespace: string, name: string) =>

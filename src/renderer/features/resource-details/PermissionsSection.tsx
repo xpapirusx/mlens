@@ -27,7 +27,7 @@ export function RulePreviewLine({ rule }: { rule: RbacPolicyRule }) {
   const showGroups = !isNonResource && groups.length > 0 && groups.some((group) => group !== "");
 
   return (
-    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+    <div className="flex flex-wrap items-center gap-1 text-[calc(11px*var(--font-scale))]">
       {verbs.map((verb) => (
         <span key={verb} className={`badge-sm ${rbacVerbClass(verb)}`}>
           {verb}
@@ -114,7 +114,7 @@ export function PermissionsSection({ clusterId, namespace, saName, variant, onNa
   return (
     <DetailSection title={title} icon={<Shield />} defaultOpen={blast.length > 0}>
       {blast.length > 0 ? (
-        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Blast radius</div>
           <div className="mt-1 text-xs">
             {variant === "pod"
@@ -135,7 +135,7 @@ export function PermissionsSection({ clusterId, namespace, saName, variant, onNa
         </div>
       ) : null}
 
-      <div className="mb-3 text-[11px] text-theme-text-tertiary">
+      <div className="mb-3 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
         {directCount} direct binding{directCount === 1 ? "" : "s"} · {inheritedCount} inherited via group
         {inheritedCount === 1 ? "" : "s"} · {ruleCount} distinct rule{ruleCount === 1 ? "" : "s"}
         {data.truncated ? <span className="text-orange-600 dark:text-orange-400"> (truncated)</span> : null}
@@ -151,7 +151,7 @@ export function PermissionsSection({ clusterId, namespace, saName, variant, onNa
             <RulePreviewLine key={index} rule={rule} />
           ))}
           {more > 0 ? (
-            <div className="text-[11px] text-theme-text-tertiary">
+            <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
               +{more} more rule{more === 1 ? "" : "s"} — open the ServiceAccount to see the full grant.
             </div>
           ) : null}

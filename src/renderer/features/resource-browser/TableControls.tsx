@@ -129,14 +129,14 @@ export function NamespacePicker({
           <div className="mt-1 flex items-center justify-between border-t border-theme-border pt-1">
             <button
               type="button"
-              className="rounded px-2 py-1 text-[11px] text-theme-text-tertiary hover:text-theme-text-primary"
+              className="rounded px-2 py-1 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary hover:text-theme-text-primary"
               onClick={() => onShowSystemNamespacesChange(!showSystemNamespaces)}
             >
               {showSystemNamespaces ? "Hide system namespaces" : "Show system namespaces"}
             </button>
             <button
               type="button"
-              className="rounded px-2 py-1 text-[11px] font-medium text-accent-text hover:underline"
+              className="rounded px-2 py-1 text-[calc(11px*var(--font-scale))] font-medium text-accent-text hover:underline"
               onClick={close}
             >
               Done
@@ -184,7 +184,7 @@ export function ColumnPicker({
             <MenuLabel>Columns</MenuLabel>
             <button
               type="button"
-              className="text-[10px] text-theme-text-tertiary hover:text-theme-text-primary"
+              className="text-[calc(10px*var(--font-scale))] text-theme-text-tertiary hover:text-theme-text-primary"
               onClick={() => onChange([])}
             >
               Reset
@@ -258,7 +258,7 @@ export function ColumnPicker({
           <div className="mt-1 border-t border-theme-border pt-1">
             <button
               type="button"
-              className="w-full rounded px-2 py-1.5 text-left text-[11px] text-theme-text-tertiary hover:bg-theme-elevated hover:text-theme-text-primary"
+              className="w-full rounded px-2 py-1.5 text-left text-[calc(11px*var(--font-scale))] text-theme-text-tertiary hover:bg-theme-elevated hover:text-theme-text-primary"
               onClick={close}
             >
               Close

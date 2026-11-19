@@ -160,14 +160,14 @@ export function DetailsTab({
           </div>
         ) : (
           <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
-            <div className="card-inner flex items-center gap-2 text-[12px]">
+            <div className="card-inner flex items-center gap-2 text-[calc(12px*var(--font-scale))]">
               <span className="badge-sm status-neutral shrink-0">{object.kind}</span>
               <span className="min-w-0 flex-1 truncate font-mono text-theme-text-primary">{metadata.name}</span>
-              <span className="shrink-0 text-[10px] text-theme-text-disabled">this resource</span>
+              <span className="shrink-0 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">this resource</span>
             </div>
             {levels.map((level, levelIndex) => (
               <div key={levelIndex}>
-                <div className="my-0.5 flex items-center gap-1 pl-1 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+                <div className="my-0.5 flex items-center gap-1 pl-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">
                   <ArrowUp className="h-3 w-3" />
                   owned by
                 </div>
@@ -175,7 +175,7 @@ export function DetailsTab({
                   {level.map((entry) => (
                     <div
                       key={`${entry.apiVersion}|${entry.kind}|${entry.namespace ?? ""}|${entry.name}`}
-                      className="card-inner flex items-center gap-2 text-[12px]"
+                      className="card-inner flex items-center gap-2 text-[calc(12px*var(--font-scale))]"
                     >
                       <span className="badge-sm status-unknown shrink-0">{entry.kind}</span>
                       {entry.note ? (
@@ -201,7 +201,7 @@ export function DetailsTab({
                         </span>
                       )}
                       {entry.namespace && entry.namespace !== metadata.namespace ? (
-                        <span className="shrink-0 text-[10px] text-theme-text-tertiary">{entry.namespace}</span>
+                        <span className="shrink-0 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{entry.namespace}</span>
                       ) : null}
                       {entry.status ? (
                         <span className={cn("badge-sm shrink-0", toneClass(entry.status.tone as Tone))}>
@@ -210,7 +210,7 @@ export function DetailsTab({
                       ) : null}
                       {entry.note ? (
                         <span
-                          className="ml-auto shrink-0 text-[10px] text-theme-text-disabled"
+                          className="ml-auto shrink-0 text-[calc(10px*var(--font-scale))] text-theme-text-disabled"
                           title={entry.note}
                         >
                           {entry.note === "Owner no longer exists" ? "gone" : "unreadable"}
@@ -265,8 +265,8 @@ export function DetailsTab({
         <div className="space-y-1">
           {Object.entries(annotations).map(([key, value]) => (
             <div key={key} className="rounded border border-theme-border-subtle px-2 py-1">
-              <div className="break-all font-mono text-[10px] text-theme-text-tertiary">{key}</div>
-              <div className="mt-0.5 whitespace-pre-wrap break-all font-mono text-[11px] text-theme-text-primary">
+              <div className="break-all font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{key}</div>
+              <div className="mt-0.5 whitespace-pre-wrap break-all font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                 {value}
               </div>
             </div>
@@ -371,14 +371,14 @@ function StructuredFields({
             return (
               <Fragment key={key}>
                 <span
-                  className="truncate font-mono text-[11px] leading-5 text-theme-text-tertiary"
+                  className="truncate font-mono text-[calc(11px*var(--font-scale))] leading-5 text-theme-text-tertiary"
                   title={key}
                 >
                   {key}
                 </span>
                 <span
                   className={cn(
-                    "min-w-0 break-words text-[12px] leading-5 text-theme-text-primary",
+                    "min-w-0 break-words text-[calc(12px*var(--font-scale))] leading-5 text-theme-text-primary",
                     valueMono && "font-mono",
                   )}
                 >
@@ -421,18 +421,18 @@ function StructuredFields({
           return (
             <div key={key} className="min-w-0 overflow-hidden rounded-md border border-theme-border-subtle bg-theme-base">
               <div className="flex h-7 items-center gap-1.5 px-2">
-                <span className="font-mono text-[11px] text-theme-text-primary">{key}</span>
-                <span className="ml-auto text-[10px] text-theme-text-disabled">{refItems.length} items</span>
+                <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{key}</span>
+                <span className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{refItems.length} items</span>
               </div>
               <div className="border-t border-theme-border-subtle">
                 {refItems.map((item, index) => {
                   const target = refTarget(key, item, namespace)!;
                   return (
-                    <div key={`${key}-${index}`} className="flex items-center gap-2 px-2 py-1 text-[11px]">
+                    <div key={`${key}-${index}`} className="flex items-center gap-2 px-2 py-1 text-[calc(11px*var(--font-scale))]">
                       <RefLink target={target} onNavigate={onNavigate}>
                         <span className="font-mono">{target.name}</span>
                       </RefLink>
-                      <span className="ml-auto text-[10px] text-theme-text-disabled">{target.kind}</span>
+                      <span className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{target.kind}</span>
                     </div>
                   );
                 })}
@@ -450,8 +450,8 @@ function StructuredFields({
               aria-expanded={open}
             >
               <ChevronRight className={cn("h-3 w-3 shrink-0 text-theme-text-tertiary transition-transform", open && "rotate-90")} />
-              <span className="font-mono text-[11px] text-theme-text-primary">{key}</span>
-              <span className="ml-auto text-[10px] text-theme-text-disabled">
+              <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{key}</span>
+              <span className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
                 {isArray ? `${count} item${count === 1 ? "" : "s"}` : `${count} field${count === 1 ? "" : "s"}`}
               </span>
             </button>
@@ -466,7 +466,7 @@ function StructuredFields({
                   />
                 </div>
               ) : (
-                <pre className="max-h-72 overflow-auto border-t border-theme-border-subtle p-2 font-mono text-[10px] leading-relaxed text-theme-text-secondary">
+                <pre className="max-h-72 overflow-auto border-t border-theme-border-subtle p-2 font-mono text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-secondary">
                   {JSON.stringify(entry, null, 2)}
                 </pre>
               )

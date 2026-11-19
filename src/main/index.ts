@@ -213,6 +213,7 @@ if (!singleInstance) {
   });
 
   app.on("before-quit", () => {
+    settings?.flush();
     portForwards?.closeAll();
     clusters?.disposeAll();
     terminals?.closeAll();

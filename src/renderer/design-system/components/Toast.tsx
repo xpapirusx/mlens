@@ -71,7 +71,7 @@ export function ToastViewport() {
           >
             <Icon className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-theme-text-primary">{entry.title}</div>
+              <div className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-primary">{entry.title}</div>
               {entry.message ? (
                 <div className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-theme-text-secondary">
                   {entry.message}

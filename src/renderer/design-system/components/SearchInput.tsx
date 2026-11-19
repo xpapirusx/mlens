@@ -28,7 +28,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
         spellCheck={false}
         className={cn(
           "w-full rounded-lg border bg-theme-elevated pl-8 text-theme-text-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60",
-          size === "md" ? "h-8 pr-16 text-[13px]" : "h-7 pr-14 text-xs",
+          size === "md" ? "h-8 pr-16 text-[calc(13px*var(--font-scale))]" : "h-7 pr-14 text-xs",
           regexError ? "border-red-500/60 ring-1 ring-red-500/30" : "border-theme-border",
         )}
       />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, call } from "../../lib/api";
+import { sameMapValues } from "../../lib/stable";
 
 const PAGE_LIMIT = 2000;
 const MAX_PAGES = 10;
@@ -23,7 +24,7 @@ export function useNodePodCounts({
 
   useEffect(() => {
     if (!active) {
-      setCounts(new Map());
+      setCounts((current) => (current.size === 0 ? current : new Map()));
       return;
     }
     let disposed = false;
@@ -50,7 +51,10 @@ export function useNodePodCounts({
           token = result.continueToken;
           pages += 1;
         } while (token && pages < MAX_PAGES);
-        if (!disposed) setCounts(next);
+        if (!disposed) {
+          // A13: identical counts keep the previous map identity.
+          setCounts((current) => (sameMapValues(current, next, (left, right) => left === right) ? current : next));
+        }
       } catch {
         // Counts are an enhancement; on failure the cell falls back to "–"
         // instead of inventing zero.

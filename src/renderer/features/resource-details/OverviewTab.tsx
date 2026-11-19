@@ -85,7 +85,7 @@ function StatusPill({ object, kind }: { object: AnyObject; kind: string }) {
           ) : null}
           {conditions.length > 0 ? (
             <>
-              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+              <div className="pt-0.5 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">
                 Conditions
               </div>
               <ConditionsTooltip conditions={conditions} />
@@ -226,12 +226,12 @@ function EnvReference({
       {open ? (
         <div className="mt-1 w-full rounded-md border border-theme-border-subtle bg-theme-base p-2">
           {loading ? (
-            <span className="text-[10px] text-theme-text-tertiary">Reading {kind}…</span>
+            <span className="text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">Reading {kind}…</span>
           ) : error ? (
-            <span className="text-[10px] text-red-500">{error}</span>
+            <span className="text-[calc(10px*var(--font-scale))] text-red-500">{error}</span>
           ) : (
             <div className="flex items-start gap-2">
-              <pre className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-[10px] text-theme-text-primary">
+              <pre className="max-h-40 min-w-0 flex-1 overflow-auto whitespace-pre-wrap break-all font-mono text-[calc(10px*var(--font-scale))] text-theme-text-primary">
                 {value}
               </pre>
               <button
@@ -277,8 +277,8 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
         className={cn("card-inner-lg", init && "border-l-2 border-l-amber-500/60 pl-2.5")}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-[10px] text-theme-text-disabled">{order + 1}</span>
-          <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
+          <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{order + 1}</span>
+          <span className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-primary">{container.name}</span>
           {init ? <span className="badge-sm status-warning">init</span> : null}
           <span
             className={`badge-sm ${toneClass(
@@ -291,11 +291,11 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
             <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
           ) : null}
         </div>
-        <div className="mt-1.5 break-all font-mono text-[10px] text-theme-text-secondary">
+        <div className="mt-1.5 break-all font-mono text-[calc(10px*var(--font-scale))] text-theme-text-secondary">
           {container.image}
         </div>
         <ContainerLaunchParams container={container} />
-        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[calc(11px*var(--font-scale))]">
           <span className="text-theme-text-tertiary">
             CPU:{" "}
             <span className="font-mono text-theme-text-secondary">
@@ -326,7 +326,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
           </span>
         </div>
         {state.waiting?.message || state.terminated?.message ? (
-          <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-700 dark:text-amber-300">
+          <div className="mt-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[calc(11px*var(--font-scale))] text-amber-700 dark:text-amber-300">
             {state.waiting?.message ?? state.terminated?.message}
           </div>
         ) : null}
@@ -413,9 +413,9 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
                 if (env.length === 0 && envFrom.length === 0) return null;
                 return (
                   <div key={container.name} className="card-inner">
-                    <div className="mb-1 text-[12px] font-medium text-theme-text-primary">{container.name}</div>
+                    <div className="mb-1 text-[calc(12px*var(--font-scale))] font-medium text-theme-text-primary">{container.name}</div>
                     {envFrom.map((entry, index) => (
-                      <div key={`from-${index}`} className="flex flex-wrap items-center gap-2 py-0.5 text-[11px]">
+                      <div key={`from-${index}`} className="flex flex-wrap items-center gap-2 py-0.5 text-[calc(11px*var(--font-scale))]">
                         <span className="w-40 shrink-0 text-theme-text-tertiary">envFrom</span>
                         <EnvReference
                           clusterId={clusterId}
@@ -438,7 +438,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
                                 ? `resource ${entry.valueFrom.resourceFieldRef.resource}`
                                 : undefined;
                       return (
-                        <div key={entry.name} className="flex items-start gap-2 py-0.5 text-[11px]">
+                        <div key={entry.name} className="flex items-start gap-2 py-0.5 text-[calc(11px*var(--font-scale))]">
                           <span className="w-40 shrink-0 truncate font-mono text-theme-text-tertiary" title={entry.name}>
                             {entry.name}
                           </span>
@@ -492,7 +492,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
         return (
           <DetailSection title="Ports" icon={<Network />} count={ports.length}>
             <div className="overflow-hidden rounded-md border border-theme-border">
-              <div className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] gap-2 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+              <div className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] gap-2 border-b border-theme-border bg-theme-base px-2 py-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                 <span>Container</span>
                 <span>Name</span>
                 <span>Port</span>
@@ -502,7 +502,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
               {ports.map((port, index) => (
                 <div
                   key={`${port.container}-${port.port}-${index}`}
-                  className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] items-center gap-2 border-b-subtle px-2 py-1.5 text-[11px] last:border-0"
+                  className="grid grid-cols-[1fr_1.2fr_90px_90px_110px] items-center gap-2 border-b-subtle px-2 py-1.5 text-[calc(11px*var(--font-scale))] last:border-0"
                 >
                   <span className="truncate font-mono text-theme-text-secondary">{port.container}</span>
                   <span className="truncate text-theme-text-secondary">{port.name ?? "—"}</span>
@@ -571,8 +571,8 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
                 </button>
               );
               return (
-                <div key={volume.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
-                  <span className="w-40 shrink-0 truncate font-mono text-[11px] text-theme-text-tertiary">
+                <div key={volume.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[calc(12px*var(--font-scale))]">
+                  <span className="w-40 shrink-0 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                     {volume.name}
                   </span>
                   {configMapName ? (
@@ -630,7 +630,7 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
             {(object.spec.tolerations as Array<Record<string, any>>).map((toleration, index) => (
               <div
                 key={`${toleration.key ?? "*"}-${index}`}
-                className="grid grid-cols-[minmax(0,1.4fr)_84px_minmax(0,1fr)_96px] items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2 py-1 text-[11px]"
+                className="grid grid-cols-[minmax(0,1.4fr)_84px_minmax(0,1fr)_96px] items-center gap-2 rounded-md border border-theme-border-subtle bg-theme-base px-2 py-1 text-[calc(11px*var(--font-scale))]"
               >
                 <span className="truncate font-mono text-theme-text-primary" title={toleration.key}>
                   {toleration.key ?? "*"}
@@ -713,11 +713,11 @@ function WorkloadOverview({ object, onNavigate, clusterId }: OverviewProps) {
           {containers.map((container) => (
             <div key={container.name} className="card-inner-lg">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-medium text-theme-text-primary">{container.name}</span>
+                <span className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-primary">{container.name}</span>
               </div>
-              <div className="mt-1 break-all font-mono text-[10px] text-theme-text-tertiary">{container.image}</div>
+              <div className="mt-1 break-all font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{container.image}</div>
               <ContainerLaunchParams container={container} />
-              <div className="mt-1.5 flex flex-wrap gap-3 text-[11px] text-theme-text-tertiary">
+              <div className="mt-1.5 flex flex-wrap gap-3 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                 <span>CPU {formatCpu(parseCpu(container.resources?.requests?.cpu))} req / {formatCpu(parseCpu(container.resources?.limits?.cpu))} lim</span>
                 <span>Memory {formatBytes(parseMemory(container.resources?.requests?.memory))} req / {formatBytes(parseMemory(container.resources?.limits?.memory))} lim</span>
               </div>
@@ -805,7 +805,7 @@ function JobOverview({ object, onToggleSuspend }: OverviewProps) {
           <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle pt-2.5">
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[calc(11px*var(--font-scale))] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
               onClick={onToggleSuspend}
             >
               {suspended ? <Play className="h-3 w-3" /> : <Pause className="h-3 w-3" />}
@@ -869,7 +869,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
   return (
     <div className="space-y-4">
       {type === "LoadBalancer" && lbIngress.length === 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Load balancer pending</div>
           <div className="mt-1 text-xs">
             The external IP/hostname has not been assigned yet. Check the Events tab for cloud-provider messages.
@@ -877,7 +877,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
         </div>
       ) : null}
       {!hasSelector && type !== "ExternalName" ? (
-        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[12px] text-sky-700 dark:text-sky-300">
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-sky-700 dark:text-sky-300">
           <div className="font-medium">No pod selector</div>
           <div className="mt-1 text-xs">
             This Service has no selector — its endpoints must be managed manually or by an external controller.
@@ -909,7 +909,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
 
       <DetailSection title="Ports" icon={<Network />} count={spec.ports?.length ?? 0}>
         <div className="overflow-hidden rounded-md border border-theme-border">
-          <div className="grid grid-cols-5 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+          <div className="grid grid-cols-5 border-b border-theme-border bg-theme-base px-2 py-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
             <span>Name</span>
             <span>Port</span>
             <span>Target</span>
@@ -917,7 +917,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
             <span>Protocol</span>
           </div>
           {(spec.ports ?? []).map((port: any, index: number) => (
-            <div key={index} className="grid grid-cols-5 border-b-subtle px-2 py-1 text-[11px] last:border-0">
+            <div key={index} className="grid grid-cols-5 border-b-subtle px-2 py-1 text-[calc(11px*var(--font-scale))] last:border-0">
               <span className="truncate text-theme-text-primary">{port.name ?? "–"}</span>
               <span className="font-mono text-theme-text-secondary">{port.port}</span>
               <span className="font-mono text-theme-text-secondary">{port.targetPort ?? "–"}</span>
@@ -941,7 +941,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
           ) : (
             <button
               type="button"
-              className="ml-2 text-[11px] text-accent-text hover:underline"
+              className="ml-2 text-[calc(11px*var(--font-scale))] text-accent-text hover:underline"
               onClick={() => onNavigate("Pod", "", object.metadata?.namespace)}
             >
               View pods in Related
@@ -991,7 +991,7 @@ function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
                 ))}
               </div>
               {endpoints.ready.length + endpoints.notReady.length > 80 ? (
-                <div className="text-[11px] text-theme-text-tertiary">Showing the first 80 addresses.</div>
+                <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">Showing the first 80 addresses.</div>
               ) : null}
             </div>
           )}
@@ -1018,10 +1018,10 @@ function IngressOverview({ object }: OverviewProps) {
         <div className="space-y-2">
           {(spec.rules ?? []).map((rule: any, index: number) => (
             <div key={index} className="card-inner">
-              <div className="text-[12px] font-medium text-theme-text-primary">{rule.host ?? "*"}</div>
+              <div className="text-[calc(12px*var(--font-scale))] font-medium text-theme-text-primary">{rule.host ?? "*"}</div>
               <div className="mt-1 space-y-0.5">
                 {(rule.http?.paths ?? []).map((path: any, pathIndex: number) => (
-                  <div key={pathIndex} className="flex items-center gap-2 font-mono text-[11px]">
+                  <div key={pathIndex} className="flex items-center gap-2 font-mono text-[calc(11px*var(--font-scale))]">
                     <span className="text-theme-text-secondary">{path.path ?? "/"}</span>
                     <span className="text-theme-text-disabled">→</span>
                     <span className="text-theme-text-secondary">
@@ -1039,7 +1039,7 @@ function IngressOverview({ object }: OverviewProps) {
 
       <DetailSection title="TLS" icon={<ShieldCheck />} count={spec.tls?.length ?? 0} defaultOpen={false}>
         {(spec.tls ?? []).map((tls: any, index: number) => (
-          <div key={index} className="flex items-center gap-2 text-[12px]">
+          <div key={index} className="flex items-center gap-2 text-[calc(12px*var(--font-scale))]">
             <span className="font-mono text-theme-text-secondary">{(tls.hosts ?? []).join(", ") || "*"}</span>
             <span className="text-theme-text-disabled">→</span>
             <span className="font-mono text-theme-text-tertiary">{tls.secretName}</span>
@@ -1064,7 +1064,7 @@ function CertificateSection({ object }: { object: AnyObject }) {
       {expired || soon ? (
         <div
           className={cn(
-            "rounded-lg border px-3 py-2 text-[12px]",
+            "rounded-lg border px-3 py-2 text-[calc(12px*var(--font-scale))]",
             expired
               ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
               : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
@@ -1130,7 +1130,7 @@ function DataOverview({ object, onEditData }: OverviewProps) {
     <div className="space-y-4">
       {isSecret ? <CertificateSection object={object} /> : null}
       {object.immutable ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-700 dark:text-amber-300">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
           <div className="font-medium">Immutable {isSecret ? "Secret" : "ConfigMap"}</div>
           <div className="mt-1 text-xs">
             Kubernetes rejects changes to its keys — edit requires deleting and recreating the object.
@@ -1155,7 +1155,7 @@ function DataOverview({ object, onEditData }: OverviewProps) {
           </Button>
         }
       >
-        <div className="mb-2 flex items-center gap-2 font-mono text-[10px] text-theme-text-tertiary">
+        <div className="mb-2 flex items-center gap-2 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           <span className="truncate text-theme-text-secondary">{object.metadata?.name}</span>
           <span>·</span>
           <span>{Object.keys(data).length} keys</span>
@@ -1286,8 +1286,8 @@ function CrdOverview({ object }: OverviewProps) {
           { label: "Versions", value: String(versions.length) },
         ].map((card) => (
           <div key={card.label} className="card-inner">
-            <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
-            <div className="mt-0.5 truncate font-mono text-[13px] font-semibold text-theme-text-primary" title={card.value}>
+            <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
+            <div className="mt-0.5 truncate font-mono text-[calc(13px*var(--font-scale))] font-semibold text-theme-text-primary" title={card.value}>
               {card.value}
             </div>
           </div>
@@ -1313,14 +1313,14 @@ function CrdOverview({ object }: OverviewProps) {
           {versions.map((version) => (
             <div key={version.name} className="rounded-md border border-theme-border-subtle bg-theme-base p-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[12px] font-medium text-theme-text-primary">{version.name}</span>
+                <span className="font-mono text-[calc(12px*var(--font-scale))] font-medium text-theme-text-primary">{version.name}</span>
                 {version.storage ? <span className="badge-sm status-neutral">storage</span> : null}
                 {version.served ? (
                   <span className="badge-sm status-healthy">served</span>
                 ) : (
                   <span className="badge-sm status-unknown">not served</span>
                 )}
-                <span className="ml-auto text-[10px] text-theme-text-tertiary">
+                <span className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                   {version.schema ? "OpenAPI schema" : "no schema"} ·{" "}
                   {version.additionalPrinterColumns?.length ?? 0} printer columns
                 </span>
@@ -1357,9 +1357,9 @@ function CrdOverview({ object }: OverviewProps) {
           {versions.map((version) =>
             version.additionalPrinterColumns?.length ? (
               <div key={version.name}>
-                <div className="mb-1 font-mono text-[10px] text-theme-text-tertiary">{version.name}</div>
+                <div className="mb-1 font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{version.name}</div>
                 <div className="overflow-hidden rounded-md border border-theme-border">
-                  <div className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] border-b border-theme-border bg-theme-base px-2 py-1 text-[9px] uppercase tracking-wide text-theme-text-tertiary">
+                  <div className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] border-b border-theme-border bg-theme-base px-2 py-1 text-[calc(9px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
                     <span>Name</span>
                     <span>Type</span>
                     <span>JSON path</span>
@@ -1368,7 +1368,7 @@ function CrdOverview({ object }: OverviewProps) {
                   {version.additionalPrinterColumns.map((column: any) => (
                     <div
                       key={column.name}
-                      className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] items-center border-b-subtle px-2 py-1 text-[10px] last:border-0"
+                      className="grid grid-cols-[1.2fr_0.7fr_1.8fr_60px] items-center border-b-subtle px-2 py-1 text-[calc(10px*var(--font-scale))] last:border-0"
                     >
                       <span className="truncate text-theme-text-primary">{column.name}</span>
                       <span className="text-theme-text-tertiary">{column.type}</span>
@@ -1407,12 +1407,12 @@ function HpaOverview({ object }: OverviewProps) {
       <DetailSection title="Metrics" icon={<Cpu />} count={spec.metrics?.length ?? 0}>
         <div className="space-y-1">
           {(spec.metrics ?? []).map((metric: any, index: number) => (
-            <div key={index} className="flex items-center gap-2 text-[12px]">
+            <div key={index} className="flex items-center gap-2 text-[calc(12px*var(--font-scale))]">
               <span className="badge-sm status-unknown">{metric.type}</span>
               <span className="text-theme-text-secondary">
                 {metric.resource?.name ?? metric.pods?.metric?.name ?? metric.object?.metric?.name ?? "–"}
               </span>
-              <span className="ml-auto font-mono text-[11px] text-theme-text-tertiary">
+              <span className="ml-auto font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                 {metric.resource?.target?.averageUtilization
                   ? `${metric.resource.target.averageUtilization}%`
                   : metric.resource?.target?.averageValue ?? "–"}
@@ -1433,7 +1433,7 @@ function MatchExpressions({ selector }: { selector: any }) {
   const expressions = (selector?.matchExpressions ?? []) as Array<Record<string, any>>;
   const fields = (selector?.matchFields ?? []) as Array<Record<string, any>>;
   if (labels.length === 0 && expressions.length === 0 && fields.length === 0) {
-    return <span className="text-[11px] text-theme-text-tertiary">any</span>;
+    return <span className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">any</span>;
   }
   return (
     <div className="flex flex-wrap gap-1">
@@ -1471,12 +1471,12 @@ function AffinityView({ affinity }: { affinity: any }) {
     if (!terms?.length) return null;
     return (
       <div>
-        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">{label}</div>
+        <div className="mb-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary">{label}</div>
         <div className="space-y-1">
           {terms.map((term, index) => {
             const affinityTerm = term.podAffinityTerm ?? term;
             return (
-              <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2 text-[11px]">
+              <div key={index} className="rounded-md border border-theme-border-subtle bg-theme-base p-2 text-[calc(11px*var(--font-scale))]">
                 <div className="flex flex-wrap items-center gap-2 text-theme-text-secondary">
                   {term.weight !== undefined ? <span className="badge-sm status-neutral">weight {term.weight}</span> : null}
                   <span>
@@ -1498,10 +1498,10 @@ function AffinityView({ affinity }: { affinity: any }) {
   };
 
   return (
-    <div className="space-y-3 text-[11px]">
+    <div className="space-y-3 text-[calc(11px*var(--font-scale))]">
       {requiredTerms.length > 0 ? (
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+          <div className="mb-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary">
             Node affinity · required
           </div>
           <div className="space-y-1">
@@ -1516,7 +1516,7 @@ function AffinityView({ affinity }: { affinity: any }) {
 
       {preferredTerms.length > 0 ? (
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-theme-text-tertiary">
+          <div className="mb-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary">
             Node affinity · preferred
           </div>
           <div className="space-y-1">
@@ -1596,12 +1596,12 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
           <span className={cn("badge", toneClass(statusBadge.tone))} title={statusBadge.detail}>
             {statusBadge.text}
           </span>
-          <span className="font-mono text-[11px] text-theme-text-tertiary">
+          <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             {resource.apiVersion} · {resource.kind}
           </span>
         </div>
       ) : (
-        <div className="font-mono text-[11px] text-theme-text-tertiary">
+        <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
           {resource.apiVersion} · {resource.kind}
         </div>
       )}
@@ -1614,25 +1614,25 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
           { label: "Age", value: formatAge(metadata.creationTimestamp) },
         ].map((card) => (
           <div key={card.label} className="card-inner">
-            <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
+            <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">{card.label}</div>
             {card.label === "Age" ? (
               <Tooltip
                 side="top"
                 content={
                   <div className="space-y-0.5">
-                    <div className="text-[10px] uppercase tracking-wide text-theme-text-disabled">Created</div>
-                    <div className="font-mono text-[11px] text-theme-text-primary">
+                    <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">Created</div>
+                    <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                       {formatTimestamp(metadata.creationTimestamp)}
                     </div>
                   </div>
                 }
               >
-                <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary">
+                <div className="mt-0.5 truncate font-mono text-[calc(12px*var(--font-scale))] font-semibold text-theme-text-primary">
                   {card.value}
                 </div>
               </Tooltip>
             ) : (
-              <div className="mt-0.5 truncate font-mono text-[12px] font-semibold text-theme-text-primary" title={card.value}>
+              <div className="mt-0.5 truncate font-mono text-[calc(12px*var(--font-scale))] font-semibold text-theme-text-primary" title={card.value}>
                 {card.value}
               </div>
             )}
@@ -1673,7 +1673,7 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
               return (
                 <div
                   key={column.name}
-                  className="grid grid-cols-[140px_1fr] items-center border-b-subtle px-2 py-1 text-[11px] last:border-0"
+                  className="grid grid-cols-[140px_1fr] items-center border-b-subtle px-2 py-1 text-[calc(11px*var(--font-scale))] last:border-0"
                 >
                   <span className="truncate text-theme-text-tertiary">{column.name}</span>
                   <span className="truncate font-mono text-theme-text-primary" title={String(value ?? "")}>

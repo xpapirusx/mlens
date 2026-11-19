@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ApiResourceInfo, KubeObject } from "@shared/types";
 import { api, call } from "../../lib/api";
 import { parseCpu, parseMemory } from "../../lib/format";
+import { sameMapValues } from "../../lib/stable";
 
 export interface ContainerUsage {
   name: string;
@@ -30,6 +31,36 @@ export interface MetricsState {
 }
 
 const EMPTY: MetricsState = { available: false, pods: new Map(), nodes: new Map() };
+
+// A13: value-only comparison — `timestamp` is ignored on purpose (it changes
+// with every metrics-server sample even when usage is identical).
+function sameContainerUsage(left: ContainerUsage, right: ContainerUsage): boolean {
+  return left.name === right.name && left.cpu === right.cpu && left.memory === right.memory;
+}
+
+function samePodUsage(left: PodUsage, right: PodUsage): boolean {
+  return (
+    left.containers.length === right.containers.length &&
+    left.containers.every((container, index) => sameContainerUsage(container, right.containers[index]))
+  );
+}
+
+function sameNodeUsage(left: NodeUsage, right: NodeUsage): boolean {
+  return (
+    left.cpu === right.cpu &&
+    left.memory === right.memory &&
+    left.cpuAllocatable === right.cpuAllocatable &&
+    left.memoryAllocatable === right.memoryAllocatable
+  );
+}
+
+function sameMetrics(left: MetricsState, right: MetricsState): boolean {
+  return (
+    left.available === right.available &&
+    sameMapValues(left.pods, right.pods, samePodUsage) &&
+    sameMapValues(left.nodes, right.nodes, sameNodeUsage)
+  );
+}
 
 /**
  * Live metrics.k8s.io samples for the visible table. Metrics are optional: if
@@ -138,7 +169,12 @@ export function useResourceMetrics(options: {
         }
 
         if (!disposed) {
-          setState({ available: needsPods ? pods.size > 0 : nodes.size > 0, pods, nodes });
+          // A13: metrics-server returns a fresh timestamp with every sample;
+          // comparing usage values (not timestamps) keeps the state identity
+          // stable while the numbers are unchanged, so a 60s poll stops
+          // re-running every cell/sort/filter memo.
+          const next: MetricsState = { available: needsPods ? pods.size > 0 : nodes.size > 0, pods, nodes };
+          setState((current) => (sameMetrics(current, next) ? current : next));
         }
       } catch {
         if (!disposed) setState(EMPTY);

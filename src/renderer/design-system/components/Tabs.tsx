@@ -28,7 +28,7 @@ export function Tabs<T extends string>({
             onClick={() => onChange(tab.id)}
             className={cn(
               "flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 font-medium transition-colors",
-              compact ? "px-2 py-1.5 text-[11px]" : "px-2.5 py-2 text-[13px]",
+              compact ? "px-2 py-1.5 text-[calc(11px*var(--font-scale))]" : "px-2.5 py-2 text-[calc(13px*var(--font-scale))]",
               active
                 ? "border-skyhook-500 text-theme-text-primary"
                 : "border-transparent text-theme-text-secondary hover:text-theme-text-primary",

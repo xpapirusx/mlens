@@ -1,10 +1,9 @@
 import { DiffEditor, loader } from "@monaco-editor/react";
 import { editorThemeName, monaco } from "../../lib/monaco";
 import { cn } from "../../lib/cn";
+import { useCatalogStore } from "../../stores/catalog-store";
 
 loader.config({ monaco });
-
-const FONT_FAMILY = "'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
  * Read-only side-by-side YAML diff on stock Monaco — the same editor, theme
@@ -23,6 +22,16 @@ export function YamlDiffEditor({
   height?: string | number;
   className?: string;
 }) {
+  // Stable slices only — a derived object in the selector would loop React (#185).
+  const fontScale = useCatalogStore((state) => state.settings?.fontScale);
+  const editorFontFamily = useCatalogStore((state) => state.settings?.editorFontFamily);
+  const editorFontSize = useCatalogStore((state) => state.settings?.editorFontSize);
+  const editorLineNumbers = useCatalogStore((state) => state.settings?.editorLineNumbers);
+  const editorMinimap = useCatalogStore((state) => state.settings?.editorMinimap);
+  const editorTabSize = useCatalogStore((state) => state.settings?.editorTabSize);
+  const fontSize = Math.max(6, Math.round((editorFontSize ?? 12) * (fontScale ?? 1)));
+  const fontFamily = `"${editorFontFamily ?? "DM Mono"}", ui-monospace, SFMono-Regular, Menlo, monospace`;
+
   return (
     <div className={cn("relative min-h-0 overflow-hidden", className)} style={{ height }}>
       <DiffEditor
@@ -34,6 +43,8 @@ export function YamlDiffEditor({
         keepCurrentOriginalModel
         keepCurrentModifiedModel
         onMount={(editor) => {
+          editor.getOriginalEditor().updateOptions({ tabSize: editorTabSize ?? 2 });
+          editor.getModifiedEditor().updateOptions({ tabSize: editorTabSize ?? 2 });
           // Two long YAML documents look identical at the top; jump once to
           // the first change so the coloured diff is actually in view. Monaco
           // computes the diff asynchronously, so poll briefly. Never subscribe
@@ -73,11 +84,11 @@ export function YamlDiffEditor({
           useInlineViewWhenSpaceIsLimited: true,
           ignoreTrimWhitespace: true,
           diffAlgorithm: "advanced",
-          minimap: { enabled: false },
-          fontSize: 12,
-          lineHeight: 18,
-          fontFamily: FONT_FAMILY,
-          lineNumbers: "on",
+          minimap: { enabled: Boolean(editorMinimap) },
+          fontSize,
+          lineHeight: fontSize * 1.5,
+          fontFamily,
+          lineNumbers: editorLineNumbers === false ? "off" : "on",
           scrollBeyondLastLine: false,
           wordWrap: "on",
           folding: true,

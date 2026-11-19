@@ -14,7 +14,7 @@ import {
   Unplug,
 } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
-import { useSessionStore } from "../stores/session-store";
+import { useChromeSessions } from "../stores/session-store";
 import { cn } from "../lib/cn";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { ContextMenu } from "../design-system/components/ContextMenu";
@@ -84,7 +84,7 @@ function HotbarTooltip({
       {open &&
         createPortal(
           <div
-            className="pointer-events-none fixed z-50 max-w-[240px] rounded-md border border-theme-border bg-theme-surface px-3 py-2 text-[11px] shadow-lg"
+            className="pointer-events-none fixed z-50 max-w-[240px] rounded-md border border-theme-border bg-theme-surface px-3 py-2 text-[calc(11px*var(--font-scale))] shadow-lg"
             style={{
               left: coords.x,
               top: coords.y,
@@ -108,7 +108,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
   const toggleFavorite = useCatalogStore((state) => state.toggleFavorite);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
-  const sessions = useSessionStore((state) => state.sessions);
+  const sessions = useChromeSessions();
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropSlot, setDropSlot] = useState<number | null>(null);
   const [pressed, setPressed] = useState<string | null>(null);
@@ -322,10 +322,19 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                   content={
                     <div>
                       <div className="font-medium text-theme-text-primary">{cluster.name}</div>
-                      {/* <div className="mt-0.5 text-[10px] text-theme-text-tertiary">{cluster.context}</div> */}
-                      <div className="mt-0.5 text-[10px] text-theme-text-disabled">
-                        {state === "connected" ? "Connected" : state === "error" ? "Connection error" : "Not connected"}
-                        {" · drag to reposition"}
+                      {/* <div className="mt-0.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{cluster.context}</div> */}
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
+                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} />
+                        <span>
+                          {state === "connected"
+                            ? "Connected"
+                            : state === "connecting"
+                              ? "Connecting…"
+                              : state === "error"
+                                ? "Connection error"
+                                : "Not connected"}
+                        </span>
+                        <span>· drag to reposition</span>
                       </div>
                     </div>
                   }
@@ -358,7 +367,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                       setMenu({ id: cluster.id, x: event.clientX, y: event.clientY });
                     }}
                     className={cn(
-                      "relative flex h-[40px] w-[40px] items-center justify-center rounded-[6px] text-[12px] font-semibold uppercase tracking-wide text-white transition-shadow duration-100",
+                      "relative flex h-[40px] w-[40px] items-center justify-center rounded-[6px] text-[calc(12px*var(--font-scale))] font-semibold uppercase tracking-wide text-white transition-shadow duration-100",
                       active
                         ? "shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--accent)]"
                         : "hover:shadow-[0_0_0_3px_var(--bg-sidebar),0_0_0_6px_var(--border-default)]",
@@ -425,7 +434,7 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
               type="button"
               onClick={toggle}
               title={`Hotbar page ${pageIndex + 1} of ${pageCount} — click to switch or add a page`}
-              className="min-w-[3ch] rounded border border-theme-border bg-theme-surface px-1.5 py-0.5 font-mono text-[11px] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              className="min-w-[3ch] rounded border border-theme-border bg-theme-surface px-1.5 py-0.5 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
             >
               {pageIndex + 1}
             </button>

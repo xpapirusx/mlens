@@ -27,7 +27,7 @@ function StatusPill({ object, kind }: { object: AnyObject; kind: string }) {
           ) : null}
           {conditions.length > 0 ? (
             <>
-              <div className="pt-0.5 text-[10px] uppercase tracking-wide text-theme-text-disabled">
+              <div className="pt-0.5 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-disabled">
                 Conditions
               </div>
               <ConditionsTooltip conditions={conditions} />
@@ -57,7 +57,7 @@ function Banner({
         ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
         : "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300";
   return (
-    <div className={`rounded-lg border px-3 py-2 text-[12px] leading-relaxed ${palette}`}>
+    <div className={`rounded-lg border px-3 py-2 text-[calc(12px*var(--font-scale))] leading-relaxed ${palette}`}>
       <div className="font-medium">{title}</div>
       {children ? <div className="mt-1 space-y-0.5">{children}</div> : null}
     </div>
@@ -205,24 +205,24 @@ function NodePodsSection({
                 title={`Open Pod ${key}`}
               >
                 <span className={`badge-sm shrink-0 ${toneClass(status.tone)}`}>{status.text}</span>
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-theme-text-primary">
+                <span className="min-w-0 flex-1 truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
                   {pod.metadata?.name}
                 </span>
-                <span className="shrink-0 text-[11px] text-theme-text-tertiary">{pod.metadata?.namespace}</span>
+                <span className="shrink-0 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{pod.metadata?.namespace}</span>
               </button>
             );
           })}
           {pods.length > visible.length ? (
             <button
               type="button"
-              className="mt-1 w-full rounded-md border border-theme-border-subtle px-2 py-1 text-[11px] text-theme-text-secondary transition-colors hover:bg-theme-hover"
+              className="mt-1 w-full rounded-md border border-theme-border-subtle px-2 py-1 text-[calc(11px*var(--font-scale))] text-theme-text-secondary transition-colors hover:bg-theme-hover"
               onClick={() => setExpanded(true)}
             >
               Show all {pods.length} pods
             </button>
           ) : null}
           {truncated ? (
-            <div className="pt-1 text-[11px] text-theme-text-tertiary">
+            <div className="pt-1 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
               The API truncated this list at {PODS_LIMIT} pods.
             </div>
           ) : null}
@@ -317,7 +317,7 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
           <div className="mt-3 flex items-center gap-2 border-t border-theme-border-subtle pt-2.5">
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[11px] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              className="flex h-7 items-center gap-1.5 rounded-lg border border-theme-border-light bg-theme-elevated px-2.5 text-[calc(11px*var(--font-scale))] font-medium text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
               onClick={onToggleCordon}
             >
               <Ban className="h-3 w-3" />
@@ -386,7 +386,7 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
               );
             })}
             {metrics.timestamp ? (
-              <div className="text-[11px] text-theme-text-tertiary">
+              <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                 Last updated {formatTimestamp(metrics.timestamp)}
               </div>
             ) : null}
@@ -436,7 +436,7 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
           })}
         </div>
         {metricsUnavailable ? (
-          <div className="mt-2 text-[11px] text-theme-text-tertiary">
+          <div className="mt-2 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
             Usage is unavailable: {metricsUnavailable}
           </div>
         ) : null}

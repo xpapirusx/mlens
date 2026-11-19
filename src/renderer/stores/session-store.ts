@@ -5,6 +5,9 @@ import { toast } from "../design-system/components/Toast";
 
 export type DetailTab = "overview" | "details" | "yaml" | "events" | "related" | "logs" | "metrics";
 
+/** Where a new editor pane is created relative to its source pane. */
+export type SplitDirection = "right" | "down";
+
 export interface KindState {
   search: string;
   regex: boolean;
@@ -47,16 +50,41 @@ export interface YamlTab {
 
 export type DockTab = TerminalTab | YamlTab;
 
-export interface DetailsState {
-  ref: ResourceKey;
+export interface EditorPaneState {
+  id: string;
+  /** Absolute cell in the 2×2 layout grid: 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right. */
+  slot: number;
+  tabs: ResourceKey[];
+  active: ResourceKey | null;
+  /** Inner details tab (Overview / Details / YAML / …) kept per pane. */
   tab: DetailTab;
+  /** Back history for this pane. */
+  history: ResourceKey[];
 }
+
+export interface EditorState {
+  panes: EditorPaneState[];
+  activePaneId: string;
+  /** Editor-area width in px (dragged on the left edge). */
+  width: number;
+  /** Editor area collapsed to the tray / pill; its tabs stay open. */
+  minimized: boolean;
+  /** Fraction of the width given to the left column when split in two. */
+  columnSplit: number;
+  /** Fraction of the height given to the top row when split in two. */
+  rowSplit: number;
+}
+
+export type ConnectStage = "api" | "namespaces" | "discovery" | "done";
 
 export interface ClusterSession {
   clusterId: ClusterId;
   status: "idle" | "connecting" | "connected" | "error";
   info: ClusterConnectionInfo | null;
   error?: string;
+  /** Real progress of initialize(): which step runs and how far we are. */
+  connectStage?: ConnectStage;
+  connectPercent?: number;
   namespaces: string[];
   resources: ApiResourceInfo[];
   discoveryError?: string;
@@ -65,11 +93,8 @@ export interface ClusterSession {
   kindStates: Record<string, KindState>;
   expandedGroups: Record<string, boolean>;
   sidebarWidth: number;
-  details: DetailsState | null;
-  /** Drawer hidden while every open resource tab is kept. */
-  detailsMinimized: boolean;
-  detailsHistory: ResourceKey[];
-  resourceTabs: ResourceKey[];
+  /** VS Code-like editor area: split panes with resource tabs. */
+  editor: EditorState;
   dock: {
     open: boolean;
     height: number;
@@ -95,15 +120,30 @@ interface SessionStore {
   ) => void;
   toggleGroup: (id: ClusterId, group: string, currentExpanded?: boolean) => void;
   setSidebarWidth: (id: ClusterId, width: number) => void;
+  /** Opens/activates a resource in the active editor pane. */
   openDetails: (id: ClusterId, ref: ResourceKey) => void;
+  /** Opens/activates a resource in a specific pane (Related/Details navigation). */
+  openInPane: (id: ClusterId, paneId: string, ref: ResourceKey) => void;
+  /** Splits the active pane and opens the resource in the new one. */
+  openDetailsInNewPane: (id: ClusterId, ref: ResourceKey, direction: SplitDirection) => void;
   setDetailsTab: (id: ClusterId, tab: DetailTab) => void;
+  setPaneTab: (id: ClusterId, paneId: string, tab: DetailTab) => void;
+  /** Closes the active tab of the active pane (kept as the Escape/⌘W action). */
   closeDetails: (id: ClusterId) => void;
   minimizeDetails: (id: ClusterId) => void;
   restoreDetails: (id: ClusterId) => void;
   activateResource: (id: ClusterId, ref: ResourceKey) => void;
   closeResourceTab: (id: ClusterId, ref: ResourceKey) => void;
+  closePaneTab: (id: ClusterId, paneId: string, ref: ResourceKey) => void;
+  closeOtherPaneTabs: (id: ClusterId, paneId: string, ref: ResourceKey) => void;
+  closePaneTabsToRight: (id: ClusterId, paneId: string, ref: ResourceKey) => void;
   detailsBack: (id: ClusterId) => void;
-  refreshDetails: (id: ClusterId) => void;
+  paneBack: (id: ClusterId, paneId: string) => void;
+  setActivePane: (id: ClusterId, paneId: string) => void;
+  moveTab: (id: ClusterId, sourcePaneId: string, targetPaneId: string, ref: ResourceKey) => void;
+  reorderTab: (id: ClusterId, paneId: string, ref: ResourceKey, toIndex: number) => void;
+  setEditorWidth: (id: ClusterId, width: number) => void;
+  setEditorSplit: (id: ClusterId, patch: { columnSplit?: number; rowSplit?: number }) => void;
   openTerminal: (id: ClusterId, target: TerminalTarget) => void;
   /** Opens (or focuses) the dock's multi-document YAML editor tab. */
   openYamlTab: (id: ClusterId) => void;
@@ -112,7 +152,7 @@ interface SessionStore {
   setDock: (id: ClusterId, patch: Partial<ClusterSession["dock"]>) => void;
 }
 
-const emptyKindState = (): KindState => ({
+export const emptyKindState = (): KindState => ({
   search: "",
   regex: false,
   sort: null,
@@ -123,6 +163,7 @@ const emptyKindState = (): KindState => ({
 });
 
 function createSession(id: ClusterId, selectedNamespaces: string[] = [], sidebarWidth = 236, dockHeight = 340): ClusterSession {
+  const pane = newEditorPane(0);
   return {
     clusterId: id,
     status: "idle",
@@ -134,10 +175,14 @@ function createSession(id: ClusterId, selectedNamespaces: string[] = [], sidebar
     kindStates: {},
     expandedGroups: {},
     sidebarWidth,
-    details: null,
-    detailsMinimized: false,
-    detailsHistory: [],
-    resourceTabs: [],
+    editor: {
+      panes: [pane],
+      activePaneId: pane.id,
+      width: 560,
+      minimized: false,
+      columnSplit: 0.5,
+      rowSplit: 0.5,
+    },
     dock: { open: false, height: dockHeight, tabs: [], activeTabId: null },
   };
 }
@@ -159,6 +204,159 @@ export function sameRef(a: ResourceKey, b: ResourceKey): boolean {
   );
 }
 
+let paneSequence = 0;
+
+/** A fresh, empty editor pane occupying one cell of the 2×2 grid. */
+export function newEditorPane(slot: number): EditorPaneState {
+  paneSequence += 1;
+  return {
+    id: `pane-${Date.now().toString(36)}-${paneSequence}`,
+    slot,
+    tabs: [],
+    active: null,
+    tab: "overview",
+    history: [],
+  };
+}
+
+/** Columns/rows are derived from each pane's absolute slot (2×2 max). */
+export function editorLayout(panes: EditorPaneState[]): { columns: 1 | 2; rows: 1 | 2 } {
+  return {
+    columns: panes.some((pane) => pane.slot % 2 === 1) ? 2 : 1,
+    rows: panes.some((pane) => pane.slot >= 2) ? 2 : 1,
+  };
+}
+
+export function activePaneOf(session: ClusterSession | undefined): EditorPaneState | undefined {
+  if (!session) return undefined;
+  return (
+    session.editor.panes.find((pane) => pane.id === session.editor.activePaneId) ??
+    session.editor.panes[0]
+  );
+}
+
+export function hasEditorTab(session: ClusterSession | undefined): boolean {
+  return !!session && session.editor.panes.some((pane) => pane.active !== null);
+}
+
+/** Re-pack panes into the smallest sensible 2×2 layout after a pane closes. */
+function compactPanes(panes: EditorPaneState[]): EditorPaneState[] {
+  const sorted = [...panes].sort((left, right) => left.slot - right.slot);
+  if (sorted.length === 2) {
+    // Keep the axis from the previous layout: same column → stacked, else side by side.
+    const stacked = sorted.every((pane) => pane.slot % 2 === 0);
+    const slots = stacked ? [0, 2] : [0, 1];
+    return sorted.map((pane, index) => ({ ...pane, slot: slots[index] }));
+  }
+  return sorted.map((pane, index) => ({ ...pane, slot: Math.min(index, 3) }));
+}
+
+/** Opens (or re-activates) a resource inside one pane, preserving per-pane history. */
+function withOpenedRef(pane: EditorPaneState, ref: ResourceKey, resources: ApiResourceInfo[]): EditorPaneState {
+  const same = pane.active !== null && sameRef(pane.active, ref);
+  const history =
+    !same && pane.active ? [pane.active, ...pane.history].slice(0, 25) : pane.history;
+  const target = resources.find(
+    (entry) => entry.apiVersion === ref.apiVersion && entry.kind === ref.kind,
+  );
+  // Custom resources open on Details (Freelens field order) instead of a
+  // generic Overview; users can switch to Overview/YAML at any time.
+  const defaultTab: DetailTab = target?.isCrd ? "details" : "overview";
+  const tab = same
+    ? pane.tab
+    : ref.kind !== "Pod" && pane.tab === "logs"
+      ? "overview"
+      : defaultTab;
+  const exists = pane.tabs.some((entry) => sameRef(entry, ref));
+  return {
+    ...pane,
+    tabs: exists ? pane.tabs : [...pane.tabs, ref],
+    active: ref,
+    tab,
+    history,
+  };
+}
+
+/** Clicking an already-open tab keeps that pane's inner tab. */
+function withActivatedRef(pane: EditorPaneState, ref: ResourceKey): EditorPaneState {
+  const exists = pane.tabs.some((entry) => sameRef(entry, ref));
+  return {
+    ...pane,
+    tabs: exists ? pane.tabs : [...pane.tabs, ref],
+    active: ref,
+    tab: ref.kind !== "Pod" && pane.tab === "logs" ? "overview" : pane.tab,
+  };
+}
+
+type EditorPatch = Partial<EditorState>;
+
+function applyEditor(
+  state: { sessions: Record<ClusterId, ClusterSession> },
+  id: ClusterId,
+  session: ClusterSession,
+  patch: EditorPatch,
+) {
+  return {
+    sessions: {
+      ...state.sessions,
+      [id]: { ...session, editor: { ...session.editor, ...patch } },
+    },
+  };
+}
+
+function closeTab(
+  state: { sessions: Record<ClusterId, ClusterSession> },
+  id: ClusterId,
+  session: ClusterSession,
+  paneId: string,
+  ref: ResourceKey,
+) {
+  const panes = session.editor.panes
+    .map((pane) => {
+      if (pane.id !== paneId) return pane;
+      const index = pane.tabs.findIndex((tab) => sameRef(tab, ref));
+      if (index < 0) return pane;
+      const tabs = pane.tabs.filter((tab) => !sameRef(tab, ref));
+      const isActive = pane.active !== null && sameRef(pane.active, ref);
+      const fallback = isActive ? (tabs[Math.max(0, index - 1)] ?? tabs[0] ?? null) : pane.active;
+      return { ...pane, tabs, active: fallback };
+    })
+    .filter((pane) => pane.tabs.length > 0);
+  const compacted = panes.length > 0 ? compactPanes(panes) : [newEditorPane(0)];
+  const activeExists = compacted.some((pane) => pane.id === session.editor.activePaneId);
+  return applyEditor(state, id, session, {
+    panes: compacted,
+    activePaneId: activeExists ? session.editor.activePaneId : compacted[0].id,
+  });
+}
+
+function backPane(
+  state: { sessions: Record<ClusterId, ClusterSession> },
+  id: ClusterId,
+  session: ClusterSession,
+  paneId: string,
+) {
+  const pane = session.editor.panes.find((entry) => entry.id === paneId);
+  if (!pane || pane.history.length === 0) return state;
+  const [previous, ...rest] = pane.history;
+  return applyEditor(state, id, session, {
+    panes: session.editor.panes.map((entry) =>
+      entry.id === paneId
+        ? {
+            ...entry,
+            active: previous,
+            history: rest,
+            tab: previous.kind !== "Pod" && entry.tab === "logs" ? "overview" : entry.tab,
+            tabs: entry.tabs.some((tab) => sameRef(tab, previous))
+              ? entry.tabs
+              : [...entry.tabs, previous],
+          }
+        : entry,
+    ),
+    activePaneId: paneId,
+  });
+}
+
 export const useSessionStore = create<SessionStore>((set, get) => ({
   sessions: {},
 
@@ -174,16 +372,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     const current = get().ensureSession(id);
     if (current.status === "connected" || current.status === "connecting") return;
 
-    set((state) => ({
-      sessions: {
-        ...state.sessions,
-        [id]: { ...state.sessions[id], status: "connecting", error: undefined },
-      },
-    }));
+    const progress = (connectStage: ConnectStage, connectPercent: number) =>
+      set((state) => ({
+        sessions: {
+          ...state.sessions,
+          [id]: {
+            ...state.sessions[id],
+            status: "connecting",
+            error: undefined,
+            connectStage,
+            connectPercent,
+          },
+        },
+      }));
 
+    progress("api", 5);
     try {
       const info = await call(api.clusters.connect(id));
+      progress("namespaces", 45);
       const namespaces = await call(api.clusters.namespaces(id)).catch(() => []);
+      progress("discovery", 70);
       let resources: ApiResourceInfo[] = [];
       let discoveryError: string | undefined;
       try {
@@ -203,6 +411,8 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
             ...state.sessions[id],
             status: "connected",
             info,
+            connectStage: "done",
+            connectPercent: 100,
             namespaces: namespaces.map((entry) => entry.name),
             resources,
             discoveryError,
@@ -317,107 +527,108 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
-      const same =
-        session.details?.ref.apiVersion === ref.apiVersion &&
-        session.details.ref.kind === ref.kind &&
-        session.details.ref.namespace === ref.namespace &&
-        session.details.ref.name === ref.name;
-      const history = session.details && !same ? [session.details.ref, ...session.detailsHistory].slice(0, 25) : session.detailsHistory;
-      const exists = session.resourceTabs.some((tab) => sameRef(tab, ref));
-      const targetResource = session.resources.find(
-        (entry) => entry.apiVersion === ref.apiVersion && entry.kind === ref.kind,
-      );
-      // Custom resources open on Details (Freelens field order) instead of a
-      // generic Overview; users can switch to Overview/YAML at any time.
-      const defaultTab: DetailTab = targetResource?.isCrd ? "details" : "overview";
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: {
-            ...session,
-            details: {
-              ref,
-              tab: same
-                ? (session.details?.tab ?? defaultTab)
-                : ref.kind !== "Pod" && session.details?.tab === "logs"
-                  ? "overview"
-                  : defaultTab,
-            },
-            detailsHistory: history,
-            detailsMinimized: false,
-            resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
-          },
-        },
-      };
+      const pane = activePaneOf(session);
+      if (!pane) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) =>
+          entry.id === pane.id ? withOpenedRef(entry, ref, session.resources) : entry,
+        ),
+        activePaneId: pane.id,
+        minimized: false,
+      });
+    });
+  },
+
+  openInPane: (id, paneId, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const pane = session.editor.panes.find((entry) => entry.id === paneId) ?? activePaneOf(session);
+      if (!pane) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) =>
+          entry.id === pane.id ? withOpenedRef(entry, ref, session.resources) : entry,
+        ),
+        activePaneId: pane.id,
+        minimized: false,
+      });
+    });
+  },
+
+  openDetailsInNewPane: (id, ref, direction) => {
+    set((state) => {
+      const session = state.sessions[id];
+      const source = session && activePaneOf(session);
+      if (!session || !source) return state;
+      const targetSlot =
+        direction === "right"
+          ? source.slot % 2 === 0
+            ? source.slot + 1
+            : -1
+          : source.slot < 2
+            ? source.slot + 2
+            : -1;
+      if (targetSlot < 0 || targetSlot > 3) return state;
+      if (session.editor.panes.some((pane) => pane.slot === targetSlot)) return state;
+      const pane = withOpenedRef(newEditorPane(targetSlot), ref, session.resources);
+      return applyEditor(state, id, session, {
+        panes: [...session.editor.panes, pane],
+        activePaneId: pane.id,
+        minimized: false,
+      });
     });
   },
 
   setDetailsTab: (id, tab) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session?.details) return state;
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: { ...session, details: { ...session.details, tab } },
-        },
-      };
+      const pane = session && activePaneOf(session);
+      if (!session || !pane) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) => (entry.id === pane.id ? { ...entry, tab } : entry)),
+      });
+    });
+  },
+
+  setPaneTab: (id, paneId, tab) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) => (entry.id === paneId ? { ...entry, tab } : entry)),
+      });
     });
   },
 
   closeDetails: (id) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session?.details) return state;
-      const active = session.details.ref;
-      const tabs = session.resourceTabs.filter((tab) => !sameRef(tab, active));
-      const next = tabs[tabs.length - 1] ?? null;
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: {
-            ...session,
-            resourceTabs: tabs,
-            details: next ? { ...session.details, ref: next } : null,
-            detailsMinimized: false,
-          },
-        },
-      };
+      const pane = session && activePaneOf(session);
+      if (!session || !pane?.active) return state;
+      return closeTab(state, id, session, pane.id, pane.active);
     });
   },
 
   activateResource: (id, ref) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session) return state;
-      const exists = session.resourceTabs.some((tab) => sameRef(tab, ref));
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: {
-            ...session,
-            details: {
-              ref,
-              tab:
-                ref.kind !== "Pod" && session.details?.tab === "logs"
-                  ? "overview"
-                  : (session.details?.tab ?? "overview"),
-            },
-            detailsMinimized: false,
-            resourceTabs: exists ? session.resourceTabs : [...session.resourceTabs, ref],
-          },
-        },
-      };
+      const pane = session && activePaneOf(session);
+      if (!session || !pane) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) =>
+          entry.id === pane.id ? withActivatedRef(entry, ref) : entry,
+        ),
+        activePaneId: pane.id,
+        minimized: false,
+      });
     });
   },
 
   minimizeDetails: (id) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session?.details) return state;
-      return {
-        sessions: { ...state.sessions, [id]: { ...session, detailsMinimized: true } },
-      };
+      if (!session || !hasEditorTab(session)) return state;
+      return applyEditor(state, id, session, { minimized: true });
     });
   },
 
@@ -425,9 +636,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
-      return {
-        sessions: { ...state.sessions, [id]: { ...session, detailsMinimized: false } },
-      };
+      return applyEditor(state, id, session, { minimized: false });
     });
   },
 
@@ -435,54 +644,147 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     set((state) => {
       const session = state.sessions[id];
       if (!session) return state;
-      const index = session.resourceTabs.findIndex((tab) => sameRef(tab, ref));
-      const tabs = session.resourceTabs.filter((tab) => !sameRef(tab, ref));
-      const isActive = session.details ? sameRef(session.details.ref, ref) : false;
-      const fallback = tabs[Math.max(0, index - 1)] ?? tabs[0] ?? null;
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: {
-            ...session,
-            resourceTabs: tabs,
-            details: isActive ? (fallback ? { ...session.details!, ref: fallback } : null) : session.details,
-          },
-        },
-      };
+      const active = activePaneOf(session);
+      const pane =
+        (active?.tabs.some((tab) => sameRef(tab, ref)) ? active : null) ??
+        session.editor.panes.find((entry) => entry.tabs.some((tab) => sameRef(tab, ref)));
+      if (!pane) return state;
+      return closeTab(state, id, session, pane.id, ref);
+    });
+  },
+
+  closePaneTab: (id, paneId, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return closeTab(state, id, session, paneId, ref);
+    });
+  },
+
+  closeOtherPaneTabs: (id, paneId, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) =>
+          entry.id === paneId ? { ...entry, tabs: [ref], active: ref } : entry,
+        ),
+      });
+    });
+  },
+
+  closePaneTabsToRight: (id, paneId, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) => {
+          if (entry.id !== paneId) return entry;
+          const index = entry.tabs.findIndex((tab) => sameRef(tab, ref));
+          if (index < 0) return entry;
+          const tabs = entry.tabs.slice(0, index + 1);
+          const active = entry.active && tabs.some((tab) => sameRef(tab, entry.active!)) ? entry.active : ref;
+          return { ...entry, tabs, active };
+        }),
+      });
     });
   },
 
   detailsBack: (id) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session?.details || session.detailsHistory.length === 0) return state;
-      const [previous, ...rest] = session.detailsHistory;
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: {
-            ...session,
-            details: { ...session.details, ref: previous },
-            detailsHistory: rest,
-            resourceTabs: session.resourceTabs.some((tab) => sameRef(tab, previous))
-              ? session.resourceTabs
-              : [...session.resourceTabs, previous],
-          },
-        },
-      };
+      const pane = session && activePaneOf(session);
+      if (!session || !pane) return state;
+      return backPane(state, id, session, pane.id);
     });
   },
 
-  refreshDetails: (id) => {
+  paneBack: (id, paneId) => {
     set((state) => {
       const session = state.sessions[id];
-      if (!session?.details) return state;
-      return {
-        sessions: {
-          ...state.sessions,
-          [id]: { ...session, details: { ...session.details } },
-        },
-      };
+      if (!session) return state;
+      return backPane(state, id, session, paneId);
+    });
+  },
+
+  setActivePane: (id, paneId) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session || session.editor.activePaneId === paneId) return state;
+      return applyEditor(state, id, session, { activePaneId: paneId });
+    });
+  },
+
+  moveTab: (id, sourcePaneId, targetPaneId, ref) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session || sourcePaneId === targetPaneId) return state;
+      const source = session.editor.panes.find((pane) => pane.id === sourcePaneId);
+      const target = session.editor.panes.find((pane) => pane.id === targetPaneId);
+      if (!source || !target || !source.tabs.some((tab) => sameRef(tab, ref))) return state;
+      const panes = session.editor.panes
+        .map((pane) => {
+          if (pane.id === sourcePaneId) {
+            const tabs = pane.tabs.filter((tab) => !sameRef(tab, ref));
+            return {
+              ...pane,
+              tabs,
+              active: pane.active && sameRef(pane.active, ref) ? (tabs[0] ?? null) : pane.active,
+            };
+          }
+          if (pane.id === targetPaneId) {
+            const exists = pane.tabs.some((tab) => sameRef(tab, ref));
+            return { ...pane, tabs: exists ? pane.tabs : [...pane.tabs, ref], active: ref };
+          }
+          return pane;
+        })
+        .filter((pane) => pane.tabs.length > 0);
+      const compacted = compactPanes(panes);
+      const activeExists = compacted.some((pane) => pane.id === session.editor.activePaneId);
+      return applyEditor(state, id, session, {
+        panes: compacted,
+        activePaneId: activeExists ? session.editor.activePaneId : targetPaneId,
+        minimized: false,
+      });
+    });
+  },
+
+  reorderTab: (id, paneId, ref, toIndex) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return applyEditor(state, id, session, {
+        panes: session.editor.panes.map((entry) => {
+          if (entry.id !== paneId) return entry;
+          const from = entry.tabs.findIndex((tab) => sameRef(tab, ref));
+          if (from < 0) return entry;
+          const tabs = [...entry.tabs];
+          const [moved] = tabs.splice(from, 1);
+          tabs.splice(Math.max(0, Math.min(tabs.length, toIndex)), 0, moved);
+          return { ...entry, tabs };
+        }),
+      });
+    });
+  },
+
+  setEditorWidth: (id, width) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      return applyEditor(state, id, session, { width: Math.min(Math.max(360, Math.round(width)), 1400) });
+    });
+  },
+
+  setEditorSplit: (id, patch) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      const clamp = (value: number | undefined, fallback: number) =>
+        value === undefined ? fallback : Math.min(0.8, Math.max(0.2, value));
+      return applyEditor(state, id, session, {
+        columnSplit: clamp(patch.columnSplit, session.editor.columnSplit),
+        rowSplit: clamp(patch.rowSplit, session.editor.rowSplit),
+      });
     });
   },
 
@@ -651,4 +953,26 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 /** Build the key used by the details drawer for a given API resource kind. */
 export function childKey(apiVersion: string, kind: string, namespace: string | undefined, name: string): string {
   return `${apiVersion}|${kind}|${namespace ?? ""}|${name}`;
+}
+
+/**
+ * A14: stable signature of the session fields cluster chrome renders (status +
+ * connection info). Tabs, hotbar and catalog subscribe to this string instead
+ * of the sessions map, so keystroke-level session writes (search, filters,
+ * dock, drawer tabs) stop re-rendering the whole shell. The map itself is
+ * read fresh through `getState()` whenever the signature changes.
+ */
+export function sessionChromeKey(sessions: Record<ClusterId, ClusterSession>): string {
+  return Object.entries(sessions)
+    .map(
+      ([id, session]) =>
+        `${id}=${session.status}/${session.info?.context ?? ""}/${session.info?.name ?? ""}/${session.info?.version ?? ""}`,
+    )
+    .join("\n");
+}
+
+/** Sessions map for cluster chrome — re-renders only on status/info changes. */
+export function useChromeSessions(): Record<ClusterId, ClusterSession> {
+  useSessionStore((state) => sessionChromeKey(state.sessions));
+  return useSessionStore.getState().sessions;
 }

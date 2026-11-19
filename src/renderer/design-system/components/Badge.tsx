@@ -28,7 +28,7 @@ export function CountBadge({ children, active }: { children: ReactNode; active?:
   return (
     <span
       className={cn(
-        "inline-flex min-w-6 items-center justify-center rounded px-1 font-mono text-[10px] leading-4 tabular-nums",
+        "inline-flex min-w-6 items-center justify-center rounded px-1 font-mono text-[calc(10px*var(--font-scale))] leading-4 tabular-nums",
         active ? "bg-skyhook-500/30 text-accent-text" : "bg-theme-elevated text-theme-text-tertiary",
       )}
     >

@@ -103,31 +103,31 @@ export function MetricsTab({
     <div className="space-y-4 p-3">
       <div className="flex items-center gap-2">
         <Cpu className="h-4 w-4 text-accent-text" />
-        <span className="text-[13px] font-medium text-theme-text-primary">Live resource usage</span>
-        <span className="ml-auto text-[10px] text-theme-text-tertiary">
+        <span className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-primary">Live resource usage</span>
+        <span className="ml-auto text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {formatTimestamp((metrics as any)?.timestamp)} · window {(metrics as any)?.window ?? "–"}
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="card-inner">
-          <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">CPU</div>
+          <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">CPU</div>
           <div className="mt-0.5 font-mono text-lg text-theme-text-primary">{formatCpu(totalCpu)}</div>
         </div>
         <div className="card-inner">
-          <div className="text-[10px] uppercase tracking-wide text-theme-text-tertiary">Memory</div>
+          <div className="text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">Memory</div>
           <div className="mt-0.5 font-mono text-lg text-theme-text-primary">{formatBytes(totalMemory)}</div>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-md border border-theme-border">
-        <div className="grid grid-cols-3 border-b border-theme-border bg-theme-base px-2 py-1 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+        <div className="grid grid-cols-3 border-b border-theme-border bg-theme-base px-2 py-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
           <span>Container</span>
           <span className="text-right">CPU</span>
           <span className="text-right">Memory</span>
         </div>
         {containers.map((container) => (
-          <div key={container.name} className="grid grid-cols-3 border-b-subtle px-2 py-1.5 text-[11px] last:border-0">
+          <div key={container.name} className="grid grid-cols-3 border-b-subtle px-2 py-1.5 text-[calc(11px*var(--font-scale))] last:border-0">
             <span className="truncate font-mono text-theme-text-primary">{container.name}</span>
             <span className="text-right font-mono text-theme-text-secondary">{formatCpu(parseCpu(container.usage?.cpu))}</span>
             <span className="text-right font-mono text-theme-text-secondary">{formatBytes(parseMemory(container.usage?.memory))}</span>
@@ -138,7 +138,7 @@ export function MetricsTab({
         ) : null}
       </div>
 
-      <p className="text-[10px] leading-relaxed text-theme-text-disabled">
+      <p className="text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-disabled">
         Values come from the Kubernetes metrics.k8s.io API. Historical charts require Prometheus and are not
         implemented in this build.
       </p>

@@ -134,5 +134,5 @@ export function MenuSeparator() {
 }
 
 export function MenuLabel({ children }: { children: ReactNode }) {
-  return <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-theme-text-tertiary">{children}</div>;
+  return <div className="px-2 py-1 text-[calc(10px*var(--font-scale))] font-medium uppercase tracking-wider text-theme-text-tertiary">{children}</div>;
 }

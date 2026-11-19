@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import Editor, { loader, type Monaco } from "@monaco-editor/react";
 import { editorThemeName, monaco } from "../../lib/monaco";
 import { cn } from "../../lib/cn";
+import { useCatalogStore } from "../../stores/catalog-store";
 
 loader.config({ monaco });
 
@@ -34,6 +35,17 @@ export const YamlEditor = forwardRef<YamlEditorHandle, YamlEditorProps>(function
   ref,
 ) {
   const editorTheme = editorThemeName();
+  // Stable slices only — a derived object in the selector would loop React (#185).
+  const fontScale = useCatalogStore((state) => state.settings?.fontScale);
+  const editorFontFamily = useCatalogStore((state) => state.settings?.editorFontFamily);
+  const editorFontSize = useCatalogStore((state) => state.settings?.editorFontSize);
+  const editorLineNumbers = useCatalogStore((state) => state.settings?.editorLineNumbers);
+  const editorMinimap = useCatalogStore((state) => state.settings?.editorMinimap);
+  const editorTabSize = useCatalogStore((state) => state.settings?.editorTabSize);
+  // Monaco wants px; the configured size is the base, the global font scale
+  // multiplies it just like every other text surface.
+  const fontSize = Math.max(6, Math.round((editorFontSize ?? 12) * (fontScale ?? 1)));
+
   const editorRef = useRef<EditorInstance | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -95,11 +107,12 @@ export const YamlEditor = forwardRef<YamlEditorHandle, YamlEditorProps>(function
         options={{
           readOnly,
           domReadOnly: readOnly,
-          minimap: { enabled: false },
-          fontSize: 12,
-          lineHeight: 18,
-          fontFamily: "'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
-          lineNumbers: "on",
+          minimap: { enabled: Boolean(editorMinimap) },
+          fontSize,
+          lineHeight: fontSize * 1.5,
+          fontFamily: `"${editorFontFamily ?? "DM Mono"}", ui-monospace, SFMono-Regular, Menlo, monospace`,
+          lineNumbers: editorLineNumbers === false ? "off" : "on",
+          tabSize: editorTabSize ?? 2,
           scrollBeyondLastLine: false,
           wordWrap: "on",
           folding: true,

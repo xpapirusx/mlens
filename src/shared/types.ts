@@ -5,7 +5,21 @@
 
 export type ClusterId = string;
 export type ThemeMode = "light" | "dark" | "system";
-export type ColorTheme = "radar" | "dracula" | "freelens" | "proton";
+export type ColorTheme =
+  | "radar"
+  | "dracula"
+  | "freelens"
+  | "proton"
+  | "synthwave"
+  | "islands"
+  | "github"
+  | "night-owl"
+  | "material"
+  | "one-dark-pro"
+  | "one-dark"
+  | "catppuccin"
+  | "jellybeans"
+  | "adwaita";
 
 export interface KubeconfigSource {
   path: string;
@@ -148,6 +162,15 @@ export interface WatchEventPayload {
   type: WatchEventType;
   object?: KubeObject;
   error?: string;
+}
+
+/**
+ * A3: watch events arrive in bursts (a rolling deploy emits hundreds of
+ * MODIFIEDs per second). Main coalesces them and delivers one batch per flush,
+ * so the renderer re-renders once per batch instead of once per event.
+ */
+export interface WatchEventBatch {
+  events: WatchEventPayload[];
 }
 
 export interface ResourceCountRequest {
@@ -296,12 +319,22 @@ export interface ClusterHealth {
   latencyMs?: number;
 }
 
+/** Catalog cluster list ordering; remembered across sessions. */
+export type CatalogSort = "status" | "name" | "recent" | "source";
+
 export interface AppSettings {
   theme: ThemeMode;
   colorTheme: ColorTheme;
   kubeconfigPaths: string[];
   favorites: ClusterId[];
   recentClusters: Array<{ id: ClusterId; openedAt: number }>;
+  /** Last sort chosen in the cluster catalog. */
+  catalogSort: CatalogSort;
+  /**
+   * Open the system browser at `http://127.0.0.1:<localPort>` as soon as a
+   * port forward starts. Defaults to on; the dialog exposes the toggle.
+   */
+  portForwardOpenBrowser: boolean;
   refreshIntervalSeconds: number;
   terminalFontSize: number;
   terminalFontFamily: string;
@@ -311,6 +344,20 @@ export interface AppSettings {
   sidebarWidth: number;
   dockHeight: number;
   tableRowHeight: number;
+  /** Multiplier applied to every font (UI, terminal, YAML editor); layout geometry stays fixed. */
+  fontScale: number;
+  /** UI font family: "DM Sans", "Ubuntu" or "System UI". */
+  uiFontFamily: string;
+  /** YAML/Monaco editor. */
+  editorFontFamily: string;
+  editorFontSize: number;
+  editorLineNumbers: boolean;
+  editorMinimap: boolean;
+  editorTabSize: number;
+  /** Terminal behaviour. */
+  terminalCopyOnSelect: boolean;
+  /** Display timestamps in UTC instead of the local timezone. */
+  timeZone: "local" | "utc";
   collapseCatalogGroups: boolean;
   favoriteKinds: string[];
   hiddenClusters: ClusterId[];

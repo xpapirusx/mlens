@@ -57,12 +57,12 @@ export function YamlTab({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-theme-border bg-theme-base px-2">
-        <span className="font-mono text-[10px] text-theme-text-tertiary">
+        <span className="font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
           {object.apiVersion}/{object.kind}
         </span>
         <label
           className={cn(
-            "flex min-w-0 items-center gap-1.5 text-[11px] text-theme-text-secondary",
+            "flex min-w-0 items-center gap-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary",
             editing ? "cursor-not-allowed opacity-50" : "cursor-pointer",
           )}
           title={

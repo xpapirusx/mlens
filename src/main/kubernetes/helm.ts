@@ -20,7 +20,12 @@ import type {
 const MAX_TEXT = 200_000;
 
 interface RawSecret {
-  metadata?: { name?: string; namespace?: string; labels?: Record<string, string> };
+  metadata?: {
+    name?: string;
+    namespace?: string;
+    labels?: Record<string, string>;
+    resourceVersion?: string;
+  };
   type?: string;
   data?: Record<string, string>;
 }
@@ -74,6 +79,42 @@ function decodeRelease(secret: RawSecret): ReleaseJson | null {
     // A corrupted or hand-edited secret: skip it rather than fail the list.
     return null;
   }
+}
+
+interface CachedRelease {
+  resourceVersion: string;
+  release: ReleaseJson;
+}
+
+const decodeCache = new Map<string, CachedRelease>();
+const DECODE_CACHE_LIMIT = 400;
+
+/**
+ * A7: decode revision Secrets through a per-Secret cache keyed by
+ * resourceVersion. Every Helm poll used to gunzip the same blobs again —
+ * unchanged revisions now cost one Map lookup.
+ */
+function decodeCachedRelease(secret: RawSecret): ReleaseJson | null {
+  const resourceVersion = secret.metadata?.resourceVersion;
+  const key = `${secret.metadata?.namespace ?? ""}/${secret.metadata?.name ?? ""}`;
+  if (resourceVersion) {
+    const hit = decodeCache.get(key);
+    if (hit && hit.resourceVersion === resourceVersion) {
+      // Refresh recency so hot releases survive eviction.
+      decodeCache.delete(key);
+      decodeCache.set(key, hit);
+      return hit.release;
+    }
+  }
+  const release = decodeRelease(secret);
+  if (resourceVersion && release) {
+    decodeCache.set(key, { resourceVersion, release });
+    if (decodeCache.size > DECODE_CACHE_LIMIT) {
+      const oldest = decodeCache.keys().next().value;
+      if (oldest !== undefined) decodeCache.delete(oldest);
+    }
+  }
+  return release;
 }
 
 function toSummary(secret: RawSecret, release: ReleaseJson): HelmReleaseSummary {
@@ -148,13 +189,13 @@ export async function listHelmReleases(
 
   const byRelease = new Map<string, HelmReleaseSummary>();
   for (const secret of newest.values()) {
-    const release = decodeRelease(secret);
+    const release = decodeCachedRelease(secret);
     if (!release?.name) continue;
     const summary = toSummary(secret, release);
     byRelease.set(`${summary.namespace}/${summary.name}`, summary);
   }
   for (const secret of unlabeled) {
-    const release = decodeRelease(secret);
+    const release = decodeCachedRelease(secret);
     if (!release?.name) continue;
     const summary = toSummary(secret, release);
     const key = `${summary.namespace}/${summary.name}`;
@@ -170,12 +211,17 @@ export async function getHelmRelease(
   connection: ClusterConnection,
   request: HelmReleaseRequest & { revision?: number },
 ): Promise<HelmReleaseDetail> {
-  // Not filtered by the `name` label: which labels a Helm version writes is
-  // version-dependent, while the decoded record always carries the name.
+  // Secrets clearly labelled with a different release name are skipped before
+  // decoding — that is what made the drawer decode every revision of every
+  // release on the cluster. Secrets without a usable `name` label still fall
+  // back to decoding: which labels a Helm version writes is version-dependent,
+  // while the decoded record always carries the name.
   const secrets = await listSecrets(connection, request.namespace, "owner=helm");
   const matches: Array<{ secret: RawSecret; release: ReleaseJson }> = [];
   for (const secret of secrets) {
-    const release = decodeRelease(secret);
+    const labelledName = secret.metadata?.labels?.name;
+    if (labelledName && labelledName !== request.name) continue;
+    const release = decodeCachedRelease(secret);
     if (!release?.name || release.name !== request.name) continue;
     matches.push({ secret, release });
   }
@@ -310,7 +356,9 @@ export async function prepareHelmRollback(
   const secrets = await listSecrets(connection, request.namespace, "owner=helm");
   const matches: Array<{ secret: RawSecret; release: ReleaseJson }> = [];
   for (const secret of secrets) {
-    const release = decodeRelease(secret);
+    const labelledName = secret.metadata?.labels?.name;
+    if (labelledName && labelledName !== request.name) continue;
+    const release = decodeCachedRelease(secret);
     if (!release?.name || release.name !== request.name) continue;
     matches.push({ secret, release });
   }

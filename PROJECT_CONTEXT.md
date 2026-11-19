@@ -151,6 +151,9 @@ Freelens gets isolation from iframes. mLens instead:
   are visible, at ≥60s; absent data renders `–`.
 - Mutations: delete with confirmation; scale merge-patch; restart annotation
   patch; YAML apply with dry-run and replace/create.
+- Capabilities: `checkAccess` posts SelfSubjectAccessReview through the same
+  authenticated request path; the renderer caches answers for 60s and hides a
+  write control only on an explicit denial (`null` = unknown, keep visible).
 - Port forwarding implements the Kubernetes WebSocket protocol directly (server
   sends the little-endian port handshake; client strips it; no kubectl process).
 - Terminal shells get a generated 0600 kubeconfig with the cluster context and
@@ -342,6 +345,7 @@ Freelens gets isolation from iframes. mLens instead:
 | Catalog remove/restore | verified; kubeconfig untouched |
 | Themes | Dracula applied across shell/tables/details; terminal palette wired |
 | Terminal persistence | xterm/PTY stays mounted across catalog → cluster → cluster |
+| SelfSubjectAccessReview | Batch request shape verified against a live context (`get pods` → allowed by `cluster-admin`); typecheck + build pass. Read-only UI smoke test pending |
 
 ---
 
@@ -367,21 +371,22 @@ pnpm dist:mac | dist:win | dist:linux
 
 ## 8. Known sharp edges / next work
 
-- No Helm, topology, timeline, GitOps-specific views, audit, extension API.
+- No topology, timeline, GitOps-specific views, audit or extension API.
 - Metrics history (Prometheus) not implemented; live metrics only.
 - Port forwarding: TCP loopback only, one port per forward, no UDP.
 - Multi-namespace lists cap each scope at 1000 rows and disable paging.
-- RBAC is surfaced through errors, not pre-filtered actions
-  (SelfSubjectAccessReview is planned).
+- Capability-aware actions use batched SelfSubjectAccessReview (`auth:can`):
+  denied write controls are hidden in the details drawer and in
+  single-namespace browser views; failed reviews keep actions visible.
 - No automated test suite yet; verification is by typecheck/build/manual real
   cluster smoke tests.
 - Route-level back/forward across resource kinds is not implemented; back covers
   resource history and catalog.
 - Catalog group order/hotbar order use HTML5 drag; no drag library.
 - Status filters appear only when a column has 2+ distinct values (Radar-style).
-- Radar workflow actions not yet ported: revision history + rollback, Set image,
-  CronJob Trigger, Node Drain (needs the eviction API), and Argo/Flux/GitOps
-  action bars. ReplicaSet intentionally has no Restart (its template is owned by
+- Radar workflow actions not yet ported: revision history + rollback and
+  Argo/Flux/GitOps action bars. Set image, CronJob Trigger and Node Drain are
+  implemented. ReplicaSet intentionally has no Restart (its template is owned by
   the Deployment and reconciled away).
 
 ---

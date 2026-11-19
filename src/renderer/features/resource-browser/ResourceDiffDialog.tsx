@@ -99,7 +99,7 @@ export function ResourceDiffDialog({
       }
     >
       <div className="flex h-[calc(100vh-17rem)] min-h-[320px] flex-col gap-2">
-        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px]">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[calc(11px*var(--font-scale))]">
           <SideTag label="A" target={first} clusterName={first ? clusterName(first.clusterId) : ""} />
           <ArrowLeftRight className="h-3.5 w-3.5 shrink-0 text-theme-text-tertiary" />
           <SideTag label="B" target={second} clusterName={second ? clusterName(second.clusterId) : ""} />
@@ -156,11 +156,11 @@ function SideTag({
     <span className="flex min-w-0 items-center gap-1.5 rounded-md border border-theme-border bg-theme-elevated px-1.5 py-1">
       <span className="font-semibold text-theme-text-tertiary">{label}</span>
       <span className="min-w-0">
-        <span className="block truncate font-mono text-[11px] text-theme-text-primary">
+        <span className="block truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">
           {target ? qualified(target) : "—"}
         </span>
         {target ? (
-          <span className="block truncate text-[10px] text-theme-text-tertiary">{clusterName}</span>
+          <span className="block truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{clusterName}</span>
         ) : null}
       </span>
     </span>

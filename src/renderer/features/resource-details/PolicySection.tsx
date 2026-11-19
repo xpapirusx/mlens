@@ -179,21 +179,21 @@ export function PolicySection({
                     <div className="text-xs text-theme-text-secondary">{finding.message}</div>
                   ) : null}
                   {finding.severity ? (
-                    <div className="text-[10px] text-theme-text-tertiary">severity: {finding.severity}</div>
+                    <div className="text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">severity: {finding.severity}</div>
                   ) : null}
                 </div>
               </div>
             );
           })}
           {counts.pass > 0 ? (
-            <div className="pt-1 text-[11px] text-theme-text-tertiary">
+            <div className="pt-1 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
               {counts.pass} other {counts.pass === 1 ? "check" : "checks"} passing
             </div>
           ) : null}
         </div>
       )}
       {denied.length > 0 ? <PartialCoverageNote denied={denied} /> : null}
-      <div className="mt-3 text-[11px] text-theme-text-tertiary">
+      <div className="mt-3 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
         Read from the cluster's PolicyReport resources.
       </div>
     </DetailSection>
@@ -202,7 +202,7 @@ export function PolicySection({
 
 function PartialCoverageNote({ denied }: { denied: string[] }) {
   return (
-    <div className="mt-2 border-t border-theme-border pt-2 text-[11px] text-theme-text-tertiary">
+    <div className="mt-2 border-t border-theme-border pt-2 text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
       {`Some policy results could not be read (${denied.join(", ")}), so this list may be incomplete.`}
     </div>
   );

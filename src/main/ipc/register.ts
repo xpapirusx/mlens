@@ -20,6 +20,8 @@ import type {
   ResourceKey,
   RestartRequest,
   ScaleRequest,
+  WatchEventBatch,
+  WatchEventPayload,
   WatchResourcesRequest,
 } from "@shared/types";
 import { IPC } from "@shared/ipc";
@@ -49,11 +51,49 @@ function assertObject<T>(value: unknown, name: string): T {
   return value as T;
 }
 
+/**
+ * A3: coalesce watch events into one IPC message per ~150ms. One event used to
+ * be one structured-clone + one React render of the whole workspace; bursts
+ * (rolling deploys, namespace deletion) now cost a handful of renders instead
+ * of hundreds. ERROR flips the badge immediately so status stays honest.
+ */
+class WatchEventBatcher {
+  private readonly pending: WatchEventPayload[] = [];
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(private readonly sendBatch: (batch: WatchEventBatch) => void) {}
+
+  push(payload: WatchEventPayload): void {
+    this.pending.push(payload);
+    if (payload.type === "ERROR" || this.pending.length >= 250) {
+      this.flush();
+      return;
+    }
+    if (!this.timer) {
+      this.timer = setTimeout(() => {
+        this.timer = null;
+        this.flush();
+      }, 150);
+    }
+  }
+
+  private flush(): void {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.timer = null;
+    }
+    if (this.pending.length === 0) return;
+    this.sendBatch({ events: this.pending.splice(0, this.pending.length) });
+  }
+}
+
 export function registerIpc({ settings, kubeconfigs, clusters, terminals, portForwards, getWindow }: Dependencies): void {
   const send = (channel: string, payload: unknown): void => {
     const window = getWindow();
     if (window && !window.isDestroyed()) window.webContents.send(channel, payload);
   };
+
+  const watchBatcher = new WatchEventBatcher((batch) => send(IPC.resourcesWatchEvent, batch));
 
   const windowFor = (event: Electron.IpcMainInvokeEvent): BrowserWindowType | null =>
     BrowserWindow.fromWebContents(event.sender) ?? getWindow();
@@ -154,7 +194,7 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
   );
   ipcMain.handle(IPC.resourcesWatch, (_event, raw: unknown) =>
     clusters.watcher.start(assertObject<WatchResourcesRequest>(raw, "request"), (payload) =>
-      send(IPC.resourcesWatchEvent, payload),
+      watchBatcher.push(payload),
     ),
   );
   ipcMain.handle(IPC.resourcesUnwatch, (_event, id: unknown) => {

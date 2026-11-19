@@ -7,6 +7,7 @@ import { EmptyState } from "../../design-system/components/EmptyState";
 import { Spinner } from "../../design-system/components/Spinner";
 import { formatRelativeTime } from "../../lib/format";
 import { api, call, errorText } from "../../lib/api";
+import { useCatalogStore } from "../../stores/catalog-store";
 import { toast } from "../../design-system/components/Toast";
 
 export function StartPortForwardDialog({
@@ -30,6 +31,10 @@ export function StartPortForwardDialog({
   const randomPort = () => String(30000 + Math.floor(Math.random() * (65355 - 30000 + 1)));
   const [localPort, setLocalPort] = useState(randomPort);
   const [busy, setBusy] = useState(false);
+  const settings = useCatalogStore((state) => state.settings);
+  const updateSettings = useCatalogStore((state) => state.updateSettings);
+  // Derived from settings: the checkbox is the persisted preference itself.
+  const openBrowser = settings?.portForwardOpenBrowser ?? true;
 
   useEffect(() => {
     if (!open) return;
@@ -60,6 +65,7 @@ export function StartPortForwardDialog({
         }),
       );
       toast.success("Port forward started", `http://127.0.0.1:${info.localPort} → ${pod}:${remote}`);
+      if (openBrowser) void api.app.openExternal(`http://127.0.0.1:${info.localPort}`);
       onStarted?.();
       onClose();
     } catch (error) {
@@ -88,7 +94,7 @@ export function StartPortForwardDialog({
       }
     >
       <div className="grid grid-cols-2 gap-3">
-        <label className="text-[11px] font-medium text-theme-text-secondary">
+        <label className="text-[calc(11px*var(--font-scale))] font-medium text-theme-text-secondary">
           Local port
           <input
             type="number"
@@ -98,9 +104,9 @@ export function StartPortForwardDialog({
             onChange={(event) => setLocalPort(event.target.value)}
             className="mt-1 h-8 w-full rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-sm text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
           />
-          <span className="mt-1 block text-[10px] font-normal text-theme-text-tertiary">0 picks a random port 30000–65355</span>
+          <span className="mt-1 block text-[calc(10px*var(--font-scale))] font-normal text-theme-text-tertiary">0 picks a random port 30000–65355</span>
         </label>
-        <label className="text-[11px] font-medium text-theme-text-secondary">
+        <label className="text-[calc(11px*var(--font-scale))] font-medium text-theme-text-secondary">
           Pod port
           <input
             type="number"
@@ -112,7 +118,18 @@ export function StartPortForwardDialog({
           />
         </label>
       </div>
-      <p className="mt-3 text-[10px] leading-relaxed text-theme-text-tertiary">
+      <label className="mt-3 flex cursor-pointer items-center gap-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
+        <input
+          type="checkbox"
+          checked={openBrowser}
+          onChange={(event) => {
+            void updateSettings({ portForwardOpenBrowser: event.target.checked });
+          }}
+          className="h-3.5 w-3.5 shrink-0 rounded border-theme-border accent-skyhook-500"
+        />
+        <span>Open in browser after starting</span>
+      </label>
+      <p className="mt-2 text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">
         mLens opens a loopback listener on 127.0.0.1 and tunnels it through the Kubernetes
         port-forward WebSocket. No kubectl process is started. The forward stays active until you stop it
         in the Port forwards panel.
@@ -189,7 +206,7 @@ export function PortForwardsPanel({
         />
       ) : (
         <div className="overflow-hidden rounded-lg border border-theme-border">
-          <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_90px_40px] gap-2 border-b border-theme-border bg-theme-base px-3 py-1.5 text-[10px] uppercase tracking-wide text-theme-text-tertiary">
+          <div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_90px_40px] gap-2 border-b border-theme-border bg-theme-base px-3 py-1.5 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
             <span>Pod</span>
             <span>Local</span>
             <span>Remote</span>
@@ -202,20 +219,20 @@ export function PortForwardsPanel({
               className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_90px_40px] items-center gap-2 border-b-subtle px-3 py-1.5 last:border-0"
             >
               <div className="min-w-0">
-                <div className="truncate font-mono text-[11px] text-theme-text-primary">{entry.pod}</div>
-                <div className="truncate text-[10px] text-theme-text-tertiary">{entry.namespace}</div>
+                <div className="truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{entry.pod}</div>
+                <div className="truncate text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">{entry.namespace}</div>
               </div>
               <button
                 type="button"
                 title="Open in browser"
-                className="flex items-center gap-1 font-mono text-[11px] text-accent-text hover:underline"
+                className="flex items-center gap-1 font-mono text-[calc(11px*var(--font-scale))] text-accent-text hover:underline"
                 onClick={() => void api.app.openExternal(`http://127.0.0.1:${entry.localPort}`)}
               >
                 :{entry.localPort}
                 <ExternalLink className="h-2.5 w-2.5" />
               </button>
-              <span className="font-mono text-[11px] text-theme-text-secondary">{entry.remotePort}</span>
-              <span className="text-[10px] text-theme-text-tertiary">
+              <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-secondary">{entry.remotePort}</span>
+              <span className="text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
                 {formatRelativeTime(new Date(entry.startedAt).toISOString())}
               </span>
               <button

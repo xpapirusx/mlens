@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ApiResourceInfo, KubeObject } from "@shared/types";
 import { api, call } from "../../lib/api";
+import { sameMapValues } from "../../lib/stable";
 
 /**
  * Maps `${namespace}/${service}` → the number of ready addresses behind it,
@@ -23,6 +24,7 @@ export function useServiceEndpoints({
   refreshSeconds: number;
 }): Map<string, number> {
   const [endpoints, setEndpoints] = useState<KubeObject[]>([]);
+  const stableRef = useRef<Map<string, number>>(new Map());
   const enabled = active && resource?.kind === "Service";
   const scopeKey = namespaces.join("|");
 
@@ -57,15 +59,18 @@ export function useServiceEndpoints({
   }, [enabled, clusterId, scopeKey, refreshSeconds]);
 
   return useMemo(() => {
-    const map = new Map<string, number>();
+    const built = new Map<string, number>();
     for (const item of endpoints) {
       const namespace = item.metadata?.namespace ?? "";
       const name = item.metadata?.name ?? "";
       const subsets = (item.subsets ?? []) as Array<{ addresses?: unknown[] }>;
       let count = 0;
       for (const subset of subsets) count += (subset.addresses ?? []).length;
-      map.set(`${namespace}/${name}`, count);
+      built.set(`${namespace}/${name}`, count);
     }
-    return map;
+    // A13: unchanged content keeps the previous identity (see lib/stable.ts).
+    if (sameMapValues(stableRef.current, built, (left, right) => left === right)) return stableRef.current;
+    stableRef.current = built;
+    return built;
   }, [endpoints]);
 }

@@ -3,6 +3,61 @@ import { HttpMethod, RequestContext } from "@kubernetes/client-node";
 import http from "node:http";
 import https from "node:https";
 
+/**
+ * A1: connection reuse. `applySecurityAuthentication` builds a fresh agent for
+ * every request, and a fresh agent has `keepAlive: false` — so each kubeRequest
+ * paid a full TCP + TLS handshake (counts polling, discovery and list refreshes
+ * fire hundreds of calls). Agents are cached by their effective options (cluster
+ * TLS config, proxy, exec-plugin client certs) and rebuilt with keep-alive, so
+ * sockets are pooled per cluster configuration. A rotated client cert produces a
+ * different key → a new agent; the cache is bounded so stale ones are dropped.
+ */
+const agentCache = new Map<string, http.Agent | https.Agent>();
+const AGENT_CACHE_LIMIT = 24;
+
+function reuseAgent(source: unknown): http.Agent | https.Agent | undefined {
+  if (!source || typeof source !== "object") return undefined;
+  const candidate = source as { options?: Record<string, unknown>; constructor: unknown };
+  // Proxy agents (socks/https-proxy) take a different constructor signature:
+  // keep client-node's instance as-is rather than risk rebuilding it wrong.
+  // (Compare through a local: TS's aliased-condition narrowing on a direct
+  // `.constructor ===` check collapses the object type to `never` here.)
+  const ctor = candidate.constructor;
+  const plain = ctor === http.Agent || ctor === https.Agent;
+  if (!plain) return source as http.Agent | https.Agent;
+
+  let key: string;
+  try {
+    key = JSON.stringify(candidate.options ?? {});
+  } catch {
+    return source as http.Agent | https.Agent;
+  }
+  const cached = agentCache.get(key);
+  if (cached) return cached;
+
+  const Ctor = ctor as typeof https.Agent;
+  const agent = new Ctor({ ...(candidate.options ?? {}), keepAlive: true, keepAliveMsecs: 30_000 });
+  agentCache.set(key, agent);
+  if (agentCache.size > AGENT_CACHE_LIMIT) {
+    const oldest = agentCache.keys().next().value;
+    if (oldest !== undefined) agentCache.delete(oldest);
+  }
+  return agent;
+}
+
+/**
+ * A5: drop server-managed bookkeeping from list/watch payloads — the UI never
+ * renders `managedFields`, and it is the largest per-object overhead on big
+ * inventories. Mutates in place; callers pass freshly parsed objects. `get`
+ * keeps it so the YAML tab can still show server metadata explicitly.
+ */
+export function stripServerMetadata<T extends { metadata?: { managedFields?: unknown } }>(object: T): T {
+  if (object.metadata && object.metadata.managedFields !== undefined) {
+    delete object.metadata.managedFields;
+  }
+  return object;
+}
+
 export class KubeApiError extends Error {
   constructor(
     message: string,
@@ -66,7 +121,7 @@ export async function kubeRequest<T>(kc: KubeConfig, apiPath: string, options: K
     (requestOptions.headers as Record<string, string>)[key] = value;
   }
   const agent = context.getAgent();
-  if (agent) requestOptions.agent = agent;
+  if (agent) requestOptions.agent = reuseAgent(agent) ?? agent;
 
   const body =
     options.rawBody !== undefined

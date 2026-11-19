@@ -108,6 +108,266 @@ const PROTON_TERMINAL_THEME = {
   brightWhite: "#ffffff",
 };
 
+/** SynthWave '84 ANSI palette (robb0wen/synthwave-vscode, MIT). */
+const SYNTHWAVE_TERMINAL_THEME = {
+  background: "#241b2f",
+  foreground: "#ffffff",
+  cursor: "#36f9f6",
+  cursorAccent: "#241b2f",
+  selectionBackground: "#ff7edb40",
+  black: "#1b1526",
+  red: "#fe4450",
+  green: "#72f1b8",
+  yellow: "#f3e70f",
+  blue: "#03edf9",
+  magenta: "#ff7edb",
+  cyan: "#03edf9",
+  white: "#ffffff",
+  brightBlack: "#848bbd",
+  brightRed: "#fe4450",
+  brightGreen: "#72f1b8",
+  brightYellow: "#fede5d",
+  brightBlue: "#03edf9",
+  brightMagenta: "#ff7edb",
+  brightCyan: "#36f9f6",
+  brightWhite: "#ffffff",
+};
+
+/** Dark Islands ANSI palette (bwya77/vscode-dark-islands, MIT). */
+const ISLANDS_TERMINAL_THEME = {
+  background: "#181a1d",
+  foreground: "#bcbec4",
+  cursor: "#548af7",
+  cursorAccent: "#181a1d",
+  selectionBackground: "#548af740",
+  black: "#202226",
+  red: "#f75464",
+  green: "#73b00a",
+  yellow: "#e8a33e",
+  blue: "#548af7",
+  magenta: "#c77dbb",
+  cyan: "#2aacb8",
+  white: "#bcbec4",
+  brightBlack: "#6f737a",
+  brightRed: "#f9667a",
+  brightGreen: "#8ccf15",
+  brightYellow: "#f0b95e",
+  brightBlue: "#7cacf8",
+  brightMagenta: "#d79fd2",
+  brightCyan: "#42c6d2",
+  brightWhite: "#d4d5d9",
+};
+
+/** GitHub dark ANSI palette (primer/github-vscode-theme, MIT). */
+const GITHUB_TERMINAL_THEME = {
+  background: "#0d1117",
+  foreground: "#c9d1d9",
+  cursor: "#58a6ff",
+  cursorAccent: "#0d1117",
+  selectionBackground: "#388bfd40",
+  black: "#484f58",
+  red: "#ff7b72",
+  green: "#3fb950",
+  yellow: "#d29922",
+  blue: "#58a6ff",
+  magenta: "#bc8cff",
+  cyan: "#39c5cf",
+  white: "#b1bac4",
+  brightBlack: "#6e7681",
+  brightRed: "#ffa198",
+  brightGreen: "#56d364",
+  brightYellow: "#e3b341",
+  brightBlue: "#79c0ff",
+  brightMagenta: "#d2a8ff",
+  brightCyan: "#56d4dd",
+  brightWhite: "#f0f6fc",
+};
+
+/** Night Owl ANSI palette (sdras/night-owl-vscode-theme, MIT). */
+const NIGHT_OWL_TERMINAL_THEME = {
+  background: "#011627",
+  foreground: "#d6deeb",
+  cursor: "#82aaff",
+  cursorAccent: "#011627",
+  selectionBackground: "#234d708c",
+  black: "#011627",
+  red: "#ef5350",
+  green: "#22da6e",
+  yellow: "#c5e478",
+  blue: "#82aaff",
+  magenta: "#c792ea",
+  cyan: "#21c7a8",
+  white: "#ffffff",
+  brightBlack: "#575656",
+  brightRed: "#ef5350",
+  brightGreen: "#22da6e",
+  brightYellow: "#ffeb95",
+  brightBlue: "#82aaff",
+  brightMagenta: "#c792ea",
+  brightCyan: "#7fdbca",
+  brightWhite: "#ffffff",
+};
+
+/** Material palette inspired by material-icon-theme (Material blue-grey). */
+const MATERIAL_TERMINAL_THEME = {
+  background: "#1b1e23",
+  foreground: "#e3e6ea",
+  cursor: "#4fc3f7",
+  cursorAccent: "#1b1e23",
+  selectionBackground: "#4fc3f740",
+  black: "#333941",
+  red: "#e57373",
+  green: "#81c784",
+  yellow: "#ffb74d",
+  blue: "#4fc3f7",
+  magenta: "#ce93d8",
+  cyan: "#4dd0e1",
+  white: "#e3e6ea",
+  brightBlack: "#666d78",
+  brightRed: "#ef9a9a",
+  brightGreen: "#a5d6a7",
+  brightYellow: "#ffcc80",
+  brightBlue: "#81d4fa",
+  brightMagenta: "#e1bee7",
+  brightCyan: "#80deea",
+  brightWhite: "#ffffff",
+};
+
+const ONE_DARK_TERMINAL_THEME = {
+  background: "#282c34",
+  foreground: "#abb2bf",
+  cursor: "#61afef",
+  cursorAccent: "#282c34",
+  selectionBackground: "#61afef40",
+  black: "#282c34",
+  red: "#e06c75",
+  green: "#98c379",
+  yellow: "#e5c07b",
+  blue: "#61afef",
+  magenta: "#c678dd",
+  cyan: "#56b6c2",
+  white: "#abb2bf",
+  brightBlack: "#5c6370",
+  brightRed: "#e06c75",
+  brightGreen: "#98c379",
+  brightYellow: "#e5c07b",
+  brightBlue: "#61afef",
+  brightMagenta: "#c678dd",
+  brightCyan: "#56b6c2",
+  brightWhite: "#ffffff",
+};
+
+const ONE_DARK_PRO_TERMINAL_THEME = {
+  ...ONE_DARK_TERMINAL_THEME,
+  background: "#23272e",
+  cursorAccent: "#23272e",
+};
+
+const CATPPUCCIN_TERMINAL_THEME = {
+  background: "#1e1e2e",
+  foreground: "#cdd6f4",
+  cursor: "#f5e0dc",
+  cursorAccent: "#1e1e2e",
+  selectionBackground: "#585b70",
+  black: "#45475a",
+  red: "#f38ba8",
+  green: "#a6e3a1",
+  yellow: "#f9e2af",
+  blue: "#89b4fa",
+  magenta: "#f5c2e7",
+  cyan: "#94e2d5",
+  white: "#bac2de",
+  brightBlack: "#585b70",
+  brightRed: "#f38ba8",
+  brightGreen: "#a6e3a1",
+  brightYellow: "#f9e2af",
+  brightBlue: "#89b4fa",
+  brightMagenta: "#f5c2e7",
+  brightCyan: "#94e2d5",
+  brightWhite: "#a6adc8",
+};
+
+const JELLYBEANS_TERMINAL_THEME = {
+  background: "#151515",
+  foreground: "#e8e8d3",
+  cursor: "#e8e8d3",
+  cursorAccent: "#151515",
+  selectionBackground: "#8197bf40",
+  black: "#1f1f1f",
+  red: "#cf6a4c",
+  green: "#99ad6a",
+  yellow: "#d8ad4c",
+  blue: "#8197bf",
+  magenta: "#c6b6ee",
+  cyan: "#8fbfdc",
+  white: "#e8e8d3",
+  brightBlack: "#6c6c5f",
+  brightRed: "#cf6a4c",
+  brightGreen: "#99ad6a",
+  brightYellow: "#d8ad4c",
+  brightBlue: "#8197bf",
+  brightMagenta: "#c6b6ee",
+  brightCyan: "#8fbfdc",
+  brightWhite: "#ffffff",
+};
+
+const ADWAITA_TERMINAL_THEME = {
+  background: "#1e1e1e",
+  foreground: "#ffffff",
+  cursor: "#78aeed",
+  cursorAccent: "#1e1e1e",
+  selectionBackground: "#78aeed40",
+  black: "#3d3d3d",
+  red: "#f66151",
+  green: "#8ff0a4",
+  yellow: "#f9f06b",
+  blue: "#78aeed",
+  magenta: "#dc8add",
+  cyan: "#62a0ea",
+  white: "#ffffff",
+  brightBlack: "#5e5c64",
+  brightRed: "#f66151",
+  brightGreen: "#8ff0a4",
+  brightYellow: "#f9f06b",
+  brightBlue: "#99c1f1",
+  brightMagenta: "#dc8add",
+  brightCyan: "#93ddff",
+  brightWhite: "#ffffff",
+};
+
+function terminalThemeFor(name: string) {
+  switch (name) {
+    case "dracula":
+      return DRACULA_TERMINAL_THEME;
+    case "freelens":
+      return FREELENS_TERMINAL_THEME;
+    case "proton":
+      return PROTON_TERMINAL_THEME;
+    case "synthwave":
+      return SYNTHWAVE_TERMINAL_THEME;
+    case "islands":
+      return ISLANDS_TERMINAL_THEME;
+    case "github":
+      return GITHUB_TERMINAL_THEME;
+    case "night-owl":
+      return NIGHT_OWL_TERMINAL_THEME;
+    case "material":
+      return MATERIAL_TERMINAL_THEME;
+    case "one-dark":
+      return ONE_DARK_TERMINAL_THEME;
+    case "one-dark-pro":
+      return ONE_DARK_PRO_TERMINAL_THEME;
+    case "catppuccin":
+      return CATPPUCCIN_TERMINAL_THEME;
+    case "jellybeans":
+      return JELLYBEANS_TERMINAL_THEME;
+    case "adwaita":
+      return ADWAITA_TERMINAL_THEME;
+    default:
+      return RADAR_TERMINAL_THEME;
+  }
+}
+
 export function TerminalView({ target, active }: { target: TerminalTarget; active: boolean }) {
   const settings = useCatalogStore((state) => state.settings);
   const allClusters = useCatalogStore((state) => state.allClusters);
@@ -119,24 +379,18 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
   const fitRef = useRef<FitAddon | null>(null);
   const searchRef = useRef<SearchAddon | null>(null);
   const sessionRef = useRef(`term-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+  // Read inside xterm callbacks; the terminal itself is created only once.
+  const copyOnSelectRef = useRef(false);
+  copyOnSelectRef.current = settings?.terminalCopyOnSelect ?? false;
   const [status, setStatus] = useState<"connecting" | "ready" | "closed" | "error">("connecting");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const fontSize = settings?.terminalFontSize ?? 13;
+  // xterm takes px only, so the scale is applied here rather than via the CSS var.
+  const fontSize = Math.max(6, Math.round((settings?.terminalFontSize ?? 13) * (settings?.fontScale ?? 1)));
   const fontFamily = settings?.terminalFontFamily ?? "DM Mono";
   const themeName = settings?.colorTheme ?? "radar";
-  const terminalTheme = useMemo(
-    () =>
-      themeName === "dracula"
-        ? DRACULA_TERMINAL_THEME
-        : themeName === "freelens"
-          ? FREELENS_TERMINAL_THEME
-          : themeName === "proton"
-            ? PROTON_TERMINAL_THEME
-            : RADAR_TERMINAL_THEME,
-    [themeName],
-  );
+  const terminalTheme = useMemo(() => terminalThemeFor(themeName), [themeName]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -170,6 +424,10 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
     };
 
     terminal.onData(sendInput);
+    terminal.onSelectionChange(() => {
+      if (!copyOnSelectRef.current || !terminal.hasSelection()) return;
+      void navigator.clipboard.writeText(terminal.getSelection());
+    });
 
     const offData = isExec
       ? api.exec.onData((payload) => {
@@ -250,6 +508,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
             sessionId,
             cols,
             rows,
+            shell: settings?.defaultShell?.trim() || undefined,
             clusterId: target.type === "local" ? target.clusterId : undefined,
             namespace: target.type === "local" ? target.namespace : undefined,
           })
@@ -297,7 +556,17 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
     if (!terminal) return;
     terminal.options.fontSize = fontSize;
     terminal.options.fontFamily = `"${fontFamily}", ui-monospace, Menlo, Monaco, monospace`;
-    const timer = window.setTimeout(() => fitRef.current?.fit(), 30);
+    const timer = window.setTimeout(() => {
+      fitRef.current?.fit();
+      // A font change reflows the grid, so the PTY must learn the new
+      // geometry — same as the ResizeObserver path.
+      const sessionId = sessionRef.current;
+      const isExec = target.type === "pod";
+      const cols = terminal.cols;
+      const rows = terminal.rows;
+      if (!cols || !rows) return;
+      void (isExec ? api.exec.resize(sessionId, cols, rows) : api.terminal.resize(sessionId, cols, rows));
+    }, 30);
     return () => window.clearTimeout(timer);
   }, [fontSize, fontFamily]);
 
@@ -314,7 +583,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
 
   return (
     <div className={cn("terminal-surface absolute inset-0 flex flex-col bg-[#0b1322]", !active && "invisible")}>
-      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/10 bg-[#111b2e] px-2 text-[10px] text-slate-500">
+      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/10 bg-[#111b2e] px-2 text-[calc(10px*var(--font-scale))] text-slate-500">
         <span
           className={cn(
             "h-1.5 w-1.5 rounded-full",
@@ -358,7 +627,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
                 if (event.key === "Escape") setSearchOpen(false);
               }}
               placeholder="Find…"
-              className="h-5 w-40 bg-transparent px-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none"
+              className="h-5 w-40 bg-transparent px-1 text-[calc(11px*var(--font-scale))] text-slate-200 placeholder:text-slate-500 focus:outline-none"
             />
             <button
               type="button"

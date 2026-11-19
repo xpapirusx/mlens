@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Monitor, SquareTerminal } from "lucide-react";
 import type { PodContainerInfo } from "@shared/types";
 import type { TerminalTarget } from "../../stores/session-store";
-import { useSessionStore } from "../../stores/session-store";
+import { useChromeSessions, useSessionStore } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { api, call, errorText } from "../../lib/api";
 import { Modal } from "../../design-system/components/Modal";
@@ -26,7 +26,7 @@ export function TerminalLauncher({
   clusterId: string;
   onLaunch: (target: TerminalTarget) => void;
 }) {
-  const sessions = useSessionStore((state) => state.sessions);
+  const sessions = useChromeSessions();
   const clusters = useCatalogStore((state) => state.clusters);
   const allClusters = useCatalogStore((state) => state.allClusters);
   const health = useCatalogStore((state) => state.health);
@@ -245,7 +245,7 @@ export function TerminalLauncher({
 
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+            <span className="mb-1 block text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
               Cluster context
             </span>
             <select
@@ -265,7 +265,7 @@ export function TerminalLauncher({
           </label>
 
           <label className="block">
-            <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+            <span className="mb-1 flex items-center gap-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
               Namespace {mode === "pod" ? "" : "(optional)"}
               {loadingNamespaces ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
             </span>
@@ -292,7 +292,7 @@ export function TerminalLauncher({
           <>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+                <span className="mb-1 flex items-center gap-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                   Pod
                   {loadingPods ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
                 </span>
@@ -300,7 +300,7 @@ export function TerminalLauncher({
                   value={pod}
                   onChange={(event) => setPod(event.target.value)}
                   disabled={!namespace || loadingPods || pods.length === 0}
-                  className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[11px] text-theme-text-primary focus:outline-none disabled:opacity-50"
+                  className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary focus:outline-none disabled:opacity-50"
                 >
                   {pods.length === 0 ? <option value="">{namespace ? "No pods" : "Select a namespace"}</option> : null}
                   {pods.map((entry) => (
@@ -312,7 +312,7 @@ export function TerminalLauncher({
               </label>
 
               <label className="block">
-                <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+                <span className="mb-1 flex items-center gap-1 text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                   Container
                   {loadingContainers ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : null}
                 </span>
@@ -320,7 +320,7 @@ export function TerminalLauncher({
                   value={container}
                   onChange={(event) => setContainer(event.target.value)}
                   disabled={loadingContainers || containers.length === 0}
-                  className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[11px] text-theme-text-primary focus:outline-none disabled:opacity-50"
+                  className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary focus:outline-none disabled:opacity-50"
                 >
                   {containers.length === 0 ? <option value="">No containers</option> : null}
                   {containers.map((entry) => (
@@ -333,7 +333,7 @@ export function TerminalLauncher({
             </div>
 
             <label className="block">
-              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-theme-text-tertiary">
+              <span className="mb-1 block text-[calc(10px*var(--font-scale))] font-semibold uppercase tracking-wide text-theme-text-tertiary">
                 Shell command
               </span>
               <input
@@ -341,7 +341,7 @@ export function TerminalLauncher({
                 onChange={(event) => setShell(event.target.value)}
                 list="mlens-terminal-shells"
                 spellCheck={false}
-                className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[11px] text-theme-text-primary focus:outline-none focus:border-skyhook-500"
+                className="h-8 w-full rounded-md border border-theme-border bg-theme-base px-2 font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary focus:outline-none focus:border-skyhook-500"
               />
               <datalist id="mlens-terminal-shells">
                 {SHELLS.map((entry) => (
@@ -353,12 +353,12 @@ export function TerminalLauncher({
         ) : null}
 
         {error ? (
-          <div className="rounded-md border border-red-500/25 bg-red-500/5 px-2 py-1.5 text-[11px] text-red-600 dark:text-red-400">
+          <div className="rounded-md border border-red-500/25 bg-red-500/5 px-2 py-1.5 text-[calc(11px*var(--font-scale))] text-red-600 dark:text-red-400">
             {error}
           </div>
         ) : null}
 
-        <p className="text-[10px] leading-relaxed text-theme-text-disabled">
+        <p className="text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-disabled">
           {mode === "local"
             ? "The shell receives a generated, context-pinned kubeconfig. Your own kubeconfig files are never modified."
             : "The shell runs through the Kubernetes exec WebSocket — no kubectl, no local binary."}
