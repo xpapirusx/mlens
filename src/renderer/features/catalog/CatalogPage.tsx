@@ -7,6 +7,8 @@ import {
   Copy,
   FolderOpen,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   RefreshCw,
   Server,
@@ -84,6 +86,7 @@ export function CatalogPage() {
   }, []);
 
   const favorites = settings?.favorites ?? [];
+  const sidebarCollapsed = settings?.sidebarCollapsed ?? false;
 
   const hiddenIds = settings?.hiddenClusters ?? [];
   const hiddenSet = new Set(hiddenIds);
@@ -175,6 +178,104 @@ export function CatalogPage() {
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
+      {sidebarCollapsed ? (
+        <aside className="flex w-12 shrink-0 flex-col items-center border-r border-theme-border bg-theme-sidebar py-2">
+
+          <div className="mt-2 flex flex-col items-center gap-1">
+            {[
+              { title: "All clusters", icon: Server, active: view === "all", onClick: () => setView("all") },
+              {
+                title: "Favorites",
+                icon: Star,
+                active: view === "favorites",
+                onClick: () => setView("favorites"),
+              },
+              { title: "Recent", icon: Clock, active: view === "recent", onClick: () => setView("recent") },
+              ...(hiddenIds.length > 0
+                ? [
+                    {
+                      title: "Removed",
+                      icon: Trash2,
+                      active: view === "removed",
+                      onClick: () => setView("removed"),
+                    },
+                  ]
+                : []),
+            ].map((entry) => {
+              const Icon = entry.icon;
+              return (
+                <button
+                  key={entry.title}
+                  type="button"
+                  title={entry.title}
+                  aria-label={entry.title}
+                  onClick={entry.onClick}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                    entry.active
+                      ? "selection-strong selection-text"
+                      : "text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              );
+            })}
+            {sources.length > 0 ? (
+              <Menu
+                width={240}
+                align="start"
+                trigger={({ open, toggle }) => (
+                  <button
+                    type="button"
+                    title="Kubeconfig sources"
+                    aria-label="Kubeconfig sources"
+                    onClick={toggle}
+                    className={cn(
+                      "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                      (typeof view === "object" || open)
+                        ? "selection-strong selection-text"
+                        : "text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary",
+                    )}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                )}
+              >
+                {({ close }) => (
+                  <>
+                    <MenuLabel>Kubeconfig sources</MenuLabel>
+                    {sources.map((source) => (
+                      <MenuItem
+                        key={source.path}
+                        icon={<FolderOpen className="h-3.5 w-3.5" />}
+                        shortcut={
+                          typeof view === "object" && view.source === source.path ? "✓" : undefined
+                        }
+                        onClick={() => {
+                          setView({ source: source.path });
+                          close();
+                        }}
+                      >
+                        {basename(source.path)}
+                      </MenuItem>
+                    ))}
+                  </>
+                )}
+              </Menu>
+            ) : null}
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+            title="Expand catalog (⌘B)"
+            aria-label="Expand catalog"
+            onClick={() => void updateSettings({ sidebarCollapsed: false })}
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+          </div>
+        </aside>
+      ) : (
       <aside className="flex w-52 shrink-0 flex-col border-r border-theme-border bg-theme-sidebar">
         <div className="flex h-10 items-center gap-2 border-b border-theme-border px-3">
           <Blocks className="h-4 w-4 text-accent-text" />
@@ -269,8 +370,18 @@ export function CatalogPage() {
             <Upload className="h-3.5 w-3.5" />
             Paste kubeconfig
           </Button>
+          <button
+            type="button"
+            className="mt-1 flex h-7 w-full items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+            title="Collapse catalog (⌘B)"
+            aria-label="Collapse catalog"
+            onClick={() => void updateSettings({ sidebarCollapsed: true })}
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
         </div>
       </aside>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-theme-base">
         <div className="border-b border-theme-border bg-gradient-to-b from-theme-surface to-theme-base px-6 py-5">
@@ -706,6 +817,15 @@ export function CatalogPage() {
             </p>
           </div>
         )}
+          <button
+            type="button"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+            title="Expand catalog (⌘B)"
+            aria-label="Expand catalog"
+            onClick={() => void updateSettings({ sidebarCollapsed: false })}
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
       </div>
 
       <ConfirmActionDialog

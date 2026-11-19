@@ -267,90 +267,6 @@ export function SettingsDialog() {
           </Field>
         </Section>
 
-        <Section title="Data refresh" icon={<RefreshCw />}>
-          <Field label="Auto-refresh interval" hint="Lists, counts and the details drawer poll at this cadence. Watch streams keep rows live between polls.">
-            <select
-              value={settings.refreshIntervalSeconds}
-              onChange={(event) => void updateSettings({ refreshIntervalSeconds: Number(event.target.value) })}
-              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
-            >
-              <option value={0}>Manual only</option>
-              <option value={10}>Every 10 seconds</option>
-              <option value={30}>Every 30 seconds</option>
-              <option value={60}>Every minute</option>
-              <option value={120}>Every 2 minutes</option>
-            </select>
-          </Field>
-          <Field label="Show system namespaces" hint="Include kube-* namespaces in the namespace picker.">
-            <Switch
-              checked={settings.showSystemNamespaces}
-              onChange={(checked) => void updateSettings({ showSystemNamespaces: checked })}
-            />
-          </Field>
-          <Field label="Table row height" hint="Compact fits more rows; comfortable matches Radar's default density.">
-            <select
-              value={settings.tableRowHeight}
-              onChange={(event) => void updateSettings({ tableRowHeight: Number(event.target.value) })}
-              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
-            >
-              <option value={24}>Ultra compact · 24px</option>
-              <option value={28}>Dense · 28px</option>
-              <option value={32}>Compact · 32px</option>
-              <option value={36}>Normal · 36px</option>
-              <option value={40}>Relaxed · 40px</option>
-              <option value={44}>Comfortable · 44px</option>
-              <option value={48}>Roomy · 48px</option>
-              <option value={52}>Large · 52px</option>
-            </select>
-          </Field>
-          <Field
-            label="Collapse catalog groups by default"
-            hint="Start with groups folded, and remember what you expand."
-          >
-            <Switch
-              checked={settings.collapseCatalogGroups}
-              onChange={(checked) => void updateSettings({ collapseCatalogGroups: checked })}
-            />
-          </Field>
-        </Section>
-
-        <Section title="Sidebar favorites" icon={<Star />}>
-          {settings.favoriteKinds.length === 0 ? (
-            <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
-              Pin resource kinds from the sidebar (pin icon on hover) to keep them at the top of every cluster.
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {settings.favoriteKinds.map((key) => {
-                const [apiVersion, kind] = key.split("|");
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5 text-xs"
-                  >
-                    <Star className="h-3.5 w-3.5 text-amber-500" />
-                    <span className="min-w-0 flex-1 truncate font-mono">
-                      {kind} <span className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{apiVersion}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="rounded p-1 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500"
-                      title="Remove favorite"
-                      onClick={() =>
-                        void updateSettings({
-                          favoriteKinds: settings.favoriteKinds.filter((entry) => entry !== key),
-                        })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
         <Section title="Terminal" icon={<SquareTerminal />}>
           <Field label="Font size">
             <input
@@ -397,6 +313,131 @@ export function SettingsDialog() {
             Terminals open in the bottom dock. Local shells use node-pty; pod shells use the Kubernetes exec
             WebSocket (no kubectl required).
           </p>
+        </Section>
+
+
+
+        <Section title="Data & tables" icon={<RefreshCw />}>
+          <Field label="Auto-refresh interval" hint="Lists, counts and the details drawer poll at this cadence. Watch streams keep rows live between polls.">
+            <select
+              value={settings.refreshIntervalSeconds}
+              onChange={(event) => void updateSettings({ refreshIntervalSeconds: Number(event.target.value) })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
+            >
+              <option value={0}>Manual only</option>
+              <option value={10}>Every 10 seconds</option>
+              <option value={30}>Every 30 seconds</option>
+              <option value={60}>Every minute</option>
+              <option value={120}>Every 2 minutes</option>
+            </select>
+          </Field>
+          <Field label="Show system namespaces" hint="Include kube-* namespaces in the namespace picker.">
+            <Switch
+              checked={settings.showSystemNamespaces}
+              onChange={(checked) => void updateSettings({ showSystemNamespaces: checked })}
+            />
+          </Field>
+          <Field label="Table borders" hint="Show row separators and column dividers; turn off for a borderless table.">
+            <Switch
+              checked={settings.tableBorders ?? true}
+              onChange={(checked) => void updateSettings({ tableBorders: checked })}
+            />
+          </Field>
+          <Field label="Table row height" hint="Compact fits more rows; comfortable matches Radar's default density.">
+            <select
+              value={settings.tableRowHeight}
+              onChange={(event) => void updateSettings({ tableRowHeight: Number(event.target.value) })}
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              <option value={24}>Ultra compact · 24px</option>
+              <option value={28}>Dense · 28px</option>
+              <option value={32}>Compact · 32px</option>
+              <option value={36}>Normal · 36px</option>
+              <option value={40}>Relaxed · 40px</option>
+              <option value={44}>Comfortable · 44px</option>
+              <option value={48}>Roomy · 48px</option>
+              <option value={52}>Large · 52px</option>
+            </select>
+          </Field>
+          <Field
+            label="Collapse catalog groups by default"
+            hint="Start with groups folded, and remember what you expand."
+          >
+            <Switch
+              checked={settings.collapseCatalogGroups}
+              onChange={(checked) => void updateSettings({ collapseCatalogGroups: checked })}
+            />
+          </Field>
+        </Section>
+        <Section title="Sidebar favorites" icon={<Star />}>
+          {settings.favoriteKinds.length === 0 ? (
+            <p className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
+              Pin resource kinds from the sidebar (pin icon on hover) to keep them at the top of every cluster.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {settings.favoriteKinds.map((key) => {
+                const [apiVersion, kind] = key.split("|");
+                return (
+                  <div
+                    key={key}
+                    className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5 text-xs"
+                  >
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="min-w-0 flex-1 truncate font-mono">
+                      {kind} <span className="text-[calc(10px*var(--font-scale))] text-theme-text-disabled">{apiVersion}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded p-1 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500"
+                      title="Remove favorite"
+                      onClick={() =>
+                        void updateSettings({
+                          favoriteKinds: settings.favoriteKinds.filter((entry) => entry !== key),
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Section>
+        <Section title="Clusters" icon={<Blocks />}>
+          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+            {clusters.map((cluster) => {
+              const connected = sessions[cluster.id]?.status === "connected";
+              return (
+                <div key={cluster.id} className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5">
+                  <span className="min-w-0 flex-1 truncate text-xs text-theme-text-primary">{cluster.name}</span>
+                  <span className={cn("badge-sm", connected ? "status-healthy" : "status-unknown")}>
+                    {connected ? "connected" : "idle"}
+                  </span>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => {
+                      if (connected) void disconnectCluster(cluster.id);
+                      else void openCluster(cluster.id);
+                    }}
+                  >
+                    {connected ? "Disconnect" : "Connect"}
+                  </Button>
+                </div>
+              );
+            })}
+            {clusters.length === 0 ? (
+              <div className="text-xs text-theme-text-tertiary">No contexts discovered yet.</div>
+            ) : null}
+          </div>
+          <div className="mt-2">
+            <Button size="sm" variant="secondary" onClick={() => void importViaDialog()}>
+              <Plus className="h-3.5 w-3.5" />
+              Add cluster
+            </Button>
+          </div>
         </Section>
 
         <Section title="Kubeconfig sources" icon={<Plug />}>
@@ -521,41 +562,6 @@ export function SettingsDialog() {
                 Reset manual colors ({Object.keys(settings.clusterColors).length})
               </Button>
             ) : null}
-          </div>
-        </Section>
-
-        <Section title="Clusters" icon={<Blocks />}>
-          <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
-            {clusters.map((cluster) => {
-              const connected = sessions[cluster.id]?.status === "connected";
-              return (
-                <div key={cluster.id} className="flex items-center gap-2 rounded-md border border-theme-border-subtle px-2 py-1.5">
-                  <span className="min-w-0 flex-1 truncate text-xs text-theme-text-primary">{cluster.name}</span>
-                  <span className={cn("badge-sm", connected ? "status-healthy" : "status-unknown")}>
-                    {connected ? "connected" : "idle"}
-                  </span>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => {
-                      if (connected) void disconnectCluster(cluster.id);
-                      else void openCluster(cluster.id);
-                    }}
-                  >
-                    {connected ? "Disconnect" : "Connect"}
-                  </Button>
-                </div>
-              );
-            })}
-            {clusters.length === 0 ? (
-              <div className="text-xs text-theme-text-tertiary">No contexts discovered yet.</div>
-            ) : null}
-          </div>
-          <div className="mt-2">
-            <Button size="sm" variant="secondary" onClick={() => void importViaDialog()}>
-              <Plus className="h-3.5 w-3.5" />
-              Add cluster
-            </Button>
           </div>
         </Section>
 

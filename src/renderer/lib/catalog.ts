@@ -506,3 +506,174 @@ export function filterGroups(groups: ResourceGroup[], search: string): ResourceG
       group.title.toLowerCase().includes(term),
     );
 }
+
+/** Drag payload for moving a kind or a CRD folder into another group. */
+export const CATALOG_MOVE_MIME = "application/x-mlens-catalog-move";
+
+export const catalogKindKey = (resource: { apiVersion: string; kind: string }): string =>
+  `kind:${resource.apiVersion}|${resource.kind}`;
+
+export const catalogGroupKey = (groupId: string): string => `group:${groupId}`;
+
+function cloneCatalogGroup(group: ResourceGroup): ResourceGroup {
+  return {
+    ...group,
+    resources: [...group.resources],
+    children: group.children?.map(cloneCatalogGroup),
+  };
+}
+
+function categoryGroup(id: string): ResourceGroup {
+  const meta = CATEGORIES.find((entry) => entry.id === id);
+  return {
+    id,
+    title: meta?.title ?? id,
+    icon: meta?.icon ?? Puzzle,
+    order: meta?.order ?? 500,
+    resources: [],
+    total: 0,
+  };
+}
+
+/** Apply `catalogMoves` (kind/folder → top-level group) to the built tree. */
+export function applyCatalogMoves(
+  groups: ResourceGroup[],
+  moves: Record<string, string>,
+): ResourceGroup[] {
+  if (Object.keys(moves).length === 0) return groups;
+  const clones = groups.map(cloneCatalogGroup);
+  const movedKinds: Array<{ resource: ApiResourceInfo; target: string }> = [];
+  const movedChildren: Array<{ group: ResourceGroup; target: string }> = [];
+
+  const takeKinds = (list: ApiResourceInfo[]) =>
+    list.filter((resource) => {
+      const target = moves[catalogKindKey(resource)];
+      if (!target) return true;
+      movedKinds.push({ resource, target });
+      return false;
+    });
+
+  for (const group of clones) {
+    group.resources = takeKinds(group.resources);
+    if (group.children) {
+      for (const child of group.children) {
+        const groupTarget = moves[catalogGroupKey(child.id)];
+        if (groupTarget) {
+          movedChildren.push({ group: child, target: groupTarget });
+          continue;
+        }
+        child.resources = takeKinds(child.resources);
+      }
+      group.children = group.children
+        .filter((child) => !moves[catalogGroupKey(child.id)] && child.resources.length > 0)
+        .map((child) => ({ ...child, total: child.resources.length }));
+    }
+  }
+
+  const ensureTarget = (id: string): ResourceGroup => {
+    const existing = clones.find((group) => group.id === id);
+    if (existing) return existing;
+    const created = categoryGroup(id);
+    clones.push(created);
+    return created;
+  };
+
+  for (const { resource, target } of movedKinds) {
+    const group = ensureTarget(target);
+    // A CR returning to Custom Resources goes back into its API-group folder,
+    // not as a loose row at the top.
+    if (target === "custom" && resource.isCrd) {
+      const childId = `custom:${resource.group || "core"}`;
+      let child = group.children?.find((entry) => entry.id === childId);
+      if (!child) {
+        child = {
+          id: childId,
+          title: formatGroupName(resource.group || "core"),
+          icon: Puzzle,
+          order: 0,
+          resources: [],
+          total: 0,
+        };
+        group.children = [...(group.children ?? []), child];
+      }
+      if (
+        !child.resources.some(
+          (entry) => entry.apiVersion === resource.apiVersion && entry.kind === resource.kind,
+        )
+      ) {
+        child.resources.push(resource);
+      }
+    } else if (
+      !group.resources.some(
+        (entry) => entry.apiVersion === resource.apiVersion && entry.kind === resource.kind,
+      )
+    ) {
+      group.resources.push(resource);
+    }
+  }
+  for (const { group: child, target } of movedChildren) {
+    const group = ensureTarget(target);
+    const children = [...(group.children ?? []), child];
+    group.children = children.filter(
+      (entry, index) => children.findIndex((candidate) => candidate.id === entry.id) === index,
+    );
+  }
+
+  for (const group of clones) {
+    group.resources = sortResources(group.resources);
+    if (group.children) {
+      group.children = group.children
+        .map((child) => ({
+          ...child,
+          resources: sortResources(child.resources),
+          total: child.resources.length,
+        }))
+        .sort((a, b) => {
+          if (a.id === "custom:definitions") return -1;
+          if (b.id === "custom:definitions") return 1;
+          return a.title.localeCompare(b.title);
+        });
+    }
+    group.total =
+      group.resources.length +
+      (group.children?.reduce((sum, child) => sum + child.resources.length, 0) ?? 0);
+  }
+  return clones.filter(
+    (group) => group.resources.length > 0 || (group.children?.length ?? 0) > 0,
+  );
+}
+
+/** Drop hidden kinds/groups from the tree (the customize dialog restores them). */
+export function filterCatalogItems(
+  groups: ResourceGroup[],
+  hidden: string[],
+): ResourceGroup[] {
+  if (hidden.length === 0) return groups;
+  const hiddenSet = new Set(hidden);
+  const visibleResources = (list: ApiResourceInfo[]) =>
+    list.filter((resource) => !hiddenSet.has(catalogKindKey(resource)));
+
+  return groups
+    .filter((group) => !hiddenSet.has(catalogGroupKey(group.id)))
+    .map((group) => {
+      const children = group.children
+        ?.filter((child) => !hiddenSet.has(catalogGroupKey(child.id)))
+        .map((child) => {
+          const resources = visibleResources(child.resources);
+          return { ...child, resources, total: resources.length };
+        })
+        .filter((child) => child.resources.length > 0);
+      const resources = visibleResources(group.resources);
+      return {
+        ...group,
+        resources,
+        children,
+        total:
+          resources.length +
+          (children?.reduce((sum, child) => sum + child.resources.length, 0) ?? 0),
+      };
+    })
+    .filter(
+      (group) => group.resources.length > 0 || (group.children?.length ?? 0) > 0,
+    );
+}

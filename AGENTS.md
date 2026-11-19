@@ -123,7 +123,10 @@ Important:
   its own widths across clusters. The old `<kind>|<column>` key is still read as
   a fallback for widths saved before the split.
 - Group expansion and favorite kinds are settings/session state, never local
-  component state that resets on navigation.
+  component state that resets on navigation. Toggles also write
+  `settings.sidebarExpandedGroups`; a newly opened cluster seeds its session map
+  from it, so the last collapsed/expanded arrangement follows you between
+  clusters (an existing cluster keeps its own explicit choices).
 - **Session selectors are field-level.** Subscribe to
   `state.sessions[clusterId]?.<field>` with a module-level constant as the
   fallback (`?? []` *inside* a selector allocates a new array on every
@@ -171,6 +174,10 @@ Important:
   restart patches `spec.template.metadata.annotations`; pause/resume patches
   `spec.paused` (Deployments); suspend/resume patches `spec.suspend` (Jobs and
   CronJobs); YAML apply supports multi-doc/List and does dry-run before apply.
+  The dock's **Apply** creates missing objects or replaces an existing
+  kind/name (PUT) after the server-side check. `createOnly: true` is reserved
+  for internal one-off creates (the Node debug pod, the manual Job from a
+  CronJob).
   Manual scaling is refused when an HPA owns the replica count (checked lazily on
   pressing Scale, not in the background).
 - Port forwarding is implemented over the Kubernetes WebSocket protocol. The
@@ -185,6 +192,9 @@ Important:
   no extension is trusted): the file is parsed and must declare at least one
   context. Invalid files are reported individually while valid selections are
   still added. Pasted YAML follows the same validation.
+- On every start, existing files listed in the `KUBECONFIG` environment variable
+  are merged into `settings.kubeconfigPaths` (deduplicated), so an env-provided
+  kubeconfig shows up in the catalog even when settings.json already existed.
 
 ---
 
@@ -222,7 +232,11 @@ Important:
   generic Age column is always appended. A saved `settings.tableColumnOrder`
   still wins, so a user's own arrangement is remembered. Age is a compact 60px
   column (`compact: true` → `px-2`) and is appended for every discovered kind,
-  Helm releases included.
+  Helm releases included. The flexible **Name** column is capped at half of the
+  table on the first open of a kind (`minmax(220px, 50%)`); resizing it stores
+  an explicit per-kind pixel width (the usual saved-width override). **Settings → Data & tables → Table borders**
+  (`settings.tableBorders`) hides row separators and column dividers for a
+  borderless table.
 - Table rows are a memoized `TableRow` (`ResourceTable.tsx`): layout values
   (`gridTemplate`, `stickyOffsets`, `effectiveWidths`) are memoized and
   row-level callbacks go through stable `latest`-ref wrappers — fresh inline
@@ -233,10 +247,13 @@ Important:
   through `@tanstack/react-virtual`; the stream flush moves buffered chunks
   into complete rows every 160ms. Do not go back to a monolithic `text` string
   (concat + `.slice(-1_500_000)` per flush) or an unvirtualized `lines.map` —
-  chatty containers used to freeze the tab on ~30k DOM rows.
+  chatty containers used to freeze the tab on ~30k DOM rows. While the focused
+  pane shows the Logs tab, `⌘F`/`Ctrl+F` opens **Find in logs** (the table search
+  yields that shortcut); Enter/Shift+Enter walk the matches.
 - The namespace scope picker lists **All namespaces** first, then the currently
   selected namespaces (after a separator), then the rest alphabetically. Search
-  and the system-namespace toggle filter both groups. Clicking a namespace cell
+  and the system-namespace toggle filter both groups; **Enter** selects the exact
+  match (or the first unselected result). Clicking a namespace cell
   scopes the list; the **Namespace column stays visible even for a single
   namespace** so the table does not rebuild its columns under the cursor. Hide it
   through the column picker if it is noise. A namespace-scope change fetches
@@ -248,8 +265,13 @@ Important:
   replicas are still being replaced, **Not ready/Failed** (error) when nothing
   is serving or a condition failed; Pods expose the real blocker — Pending /
   ContainerCreating / PodInitializing / Terminating (warning) and
-  CrashLoopBackOff / ImagePullBackOff / Evicted (error). Colours come from the
-  tone, never from per-kind classes. Status badges (table and drawer) and
+  CrashLoopBackOff / ImagePullBackOff / Evicted (error). A container waiting
+  reason and a running init container win over the pod phase, so a pod already
+  in `Running` phase but still initialising is shown as **PodInitializing**, not
+  **Running**; readiness counts only app containers. Colours come from the
+  tone, never from per-kind classes. The resource table shows status as plain
+  coloured text (no pill outline or background); the details header keeps a
+  status badge. Badges and
   condition cards explain themselves through the design-system `Tooltip`:
   `status.conditions` sorted newest-transition first, each with state,
   reason/message, relative age and the exact `lastTransitionTime`.
@@ -313,11 +335,12 @@ Important:
   table, not a modal and not a new window. Each pane has **Overview / Details /
   YAML / Events / Related / Logs (Pods only) / Metrics** tabs. Kind actions are
   labelled buttons in a
-  right-aligned row under the resource name (Logs/Exec/Forward for Pods; Scale/Restart/Set image for
+  right-aligned row under the resource name (Logs/Exec/Forward for Pods — Exec
+  opens a dialog with container and command; Scale/Restart/Set image for
   workloads; Pause/Resume for Deployments; Suspend/Resume and Trigger for
-  Jobs/CronJobs; Cordon/Uncordon, Drain and Debug shell for Nodes). Delete,
-  Reload, Expand, Minimize and Close stay in the header; Delete sits next to
-  Close and Expand sits before Minimize. Reload (clockwise
+  Jobs/CronJobs; Cordon/Uncordon, Drain and Debug shell for Nodes). The header
+  starts with previous/next open-resource arrows, then Reload, Edit YAML and
+  Delete; Expand, Minimize and Close form one grouped control at the right end. Reload (clockwise
   arrow) only refetches data — Restart uses the counter-clockwise arrow. YAML
   and Related are tabs. Workload Scale also appears in the Overview Status
   section, as in Radar.
@@ -334,13 +357,22 @@ Important:
   resizes on its left edge (down to a 240px table strip, so it can stretch much
   further left than the old drawer), expands over the table, and minimizes into
   the shadow tray above the dock; tabs stay open and clickable.
-- Cross-cluster split: the **Columns2** button in the cluster tab strip pins a
-  second open cluster, and two full `ClusterWorkspace`s render side by side.
-  Workspaces stay in one keyed list; visibility/width use CSS (`hidden`,
-  flex-grow, `order`) — never unmount one to split. The divider drags 20–80%,
-  the active cluster is the left pane, clicking the right pane's cluster tab
-  swaps roles, and closing either pane promotes the survivor. Both visible
+- Cross-cluster split: the **Rows2** button in the cluster tab strip pins a
+  second open cluster, and two full `ClusterWorkspace`s stack **top/bottom**
+  (the active one above), so every pane keeps the full width and the catalog /
+  sidebar / table width is unchanged.
+  Workspaces stay in one keyed list; visibility and pane size use CSS (`hidden`,
+  flex-grow, `order`) — never unmount one to split. The horizontal divider drags
+  20–80%, clicking the bottom pane's cluster tab swaps roles, and closing either
+  pane promotes the survivor. Both visible
   workspaces poll; hidden ones keep watches but stay paused.
+- Sidebar collapse: `⌘B` or the **Collapse catalog** button at the bottom of the
+  resource sidebar collapses it to a **slim icon rail** (top-level groups +
+  Overview/Favorites) with the active entry highlighted; tooltips carry the
+  names. Groups with more than one kind open a **dropdown listing the kinds with
+  their icons** (Favorites opens the pinned list); the Catalog page rail has a
+  kubeconfig-sources dropdown. The state is global
+  (`settings.sidebarCollapsed`) and shared by the Catalog page.
 - Hotbar: 10 slots **per page** on a 75px rail with 40px tiles and 12px spacing
   (Freelens), favourite clusters only, three-letter short names, seeded solid
   colours, status LED, drag/context-menu repositioning; never gradient avatars.
@@ -350,7 +382,8 @@ Important:
   context menu (`settings.clusterColors`) wins, then the first matching regex
   rule (`settings.clusterColorRules`, tested against name + context), then the
   seeded FNV colour. A bare `*prod*` pattern is treated as a wildcard when it is
-  not a valid regex.
+  not a valid regex. The default list starts with `*dev*` → `#15803d` (green) and
+  is reseeded when the stored list is empty.
   Pages are Freelens-style: `‹ N ›` arrows plus a badge menu (switch / new /
   remove page, max 12), overflow favourites flow into later pages, and the tile
   list scrolls with a hover-only scrollbar. A favourite added from the catalog

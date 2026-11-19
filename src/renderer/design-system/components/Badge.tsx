@@ -13,9 +13,19 @@ export function StatusBadge({
   className?: string;
   title?: string;
 }) {
+  // A quick fade only when the label itself changes (watch updates), not on
+  // every unrelated re-render. Non-text children keep the plain node.
+  const text =
+    typeof children === "string" || typeof children === "number" ? String(children) : null;
   return (
     <span className={cn("badge", toneClass(tone), className)} title={title}>
-      {children}
+      {text !== null ? (
+        <span key={text} className="status-fade">
+          {children}
+        </span>
+      ) : (
+        children
+      )}
     </span>
   );
 }

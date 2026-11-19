@@ -267,15 +267,17 @@ export class ClusterManager {
     }
 
     const results: ApplyYamlResult[] = [];
+    const dryRun = Boolean(request.dryRun);
+    const createOnly = Boolean(request.createOnly);
     for (const raw of documents) {
       const object = raw as KubeObject & { items?: KubeObject[] };
       if (object?.kind === "List" && Array.isArray(object.items)) {
         for (const item of object.items) {
-          results.push(await this.applyObject(connection, item, Boolean(request.dryRun)));
+          results.push(await this.applyObject(connection, item, dryRun, createOnly));
         }
         continue;
       }
-      results.push(await this.applyObject(connection, object, Boolean(request.dryRun)));
+      results.push(await this.applyObject(connection, object, dryRun, createOnly));
     }
     return results;
   }
@@ -284,6 +286,7 @@ export class ClusterManager {
     connection: ClusterConnection,
     object: KubeObject,
     dryRun: boolean,
+    createOnly: boolean,
   ): Promise<ApplyYamlResult> {
     if (!object?.kind || !object?.apiVersion) {
       throw new Error("Every YAML document needs apiVersion and kind.");
@@ -303,6 +306,11 @@ export class ClusterManager {
     let action: "created" | "updated" = "created";
     try {
       const existing = await kubeRequest<KubeObject>(connection.kc, itemPath);
+      if (createOnly) {
+        throw new Error(
+          `${info.kind}/${name}${namespace ? ` in namespace ${namespace}` : ""} already exists — open it and edit its YAML instead of creating it again.`,
+        );
+      }
       action = "updated";
       payload.metadata = {
         ...existing.metadata,

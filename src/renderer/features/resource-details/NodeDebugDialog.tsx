@@ -103,7 +103,7 @@ export function NodeDebugDialog({
   const apply = async (dryRun: boolean) => {
     setBusy(true);
     try {
-      const results = await call(api.resources.apply({ clusterId, yaml, dryRun }));
+      const results = await call(api.resources.apply({ clusterId, yaml, dryRun, createOnly: true }));
       const pod = results.find((entry) => entry.kind === "Pod") ?? results[0];
       if (!pod) throw new Error("The manifest did not create a Pod.");
       if (dryRun) {

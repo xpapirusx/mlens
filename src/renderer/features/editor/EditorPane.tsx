@@ -40,7 +40,6 @@ export function EditorPane({
           paneId={pane.id}
           refKey={pane.active}
           tab={pane.tab}
-          historyDepth={pane.history.length}
           expanded={expanded}
           onToggleExpanded={onToggleExpanded}
         />

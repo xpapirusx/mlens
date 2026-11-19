@@ -22,7 +22,8 @@ function documentCount(yaml: string): number {
  * The dock's "create resource" surface: a multi-document YAML editor that
  * applies through the same server-side-checked path as the Create dialog, but
  * lives at the bottom next to the terminals so a pasted manifest never blocks
- * the table. Accepts one document or several separated by `---`.
+ * the table. Accepts one document or several separated by `---`; an existing
+ * kind/name is replaced (PUT) with the pasted document.
  */
 export function YamlDockTab({ clusterId, active }: { clusterId: string; active: boolean }) {
   const [yaml, setYaml] = useState("");
@@ -97,7 +98,8 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
           {documentCount(yaml)} document{documentCount(yaml) === 1 ? "" : "s"}
         </span>
         <span className="truncate text-slate-400">
-          {lastRun ?? "Apply creates missing objects and updates existing ones after a server-side check."}
+          {lastRun ??
+            "Apply creates missing objects and overwrites existing ones after a server-side check."}
         </span>
       </div>
     </div>

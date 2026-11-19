@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
-  ArrowLeft,
   Ban,
   Box,
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   Copy,
   FileCode,
   FileText,
@@ -14,6 +14,7 @@ import {
   Minimize2,
   Network,
   Pause,
+  Pencil,
   Play,
   Plug,
   RotateCcw,
@@ -27,7 +28,7 @@ import {
 } from "lucide-react";
 import type { ApiResourceInfo, KubeObject, ResourceKey } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore, type DetailTab } from "../../stores/session-store";
+import { useSessionStore, sameRef, type DetailTab } from "../../stores/session-store";
 import { getKindIcon, kindColor, kindLabel } from "../../lib/icons";
 import { resourceStatus, toneClass } from "../../lib/status";
 import { ConditionsTooltip } from "../../lib/columns";
@@ -40,6 +41,7 @@ import { Button } from "../../design-system/components/Button";
 import { ErrorBoundary } from "../../design-system/components/ErrorBoundary";
 import { ConfirmActionDialog, ScaleDialog } from "../resource-browser/ResourceDialogs";
 import { StartPortForwardDialog } from "../port-forward/PortForwardDialog";
+import { ExecDialog } from "../terminal/ExecDialog";
 import { EditDataDialog } from "./EditDataDialog";
 import { SetImageDialog } from "./SetImageDialog";
 import { NodeDrainDialog } from "./NodeDrainDialog";
@@ -100,6 +102,7 @@ function DrawerStatus({ object, kind }: { object: KubeObject; kind?: string }) {
 
 // Stable fallbacks: selector results must keep their identity (React #185).
 const EMPTY_RESOURCES: ApiResourceInfo[] = [];
+const EMPTY_TABS: ResourceKey[] = [];
 
 export function ResourceDetails({
   clusterId,
@@ -107,7 +110,6 @@ export function ResourceDetails({
   paneId,
   refKey,
   tab: activeTab,
-  historyDepth,
   expanded,
   onToggleExpanded,
 }: {
@@ -116,19 +118,22 @@ export function ResourceDetails({
   paneId: string;
   refKey: ResourceKey;
   tab: DetailTab;
-  historyDepth: number;
   expanded: boolean;
   onToggleExpanded: () => void;
 }) {
   // Stable fallbacks: a fresh `[]` per notification re-renders while the
   // session is absent (React #185 pattern).
   const resources = useSessionStore((state) => state.sessions[clusterId]?.resources) ?? EMPTY_RESOURCES;
+  const paneTabs =
+    useSessionStore(
+      (state) =>
+        state.sessions[clusterId]?.editor.panes.find((pane) => pane.id === paneId)?.tabs,
+    ) ?? EMPTY_TABS;
+  const activateResource = useSessionStore((state) => state.activateResource);
   const setPaneTab = useSessionStore((state) => state.setPaneTab);
-  const paneBack = useSessionStore((state) => state.paneBack);
   const closePaneTab = useSessionStore((state) => state.closePaneTab);
   const minimizeDetails = useSessionStore((state) => state.minimizeDetails);
   const openInPane = useSessionStore((state) => state.openInPane);
-  const openTerminal = useSessionStore((state) => state.openTerminal);
   const settings = useCatalogStore((state) => state.settings);
 
   // Alias kept so the (large) drawer body keeps reading `details.ref`.
@@ -164,11 +169,20 @@ export function ResourceDetails({
   const [drainOpen, setDrainOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [requestYamlEdit, setRequestYamlEdit] = useState(false);
+  const [execOpen, setExecOpen] = useState(false);
+
+  const switchResource = (delta: number) => {
+    if (paneTabs.length < 2) return;
+    const at = paneTabs.findIndex((tab) => sameRef(tab, refKey));
+    if (at < 0) return;
+    const next = paneTabs[(at + delta + paneTabs.length) % paneTabs.length];
+    if (next) activateResource(clusterId, next);
+  };
 
   const navigate = (kind: string, name: string, namespace?: string, apiVersion?: string) => {
     if (!kind || !name) return;
-    const lower = kind.toLowerCase();
-    const target = resources.find(
+    const lower = kind.toLowerCase();    const target = resources.find(
       (entry) => entry.kind.toLowerCase() === lower && (!apiVersion || entry.apiVersion === apiVersion),
     );
     const chosenApiVersion = apiVersion ?? target?.apiVersion;
@@ -186,25 +200,9 @@ export function ResourceDetails({
     });
   };
 
-  const openShell = async () => {
+  const openShell = () => {
     if (!object?.metadata?.namespace || !object.metadata.name) return;
-    try {
-      const containers = await call(
-        api.pods.containers(clusterId, object.metadata.namespace, object.metadata.name),
-      );
-      const container = containers[0]?.name;
-      if (!container) throw new Error("Pod has no containers");
-      openTerminal(clusterId, {
-        type: "pod",
-        clusterId,
-        namespace: object.metadata.namespace,
-        pod: object.metadata.name,
-        container,
-        shell: "/bin/sh",
-      });
-    } catch (error) {
-      toast.error("Cannot open container shell", errorText(error));
-    }
+    setExecOpen(true);
   };
 
   const quickPortForward = async (port: number) => {
@@ -390,7 +388,7 @@ export function ResourceDetails({
       <div className="shrink-0 border-b border-theme-border">
         <div className="flex items-center gap-1.5 px-3 pt-2.5">
           <span className={cn("kind-outline", kindColor(details.ref.kind))}>
-            <Icon className="h-3 w-3" />
+            <Icon className="h-3.5 w-3.5" />
             {kindLabel(details.ref.kind, resource?.plural)}
           </span>
           {object ? <DrawerStatus object={object} kind={details.ref.kind} /> : null}
@@ -402,22 +400,22 @@ export function ResourceDetails({
           <div className="ml-auto flex items-center gap-0.5">
             <button
               type="button"
-              className="shell-icon-button h-6 w-6 disabled:opacity-30"
-              onClick={() => paneBack(clusterId, paneId)}
-              disabled={historyDepth === 0}
-              title="Back to the previously opened resource"
+              className="shell-icon-button h-[34px] w-[34px] disabled:opacity-30"
+              onClick={() => switchResource(-1)}
+              disabled={paneTabs.length < 2}
+              title="Previous open resource"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
-
-            {isHelmRelease ? null : (
-              <DetailIcon
-                icon={<Trash2 />}
-                title="Delete resource"
-                danger
-                onClick={() => setConfirmDelete(true)}
-              />
-            )}
+            <button
+              type="button"
+              className="shell-icon-button h-[34px] w-[34px] disabled:opacity-30"
+              onClick={() => switchResource(1)}
+              disabled={paneTabs.length < 2}
+              title="Next open resource"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
             <DetailIcon
               icon={<RotateCw />}
               title="Reload data"
@@ -426,28 +424,49 @@ export function ResourceDetails({
             />
             <button
               type="button"
-              className="shell-icon-button h-6 w-6"
-              onClick={onToggleExpanded}
-              title={expanded ? "Restore editor area" : "Expand editor area"}
+              className="shell-icon-button h-[34px] w-[34px]"
+              onClick={() => {
+                setPaneTab(clusterId, paneId, "yaml");
+                setRequestYamlEdit(true);
+              }}
+              title="Edit YAML"
             >
-              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+              <Pencil className="h-5 w-5" />
             </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
-              onClick={() => minimizeDetails(clusterId)}
-              title="Minimize the editor area (open tabs stay)"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              className="shell-icon-button h-6 w-6"
-              onClick={() => closePaneTab(clusterId, paneId, refKey)}
-              title="Close tab"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {isHelmRelease ? null : (
+              <DetailIcon
+                icon={<Trash2 />}
+                title="Delete resource"
+                danger
+                onClick={() => setConfirmDelete(true)}
+              />
+            )}
+            <div className="ml-1 flex items-center gap-0.5 rounded-md border border-theme-border bg-theme-base/40 p-0.5">
+              <button
+                type="button"
+                className="shell-icon-button h-[34px] w-[34px]"
+                onClick={onToggleExpanded}
+                title={expanded ? "Restore editor area" : "Expand editor area"}
+              >
+                {expanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+              </button>
+              <button
+                type="button"
+                className="shell-icon-button h-[34px] w-[34px]"
+                onClick={() => minimizeDetails(clusterId)}
+                title="Minimize the editor area (open tabs stay)"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                className="shell-icon-button h-[34px] w-[34px]"
+                onClick={() => closePaneTab(clusterId, paneId, refKey)}
+                title="Close tab"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -655,7 +674,13 @@ export function ResourceDetails({
               />
             ) : null}
             {tab === "yaml" ? (
-              <YamlTab clusterId={clusterId} object={object} onApplied={() => void data.refresh()} />
+              <YamlTab
+                clusterId={clusterId}
+                object={object}
+                onApplied={() => void data.refresh()}
+                startEditing={requestYamlEdit}
+                onEditingStarted={() => setRequestYamlEdit(false)}
+              />
             ) : null}
             {tab === "events" ? (
               <EventsTab events={events.events} loading={events.loading} error={events.error} />
@@ -695,6 +720,16 @@ export function ResourceDetails({
         object={object}
         onSaved={() => void data.refresh()}
       />
+
+      {isPod && details.ref.namespace ? (
+        <ExecDialog
+          open={execOpen}
+          onClose={() => setExecOpen(false)}
+          clusterId={clusterId}
+          namespace={details.ref.namespace}
+          pod={details.ref.name}
+        />
+      ) : null}
 
       {isPod && details.ref.namespace && object ? (
         <StartPortForwardDialog
@@ -830,7 +865,7 @@ function DetailIcon({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-md text-theme-text-primary transition-colors hover:bg-theme-hover disabled:opacity-40 [&>svg]:h-4 [&>svg]:w-4",
+        "flex h-[34px] w-[34px] items-center justify-center rounded-md text-theme-text-primary transition-colors hover:bg-theme-hover disabled:opacity-40 [&>svg]:h-5 [&>svg]:w-5",
         danger && "text-red-400 hover:bg-red-500/10 hover:text-red-300",
       )}
     >

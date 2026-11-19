@@ -100,6 +100,17 @@ export function NamespacePicker({
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Filter namespaces…"
               autoFocus
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                const term = search.trim().toLowerCase();
+                if (!term) return;
+                const exact = visible.find((namespace) => namespace.toLowerCase() === term);
+                const target =
+                  exact ?? visible.find((namespace) => !selected.has(namespace)) ?? visible[0];
+                if (!target || selected.has(target)) return;
+                onChange([...value, target]);
+              }}
               className="h-7 w-full rounded-md border border-theme-border bg-theme-elevated pl-8 pr-2 text-xs text-theme-text-primary focus:outline-none focus:ring-1 focus:ring-skyhook-500/60"
             />
           </div>

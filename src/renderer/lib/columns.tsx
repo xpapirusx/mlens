@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { Copy, TriangleExclamationPoint } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
 import { formatAge, formatCpuMilli, formatDurationSeconds, formatMemoryShort, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, parseQuantityCount, formatBytes } from "./format";
-import { resourceStatus, toneClass } from "./status";
+import { resourceStatus, toneTextClass } from "./status";
 import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
 import { Tooltip } from "../design-system/components/Tooltip";
@@ -59,7 +59,17 @@ const statusValue = (object: AnyObject, kind: string): string => resourceStatus(
 function StatusCell({ object, kind }: { object: AnyObject; kind: string }) {
   const status = resourceStatus(object, kind);
   const conditions = ((object.status?.conditions ?? []) as Array<Record<string, any>>);
-  const badge = <span className={cn("badge", toneClass(status.tone))}>{status.text}</span>;
+  // Borderless status: the tone colour and the text only, no pill outline.
+  const badge = (
+    <span
+      className={cn(
+        "inline-block max-w-full truncate text-[calc(12px*var(--font-scale))] font-medium",
+        toneTextClass(status.tone),
+      )}
+    >
+      {status.text}
+    </span>
+  );
   if (!status.detail && conditions.length === 0) return badge;
   return (
     <Tooltip
@@ -777,10 +787,75 @@ export const WARNING_KINDS = new Set([
 ]);
 
 const warningEventKey = (object: AnyObject): string =>
-  `${object.metadata?.namespace ?? ""}/${object.metadata?.name}`;
+  object.metadata?.uid ?? `${object.metadata?.namespace ?? ""}/${object.metadata?.name}`;
+
+/**
+ * Freelens' `Pod.hasIssues()`: a running, Ready pod with healthy containers has
+ * no issues, so a transient Warning event (a readiness probe that failed once)
+ * stops showing in the Warnings column once the pod recovers.
+ */
+function podHasIssues(pod: AnyObject): boolean {
+  const phase = pod.status?.phase;
+  if (!phase) return true;
+  if (phase === "Succeeded") return false;
+  if (phase === "Failed" || phase === "Pending" || phase === "Unknown") return true;
+
+  const appStatuses = (pod.status?.containerStatuses ?? []) as Array<Record<string, any>>;
+  const initStatuses = (pod.status?.initContainerStatuses ?? []) as Array<Record<string, any>>;
+  if (
+    [...appStatuses, ...initStatuses].some(
+      (container) => container.state?.waiting?.reason === "CrashLoopBackOff",
+    )
+  ) {
+    return true;
+  }
+
+  const ready = ((pod.status?.conditions ?? []) as Array<Record<string, any>>).some(
+    (condition) => condition.type === "Ready" && condition.status === "True",
+  );
+  if (ready) return false;
+
+  const statusesByName = new Map<string, Record<string, any>>();
+  for (const status of initStatuses) statusesByName.set(status.name, status);
+  for (const status of appStatuses) statusesByName.set(status.name, status);
+  const isUnready = (status?: Record<string, any>) => {
+    if (!status) return true;
+    if (status.ready) return false;
+    return status.state?.terminated?.exitCode !== 0;
+  };
+
+  for (const container of (pod.spec?.initContainers ?? []) as Array<Record<string, any>>) {
+    if (container.restartPolicy !== "Always") continue;
+    if (isUnready(statusesByName.get(container.name))) return true;
+  }
+  for (const container of (pod.spec?.containers ?? []) as Array<Record<string, any>>) {
+    if (isUnready(statusesByName.get(container.name))) return true;
+  }
+
+  const gates = (pod.spec?.readinessGates ?? []) as Array<Record<string, any>>;
+  if (gates.length > 0) {
+    const conditionStatus = new Map(
+      ((pod.status?.conditions ?? []) as Array<Record<string, any>>).map((condition) => [
+        condition.type,
+        condition.status,
+      ]),
+    );
+    for (const gate of gates) {
+      if (conditionStatus.get(gate.conditionType) !== "True") return true;
+    }
+  }
+  return false;
+}
+
+function warningsFor(object: AnyObject, context?: CellContext): WarningEntry | undefined {
+  const entry = context?.warnings?.get(warningEventKey(object));
+  if (!entry) return undefined;
+  if (object.kind === "Pod" && !podHasIssues(object)) return undefined;
+  return entry;
+}
 
 function WarningsCell({ object, context }: { object: AnyObject; context?: CellContext }) {
-  const entry = context?.warnings?.get(warningEventKey(object));
+  const entry = warningsFor(object, context);
   if (!entry) return null;
   return (
     <Tooltip
@@ -810,9 +885,9 @@ function warningsColumn(): ColumnDef {
     width: 104,
     tooltip: "Warning events for this resource — hover for the latest message",
     sortable: true,
-    value: (object, context) => context?.warnings?.get(warningEventKey(object))?.count ?? 0,
+    value: (object, context) => warningsFor(object, context)?.count ?? 0,
     cell: (object, context) => <WarningsCell object={object} context={context} />,
-    filterValue: (object, context) => context?.warnings?.get(warningEventKey(object))?.reason,
+    filterValue: (object, context) => warningsFor(object, context)?.reason,
   };
 }
 
@@ -1415,7 +1490,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           label: "Roles",
           width: 150,
           value: (object) => nodeRoles(object).join(", "),
-          cell: (object) => <TextCell>{nodeRoles(object).join(", ") || "<none>"}</TextCell>,
+          cell: (object) => <TextCell>{nodeRoles(object).join(", ") || " "}</TextCell>,
           filterValue: (object) => nodeRoles(object)[0],
         },
         {
@@ -2319,7 +2394,9 @@ export function visibleColumns(columns: ColumnDef[], hidden: Set<string>): Colum
 
 export function formatColumnWidth(column: ColumnDef, override?: number): string {
   if (override) return `${override}px`;
-  if (column.flex) return "minmax(220px, 1.6fr)";
+  // First open of a kind: the flexible Name column may take at most half of
+  // the table. Resizing stores an explicit pixel width per kind tab.
+  if (column.flex) return "minmax(220px, 50%)";
   return `${column.width ?? 140}px`;
 }
 

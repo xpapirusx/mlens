@@ -1,4 +1,4 @@
-import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, Info, Layers, Network, Pause, Play, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
+import { Box, Copy, Cpu, Database, Eye, EyeOff, FileSliders, FolderTree, Info, Layers, Network, Pause, Play, Plug, Server, Settings2, ShieldCheck } from "lucide-react";
 import { Button } from "../../design-system/components/Button";
 import { Tooltip } from "../../design-system/components/Tooltip";
 import { api, call, errorText } from "../../lib/api";
@@ -599,6 +599,72 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
           )}
         </div>
       </DetailSection>
+
+      {(() => {
+        const containers = [
+          ...((object.spec?.initContainers ?? []) as Array<Record<string, any>>).map((container) => ({
+            container,
+            init: true,
+          })),
+          ...((object.spec?.containers ?? []) as Array<Record<string, any>>).map((container) => ({
+            container,
+            init: false,
+          })),
+        ];
+        const mountCount = containers.reduce(
+          (sum, entry) => sum + (entry.container.volumeMounts?.length ?? 0),
+          0,
+        );
+        return (
+          <DetailSection
+            title="Volume mounts"
+            icon={<FolderTree />}
+            defaultOpen={false}
+            count={mountCount}
+          >
+            {mountCount === 0 ? (
+              <div className="text-xs text-theme-text-tertiary">No volume mounts.</div>
+            ) : (
+              <div className="space-y-2">
+                {containers
+                  .filter((entry) => (entry.container.volumeMounts ?? []).length > 0)
+                  .map(({ container, init }) => (
+                    <div key={`${init ? "init" : "app"}-${container.name}`}>
+                      <div className="mb-1 flex items-center gap-2 text-[calc(11px*var(--font-scale))] font-medium text-theme-text-primary">
+                        <span className="truncate font-mono">{container.name}</span>
+                        {init ? <span className="badge-sm status-unknown">init</span> : null}
+                      </div>
+                      <div className="space-y-0.5">
+                        {(container.volumeMounts as Array<Record<string, any>>).map((mount) => (
+                          <div
+                            key={`${container.name}-${mount.mountPath}`}
+                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-md bg-theme-base px-2 py-1 font-mono text-[calc(11px*var(--font-scale))]"
+                          >
+                            <span
+                              className="min-w-0 flex-1 truncate text-theme-text-primary"
+                              title={mount.mountPath}
+                            >
+                              {mount.mountPath}
+                            </span>
+                            <span className="shrink-0 text-theme-text-tertiary">← {mount.name}</span>
+                            {mount.subPath ? (
+                              <span className="shrink-0 text-theme-text-disabled">
+                                subPath: {mount.subPath}
+                              </span>
+                            ) : null}
+                            {mount.readOnly ? (
+                              <span className="badge-sm status-unknown shrink-0">ro</span>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </DetailSection>
+        );
+      })()}
 
       <DetailSection title="Scheduling" icon={<Settings2 />} defaultOpen={false}>
         <PropertyList>

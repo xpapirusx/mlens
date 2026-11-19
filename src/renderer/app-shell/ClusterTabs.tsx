@@ -1,11 +1,6 @@
-import { ArrowLeft, ArrowRight, Blocks, Columns2, Home, Plus, X } from "lucide-react";
+import { Blocks, ChevronLeft, ChevronRight, Home, Plus, Rows2, X } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
-import {
-  activePaneOf,
-  hasEditorTab,
-  useSessionStore,
-  useChromeSessions,
-} from "../stores/session-store";
+import { useChromeSessions } from "../stores/session-store";
 import { closeClusterTab } from "../lib/cluster-actions";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { cn } from "../lib/cn";
@@ -19,16 +14,6 @@ export function ClusterTabs() {
   const clusters = useCatalogStore((state) => state.clusters);
   const splitClusterId = useCatalogStore((state) => state.splitClusterId);
   const setSplitCluster = useCatalogStore((state) => state.setSplitCluster);
-  const detailsBack = useSessionStore((state) => state.detailsBack);
-  const closeDetails = useSessionStore((state) => state.closeDetails);
-  const hasTab = useSessionStore((state) =>
-    activeClusterId ? hasEditorTab(state.sessions[activeClusterId]) : false,
-  );
-  const historyDepth = useSessionStore((state) => {
-    if (!activeClusterId) return 0;
-    const session = state.sessions[activeClusterId];
-    return (session && activePaneOf(session)?.history.length) ?? 0;
-  });
 
   const ids = Object.keys(sessions);
   const secondaryId =
@@ -36,17 +21,16 @@ export function ClusterTabs() {
       ? splitClusterId
       : null;
 
-  const goBack = () => {
-    if (activeClusterId && hasTab) {
-      if (historyDepth > 0) detailsBack(activeClusterId);
-      else closeDetails(activeClusterId);
-      return;
-    }
-    if (activeClusterId) setActiveCluster(null);
-  };
-
   const closeTab = async (id: string) => {
     await closeClusterTab(id);
+  };
+
+  /** Cycle open cluster tabs (the strip order), wrapping at the ends. */
+  const switchCluster = (delta: number) => {
+    if (ids.length < 2) return;
+    const at = activeClusterId ? ids.indexOf(activeClusterId) : -1;
+    const next = ids[(at + delta + ids.length) % ids.length];
+    if (next) setActiveCluster(next);
   };
 
   return (
@@ -61,24 +45,26 @@ export function ClusterTabs() {
         >
           <Home className="h-3.5 w-3.5" />
         </button>
+
         <button
           type="button"
           className="shell-icon-button h-6 w-6 disabled:opacity-30"
-          title={hasTab ? "Back to previous resource" : "Back to catalog"}
-          aria-label="Back"
-          disabled={!activeClusterId}
-          onClick={goBack}
+          title="Previous cluster tab (⌘⇧[)"
+          aria-label="Previous cluster tab"
+          disabled={ids.length < 2}
+          onClick={() => switchCluster(-1)}
         >
-          <ArrowLeft className="h-3.5 w-3.5" />
+          <ChevronLeft className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           className="shell-icon-button h-6 w-6 disabled:opacity-30"
-          title="Forward navigation is not implemented yet"
-          aria-label="Forward"
-          disabled
+          title="Next cluster tab (⌘⇧])"
+          aria-label="Next cluster tab"
+          disabled={ids.length < 2}
+          onClick={() => switchCluster(1)}
         >
-          <ArrowRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
       {ids.length === 0 ? (
@@ -167,7 +153,7 @@ export function ClusterTabs() {
             aria-label="Split screen"
             onClick={toggle}
           >
-            <Columns2 className="h-3.5 w-3.5" />
+            <Rows2 className="h-3.5 w-3.5" />
           </button>
         )}
       >
@@ -227,7 +213,7 @@ export function ClusterTabs() {
       </Menu>
       {secondaryId ? (
         <span className="flex h-6 max-w-[12rem] shrink-0 items-center gap-1 rounded border border-theme-border bg-theme-surface px-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
-          <Columns2 className="h-3 w-3 shrink-0" />
+          <Rows2 className="h-3 w-3 shrink-0" />
           <span className="truncate">
             {clusters.find((entry) => entry.id === secondaryId)?.name ??
               secondaryId.split("::").pop()}

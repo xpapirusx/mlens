@@ -310,7 +310,7 @@ export function NodeOverview({ object, onNavigate, clusterId, refreshSeconds = 6
         <PropertyList>
           <Property label="Status" value={<StatusPill object={object} kind="Node" />} />
           <Property label="Schedulable" value={cordoned ? "No (cordoned)" : "Yes"} />
-          <Property label="Roles" value={roles.join(", ") || "<none>"} />
+          <Property label="Roles" value={roles.join(", ") || " "} />
           <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
         {/* {onToggleCordon ? (

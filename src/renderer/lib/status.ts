@@ -72,6 +72,8 @@ export function podStatus(pod: AnyObject): ResourceStatus {
     ...(pod.status?.initContainerStatuses ?? []),
     ...(pod.status?.containerStatuses ?? []),
   ] as Array<Record<string, any>>;
+  const initStatuses = (pod.status?.initContainerStatuses ?? []) as Array<Record<string, any>>;
+  const appStatuses = (pod.status?.containerStatuses ?? []) as Array<Record<string, any>>;
 
   const failing = statuses.find((container) => {
     const waiting = container.state?.waiting?.reason;
@@ -111,8 +113,7 @@ export function podStatus(pod: AnyObject): ResourceStatus {
   }
 
   if (phase === "Pending") {
-    // The exact blocker is more useful than a generic "Pending": containers
-    // that are still being created report ContainerCreating/PodInitializing.
+    // The exact blocker is more useful than a generic "Pending".
     const waiting = statuses.map((container) => container.state?.waiting).find((state) => state?.reason);
     if (waiting?.reason) {
       return { text: waiting.reason, tone: "warning", detail: waiting.message };
@@ -124,8 +125,23 @@ export function podStatus(pod: AnyObject): ResourceStatus {
     return { text: "Pending", tone: "warning", detail: message };
   }
 
-  const total = pod.spec?.containers?.length ?? statuses.length;
-  const ready = statuses.filter((container) => container.ready).length;
+  // The phase can already be "Running" while app containers are still in
+  // PodInitializing/ContainerCreating (sidecars, slow init containers). The
+  // container's waiting reason is the truth; never call that "Running".
+  const waiting = statuses
+    .map((container) => container.state?.waiting)
+    .find((state) => state?.reason);
+  if (waiting?.reason) {
+    return { text: waiting.reason, tone: "warning", detail: waiting.message };
+  }
+  const initRunning = initStatuses.find((container) => container.state?.running);
+  if (initRunning) {
+    const name = initRunning.name ? `Init container ${initRunning.name}` : undefined;
+    return { text: "PodInitializing", tone: "warning", detail: name };
+  }
+
+  const total = pod.spec?.containers?.length ?? appStatuses.length;
+  const ready = appStatuses.filter((container) => container.ready).length;
   if (total > 0 && ready < total) return { text: `Running (${ready}/${total})`, tone: "warning" };
   return { text: "Running", tone: "success" };
 }

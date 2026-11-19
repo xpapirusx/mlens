@@ -81,6 +81,7 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
   }, [resizing, clusterId, setSidebarWidth, updateSettings]);
 
   const width = sidebarWidth ?? settings?.sidebarWidth ?? 236;
+  const sidebarCollapsed = settings?.sidebarCollapsed ?? false;
   const cluster = clusters.find((entry) => entry.id === clusterId);
   const stage = connectStage ?? "api";
   const percent = Math.max(0, Math.min(100, Math.round(connectPercent ?? 5)));
@@ -195,16 +196,18 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       <ResourceSidebar cluster={cluster} clusterId={clusterId} width={width} active={active} rootRef={sidebarRef} />
-      <div
-        role="separator"
-        aria-orientation="vertical"
-        className={cn("shell-resize-handle-x shrink-0", resizing && "bg-skyhook-500/50")}
-        data-resizing={resizing}
-        onPointerDown={(event) => {
-          event.preventDefault();
-          setResizing(true);
-        }}
-      />
+      {!sidebarCollapsed ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          className={cn("shell-resize-handle-x shrink-0", resizing && "bg-skyhook-500/50")}
+          data-resizing={resizing}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            setResizing(true);
+          }}
+        />
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <PageTabs clusterId={clusterId} resources={resources} />
         <ResourceBrowser

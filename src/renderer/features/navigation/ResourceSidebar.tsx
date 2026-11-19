@@ -1,4 +1,4 @@
-import { useMemo, useState, type Ref } from "react";
+import { Fragment, useMemo, useState, type Ref } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -8,22 +8,26 @@ import {
   GripVertical,
   LayoutDashboard,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   Pin,
   RefreshCw,
   Settings,
+  SlidersHorizontal,
   Star,
 } from "lucide-react";
 import type { ApiResourceInfo, ClusterSummary } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useSessionStore } from "../../stores/session-store";
-import { buildResourceGroups, filterGroups, isListable, mergeGroupOrder, type ResourceGroup } from "../../lib/catalog";
+import { applyCatalogMoves, buildResourceGroups, CATALOG_MOVE_MIME, catalogGroupKey, catalogKindKey, filterCatalogItems, filterGroups, isListable, mergeGroupOrder, type ResourceGroup } from "../../lib/catalog";
 import { kindColor, kindLabel, getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { CountBadge } from "../../design-system/components/Badge";
 import { SearchInput } from "../../design-system/components/SearchInput";
-import { Menu, MenuItem, MenuSeparator } from "../../design-system/components/Menu";
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
 import { Spinner } from "../../design-system/components/Spinner";
 import { countFor, useResourceCounts } from "./useResourceCounts";
+import { CatalogCustomizeDialog } from "./CatalogCustomizeDialog";
 import { errorText } from "../../lib/api";
 import { clusterShortName } from "../../lib/short-name";
 import { toast } from "../../design-system/components/Toast";
@@ -32,6 +36,9 @@ import { toast } from "../../design-system/components/Toast";
 const EMPTY_RESOURCES: ApiResourceInfo[] = [];
 const EMPTY_NAMESPACES: string[] = [];
 const EMPTY_GROUPS: Record<string, boolean> = {};
+const EMPTY_HIDDEN: string[] = [];
+const EMPTY_PINNED: string[] = [];
+const EMPTY_MOVES: Record<string, string> = {};
 
 export function ResourceSidebar({
   cluster,
@@ -62,6 +69,19 @@ export function ResourceSidebar({
   const refreshNamespaces = useSessionStore((state) => state.refreshNamespaces);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
+  const rememberedGroups = settings?.sidebarExpandedGroups ?? EMPTY_GROUPS;
+  const hiddenItems = settings?.hiddenCatalogItems ?? EMPTY_HIDDEN;
+  const pinnedGroups = settings?.pinnedCatalogGroups ?? EMPTY_PINNED;
+  const catalogMoves = settings?.catalogMoves ?? EMPTY_MOVES;
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [draggingItem, setDraggingItem] = useState<string | null>(null);
+
+  /** Persist a group's state globally so a new cluster opens the same way. */
+  const rememberGroup = (group: string, expanded: boolean) => {
+    void updateSettings({
+      sidebarExpandedGroups: { ...(settings?.sidebarExpandedGroups ?? {}), [group]: expanded },
+    });
+  };
   const disconnect = useCatalogStore((state) => state.disconnect);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const openSettings = useCatalogStore((state) => state.openSettings);
@@ -73,15 +93,37 @@ export function ResourceSidebar({
   const refreshSeconds = settings?.refreshIntervalSeconds ?? 30;
 
   const baseGroups = useMemo(() => buildResourceGroups(resources), [resources]);
+  const movedGroups = useMemo(
+    () => applyCatalogMoves(baseGroups, catalogMoves),
+    [baseGroups, catalogMoves],
+  );
+  const visibleGroups = useMemo(
+    () => filterCatalogItems(movedGroups, hiddenItems),
+    [movedGroups, hiddenItems],
+  );
   const groupOrder = settings?.sidebarGroupOrder ?? [];
   const orderedIds = useMemo(
-    () => (groupOrder.length > 0 ? mergeGroupOrder(baseGroups.map((group) => group.id), groupOrder) : []),
-    [baseGroups, groupOrder.join("|")],
+    () =>
+      groupOrder.length > 0
+        ? mergeGroupOrder(visibleGroups.map((group) => group.id), groupOrder)
+        : [],
+    [visibleGroups, groupOrder.join("|")],
   );
   const groups = useMemo(() => {
-    if (orderedIds.length === 0) return baseGroups;
-    return [...baseGroups].sort((a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id));
-  }, [baseGroups, orderedIds]);
+    const ordered =
+      orderedIds.length === 0
+        ? [...visibleGroups]
+        : [...visibleGroups].sort(
+            (a, b) => orderedIds.indexOf(a.id) - orderedIds.indexOf(b.id),
+          );
+    if (pinnedGroups.length === 0) return ordered;
+    // Stable sort: pinned groups float above the rest, their relative order
+    // and the user's drag order stay intact.
+    return [...ordered].sort(
+      (a, b) =>
+        Number(!pinnedGroups.includes(a.id)) - Number(!pinnedGroups.includes(b.id)),
+    );
+  }, [visibleGroups, orderedIds, pinnedGroups]);
   const filtered = useMemo(() => filterGroups(groups, search), [groups, search]);
 
   const reorderGroups = (sourceId: string, targetId: string) => {
@@ -93,6 +135,30 @@ export function ResourceSidebar({
     ids.splice(from, 1);
     ids.splice(to, 0, sourceId);
     void updateSettings({ sidebarGroupOrder: ids });
+  };
+
+  /** A kind or a CRD folder dropped onto a top-level group header. */
+  const moveCatalogItem = (raw: string, targetId: string) => {
+    try {
+      const payload = JSON.parse(raw) as {
+        type?: string;
+        apiVersion?: string;
+        kind?: string;
+        groupId?: string;
+      };
+      const key =
+        payload.type === "kind" && payload.apiVersion && payload.kind
+          ? catalogKindKey({ apiVersion: payload.apiVersion, kind: payload.kind })
+          : payload.type === "group" && payload.groupId
+            ? catalogGroupKey(payload.groupId)
+            : null;
+      if (!key) return;
+      void updateSettings({
+        catalogMoves: { ...(settings?.catalogMoves ?? {}), [key]: targetId },
+      });
+    } catch {
+      // Ignore malformed drag data.
+    }
   };
   const countResources = useMemo(() => {
     // Counts are only for the resource page that is actually open in the
@@ -153,9 +219,163 @@ export function ResourceSidebar({
       return resources.find((resource) => resource.apiVersion === apiVersion && resource.kind === kind);
     })
     .filter((resource): resource is (typeof resources)[number] => Boolean(resource));
+
+  // Collapsed mode: an icon rail of the catalog's top-level groups. Groups with
+  // more than one kind (and Favorites) open an icon list; the active entry is
+  // highlighted, tooltips carry the names.
+  if (settings?.sidebarCollapsed) {
+    const selectedKey = selected ? `${selected.apiVersion}|${selected.kind}` : null;
+    const railGroupItems = (group: ResourceGroup, close: () => void): React.ReactNode => (
+      <>
+        {group.resources.filter(isListable).map((resource) => {
+          const Icon = getKindIcon(resource.kind, resource.group);
+          const active =
+            selected?.apiVersion === resource.apiVersion && selected?.kind === resource.kind;
+          return (
+            <MenuItem
+              key={`${resource.apiVersion}/${resource.kind}`}
+              icon={<Icon className="h-3.5 w-3.5" />}
+              shortcut={active ? "✓" : undefined}
+              onClick={() => {
+                selectKind(clusterId, { apiVersion: resource.apiVersion, kind: resource.kind });
+                close();
+              }}
+            >
+              {resource.isCrd ? resource.kind : kindLabel(resource.kind, resource.plural)}
+            </MenuItem>
+          );
+        })}
+        {(group.children ?? []).map((child) => (
+          <Fragment key={child.id}>
+            <MenuLabel>{child.title}</MenuLabel>
+            {railGroupItems(child, close)}
+          </Fragment>
+        ))}
+      </>
+    );
+    return (
+      <aside
+        className="flex h-full min-h-0 w-12 shrink-0 flex-col items-center border-r border-theme-border bg-theme-sidebar py-2"
+        aria-label="Resource catalog"
+      >
+        <div className="mt-2 flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto px-1">
+          <RailIconButton
+            active={selected?.kind === "__overview__"}
+            title="Overview"
+            onClick={() => selectKind(clusterId, { apiVersion: "", kind: "__overview__" })}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+          </RailIconButton>
+          {favoriteResources.length > 0 ? (
+            <Menu
+              width={240}
+              align="start"
+              trigger={({ open, toggle }) => (
+                <button
+                  type="button"
+                  title="Favorites"
+                  aria-label="Favorites"
+                  onClick={toggle}
+                  className={railButtonClass(
+                    Boolean(selectedKey && favoriteKeys.includes(selectedKey)) || open,
+                  )}
+                >
+                  <Star className="h-4 w-4" />
+                </button>
+              )}
+            >
+              {({ close }) => (
+                <>
+                  <MenuLabel>Favorites</MenuLabel>
+                  {favoriteResources.map((resource) => {
+                    const Icon = getKindIcon(resource.kind, resource.group);
+                    const active =
+                      selected?.apiVersion === resource.apiVersion &&
+                      selected?.kind === resource.kind;
+                    return (
+                      <MenuItem
+                        key={`${resource.apiVersion}/${resource.kind}`}
+                        icon={<Icon className="h-3.5 w-3.5" />}
+                        shortcut={active ? "✓" : undefined}
+                        onClick={() => {
+                          selectKind(clusterId, {
+                            apiVersion: resource.apiVersion,
+                            kind: resource.kind,
+                          });
+                          close();
+                        }}
+                      >
+                        {resource.isCrd ? resource.kind : kindLabel(resource.kind, resource.plural)}
+                      </MenuItem>
+                    );
+                  })}
+                </>
+              )}
+            </Menu>
+          ) : null}
+          {groups.map((group) => {
+            const Icon = group.icon;
+            const active = Boolean(
+              selected && groupHasKind(group, selected.apiVersion, selected.kind),
+            );
+            const first = firstGroupResource(group);
+            if (countGroupResources(group) <= 1) {
+              return (
+                <RailIconButton
+                  key={group.id}
+                  active={active}
+                  title={group.title}
+                  onClick={() => {
+                    if (first) selectKind(clusterId, { apiVersion: first.apiVersion, kind: first.kind });
+                  }}
+                >
+                  <Icon className="h-4 w-4" />
+                </RailIconButton>
+              );
+            }
+            return (
+              <Menu
+                key={group.id}
+                width={260}
+                align="start"
+                trigger={({ open, toggle }) => (
+                  <button
+                    type="button"
+                    title={group.title}
+                    aria-label={group.title}
+                    onClick={toggle}
+                    className={railButtonClass(active || open)}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                )}
+              >
+                {({ close }) => (
+                  <>
+                    <MenuLabel>{group.title}</MenuLabel>
+                    {railGroupItems(group, close)}
+                  </>
+                )}
+              </Menu>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+          title="Expand catalog (⌘B)"
+          aria-label="Expand catalog"
+          onClick={() => void updateSettings({ sidebarCollapsed: false })}
+        >
+          <PanelLeftOpen className="h-4 w-4" />
+        </button>
+      </aside>
+    );
+  }
+
   // Favorites default to expanded — they are pinned on purpose; the chevron
   // only exists to hide them when the rail gets busy.
-  const favoritesExpanded = expandedGroups["__favorites"] ?? true;
+  const favoritesExpanded = expandedGroups["__favorites"] ?? rememberedGroups["__favorites"] ?? true;
 
   const renderKindRow = (resource: (typeof resources)[number], depth = 0) => {
     const Icon = getKindIcon(resource.kind, resource.group);
@@ -163,15 +383,33 @@ export function ResourceSidebar({
     const count = countFor(counts.counts, resource);
     const pinned = favoriteKeys.includes(keyFor(resource));
     const indent = depth === 0 ? "pl-2" : depth === 1 ? "pl-6" : "pl-10";
+    const itemKey = `${resource.apiVersion}|${resource.kind}`;
+    const moved = Boolean(catalogMoves[catalogKindKey(resource)]);
     return (
       <div
         key={`${resource.apiVersion}/${resource.kind}`}
+        draggable
+        onDragStart={(event) => {
+          event.stopPropagation();
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData(
+            CATALOG_MOVE_MIME,
+            JSON.stringify({
+              type: "kind",
+              apiVersion: resource.apiVersion,
+              kind: resource.kind,
+            }),
+          );
+          setDraggingItem(itemKey);
+        }}
+        onDragEnd={() => setDraggingItem(null)}
         className={cn(
           "group relative flex w-full items-center rounded-md pr-1.5 text-[calc(13px*var(--font-scale))] transition-colors",
           indent,
           active
             ? "selection-strong selection-text"
             : "text-theme-text-secondary hover:bg-theme-hover/70 hover:text-theme-text-primary",
+          draggingItem === itemKey && "opacity-40",
         )}
       >
         <button
@@ -181,6 +419,12 @@ export function ResourceSidebar({
           className="flex min-w-0 flex-1 items-center gap-2 py-[5px] text-left"
         >
           <Icon className={cn("h-4 w-4 shrink-0", active ? "text-current" : kindColor(resource.kind))} />
+          {moved ? (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-skyhook-500/50"
+              title="Moved from another group"
+            />
+          ) : null}
           {resource.isCrd ? (
             <span className="min-w-0 flex-1 truncate text-[calc(12px*var(--font-scale))]">{resource.kind}</span>
           ) : (
@@ -227,23 +471,51 @@ export function ResourceSidebar({
             },
             onDrop: (event: React.DragEvent) => {
               event.preventDefault();
+              const moveRaw = event.dataTransfer.getData(CATALOG_MOVE_MIME);
+              if (moveRaw) {
+                moveCatalogItem(moveRaw, group.id);
+                setDraggingGroup(null);
+                setDraggingItem(null);
+                return;
+              }
               const source = event.dataTransfer.getData("text/plain") || draggingGroup;
               if (source) reorderGroups(source, group.id);
               setDraggingGroup(null);
+              setDraggingItem(null);
             },
             onDragEnd: () => setDraggingGroup(null),
           }
         : {};
+    const moveHandlers =
+      depth > 0 && !searching
+        ? {
+            draggable: true,
+            onDragStart: (event: React.DragEvent) => {
+              event.stopPropagation();
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData(
+                CATALOG_MOVE_MIME,
+                JSON.stringify({ type: "group", groupId: group.id }),
+              );
+              setDraggingItem(group.id);
+            },
+            onDragEnd: () => setDraggingItem(null),
+          }
+        : {};
 
-    if (group.standalone) {
+    if (group.standalone && group.resources.length <= 1) {
       return (
         <div key={group.id} {...dragHandlers} className={cn(draggingGroup === group.id && "opacity-40")}>
-          {renderKindRow(group.resources[0], 0)}
+          {group.resources[0] ? renderKindRow(group.resources[0], 0) : null}
         </div>
       );
     }
-    const defaultExpanded = searching ? true : !(settings?.collapseCatalogGroups ?? true);
-    const expanded = expandedGroups[group.id] ?? defaultExpanded;
+    const defaultExpanded = !(settings?.collapseCatalogGroups ?? true);
+    // Search opens everything (unless the user explicitly collapsed a group
+    // during the search); otherwise the session → global memory → default.
+    const expanded = searching
+      ? (expandedGroups[group.id] ?? true)
+      : (expandedGroups[group.id] ?? rememberedGroups[group.id] ?? defaultExpanded);
     const GroupIcon = group.icon;
     const kindCount = group.children
       ? group.children.reduce((sum, child) => sum + child.resources.length, 0)
@@ -256,11 +528,20 @@ export function ResourceSidebar({
       <div
         key={group.id}
         {...dragHandlers}
-        className={cn("mb-0.5", depth > 0 && "mt-0.5", draggingGroup === group.id && "opacity-40")}
+        {...moveHandlers}
+        className={cn(
+          "mb-0.5",
+          depth > 0 && "mt-0.5",
+          draggingGroup === group.id && "opacity-40",
+          draggingItem === group.id && "opacity-40",
+        )}
       >
         <button
           type="button"
-          onClick={() => toggleGroup(clusterId, group.id, expanded)}
+          onClick={() => {
+            toggleGroup(clusterId, group.id, expanded);
+            rememberGroup(group.id, !expanded);
+          }}
           className={cn(
             "group flex h-8 w-full items-center rounded-md pr-2 font-semibold text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary",
             // Level 1 mirrors a kind row exactly (pl-2 + 16px icon + gap-2), so
@@ -273,6 +554,12 @@ export function ResourceSidebar({
         >
           {depth === 0 ? <GroupIcon className="h-4 w-4 shrink-0" /> : null}
           <span className="truncate">{group.title}</span>
+          {depth > 0 && catalogMoves[catalogGroupKey(group.id)] ? (
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-skyhook-500/50"
+              title="Moved from another group"
+            />
+          ) : null}
           <span className="ml-auto shrink-0 font-mono text-[calc(9px*var(--font-scale))] font-normal text-theme-text-disabled">
             {expanded ? (aggregate ?? kindCount) : kindCount}
           </span>
@@ -283,9 +570,8 @@ export function ResourceSidebar({
         </button>
         {expanded ? (
           <div className="space-y-0.5">
-            {group.children
-              ? group.children.map((child) => renderGroup(child, depth + 1))
-              : group.resources.map((resource) => renderKindRow(resource, depth + 1))}
+            {group.resources.map((resource) => renderKindRow(resource, depth + 1))}
+            {group.children?.map((child) => renderGroup(child, depth + 1))}
           </div>
         ) : null}
       </div>
@@ -328,6 +614,15 @@ export function ResourceSidebar({
             <span className="truncate">{session?.info?.user ?? cluster?.context}</span> */}
           </div>
         </div>
+        <button
+          type="button"
+          className="shell-icon-button h-6 w-6"
+          title="Customize catalog"
+          aria-label="Customize catalog"
+          onClick={() => setCustomizeOpen(true)}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+        </button>
         <Menu
           width={230}
           align="end"
@@ -436,7 +731,10 @@ export function ResourceSidebar({
           <div className="mb-1">
             <button
               type="button"
-              onClick={() => toggleGroup(clusterId, "__favorites", favoritesExpanded)}
+              onClick={() => {
+                toggleGroup(clusterId, "__favorites", favoritesExpanded);
+                rememberGroup("__favorites", !favoritesExpanded);
+              }}
               className="group flex h-8 w-full items-center gap-2 rounded-md pl-2 pr-2 text-[calc(11px*var(--font-scale))] font-semibold uppercase tracking-wider text-theme-text-tertiary transition-colors hover:bg-theme-hover/60 hover:text-theme-text-secondary"
               title={favoritesExpanded ? "Collapse favorites" : "Expand favorites"}
             >
@@ -475,7 +773,17 @@ export function ResourceSidebar({
           </div>
         ) : null}
       </div>
-
+      <div className="flex shrink-0 items-center justify-center px-1 pb-1.5">
+        <button
+          type="button"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+          title="Collapse catalog (⌘B)"
+          aria-label="Collapse catalog"
+          onClick={() => void updateSettings({ sidebarCollapsed: true })}
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
+      </div>
       <div className="flex shrink-0 items-center justify-between border-t border-theme-border px-2.5 py-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
         <span>{info?.namespaces.length ?? 0} namespaces</span>
         <span className="flex min-w-0 items-center gap-1" title={info?.server}>
@@ -485,6 +793,66 @@ export function ResourceSidebar({
           </span>
         </span>
       </div>
+
+      <CatalogCustomizeDialog
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+        groups={movedGroups}
+      />
     </aside>
+  );
+}
+
+function railButtonClass(active: boolean): string {
+  return cn(
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors",
+    active
+      ? "selection-strong selection-text"
+      : "text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary",
+  );
+}
+
+function countGroupResources(group: ResourceGroup): number {
+  return (
+    group.resources.filter(isListable).length +
+    (group.children ?? []).reduce((sum, child) => sum + countGroupResources(child), 0)
+  );
+}
+
+function groupHasKind(group: ResourceGroup, apiVersion: string, kind: string): boolean {
+  return (
+    group.resources.some((resource) => resource.apiVersion === apiVersion && resource.kind === kind) ||
+    (group.children ?? []).some((child) => groupHasKind(child, apiVersion, kind))
+  );
+}
+
+function firstGroupResource(group: ResourceGroup): ApiResourceInfo | undefined {
+  return (
+    group.resources.find(isListable) ??
+    group.children?.flatMap((child) => child.resources).find(isListable)
+  );
+}
+
+function RailIconButton({
+  active,
+  title,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className={railButtonClass(active)}
+    >
+      {children}
+    </button>
   );
 }

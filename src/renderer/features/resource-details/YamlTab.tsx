@@ -12,10 +12,15 @@ export function YamlTab({
   clusterId,
   object,
   onApplied,
+  startEditing,
+  onEditingStarted,
 }: {
   clusterId: string;
   object: KubeObject;
   onApplied: () => void;
+  /** Header pencil: open the YAML tab already in edit mode. */
+  startEditing?: boolean;
+  onEditingStarted?: () => void;
 }) {
   // The YAML tab hides the fields the API server owns by default: they are
   // never worth reading and make every other field harder to find. Applying a
@@ -27,7 +32,7 @@ export function YamlTab({
     [object, ignoreServerMetadata],
   );
   const [value, setValue] = useState(source);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(Boolean(startEditing));
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const editorRef = useRef<YamlEditorHandle>(null);
@@ -35,6 +40,12 @@ export function YamlTab({
   useEffect(() => {
     if (!editing) setValue(source);
   }, [source, editing]);
+
+  useEffect(() => {
+    if (!startEditing) return;
+    setEditing(true);
+    onEditingStarted?.();
+  }, [startEditing, onEditingStarted]);
 
   const apply = async (dryRun: boolean) => {
     setBusy(true);

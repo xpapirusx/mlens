@@ -4,9 +4,14 @@ const { app } = electron;
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AppSettings, ClusterId } from "@shared/types";
+import type { AppSettings, ClusterColorRule, ClusterId } from "@shared/types";
 
 const DEFAULT_KUBECONFIG = path.join(os.homedir(), ".kube", "config");
+
+/** One sensible starter rule; shown until the user edits Cluster colors. */
+const DEFAULT_CLUSTER_COLOR_RULES: ClusterColorRule[] = [
+  { pattern: "*dev*", color: "#15803d" },
+];
 
 function envKubeconfigPaths(): string[] {
   const raw = process.env.KUBECONFIG;
@@ -35,7 +40,8 @@ export function defaultSettings(): AppSettings {
     recentClusters: [],
     catalogSort: "status",
     clusterColors: {},
-    clusterColorRules: [],
+    clusterColorRules: [{ pattern: "*dev*", color: "#15803d" }],
+    tableBorders: true,
     portForwardOpenBrowser: true,
     refreshIntervalSeconds: 60,
     terminalFontSize: 13,
@@ -67,6 +73,11 @@ export function defaultSettings(): AppSettings {
     },
     labelPresets: {},
     sidebarGroupOrder: [],
+    sidebarExpandedGroups: {},
+    sidebarCollapsed: false,
+    hiddenCatalogItems: [],
+    pinnedCatalogGroups: [],
+    catalogMoves: {},
     tableColumnWidths: {},
     tableColumnOrder: {},
     tableSorts: {},
@@ -150,6 +161,21 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
       .map((rule) => ({ pattern: rule.pattern, color: rule.color }));
   }
   if (typeof out.portForwardOpenBrowser !== "boolean") delete out.portForwardOpenBrowser;
+  if (typeof out.tableBorders !== "boolean") delete out.tableBorders;
+  if (typeof out.sidebarCollapsed !== "boolean") delete out.sidebarCollapsed;
+  if (out.hiddenCatalogItems) {
+    out.hiddenCatalogItems = [...new Set(out.hiddenCatalogItems.filter((entry) => typeof entry === "string"))];
+  }
+  if (out.pinnedCatalogGroups) {
+    out.pinnedCatalogGroups = [...new Set(out.pinnedCatalogGroups.filter((entry) => typeof entry === "string"))];
+  }
+  if (out.catalogMoves) {
+    out.catalogMoves = Object.fromEntries(
+      Object.entries(out.catalogMoves).filter(
+        ([key, value]) => typeof key === "string" && key.length > 0 && typeof value === "string" && value.length > 0,
+      ),
+    );
+  }
   if (typeof out.refreshIntervalSeconds === "number") {
     out.refreshIntervalSeconds = clamp(Math.round(out.refreshIntervalSeconds), 0, 300);
   }
@@ -235,6 +261,13 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   if (out.sidebarGroupOrder) {
     out.sidebarGroupOrder = out.sidebarGroupOrder.filter((entry) => typeof entry === "string");
   }
+  if (out.sidebarExpandedGroups) {
+    out.sidebarExpandedGroups = Object.fromEntries(
+      Object.entries(out.sidebarExpandedGroups).filter(
+        ([key, value]) => typeof key === "string" && key.length > 0 && typeof value === "boolean",
+      ),
+    );
+  }
   if (out.tableColumnWidths) {
     out.tableColumnWidths = Object.fromEntries(
       Object.entries(out.tableColumnWidths)
@@ -272,6 +305,28 @@ export class SettingsStore {
   constructor() {
     this.file = path.join(app.getPath("userData"), "settings.json");
     this.state = this.load();
+    this.mergeEnvKubeconfigs();
+  }
+
+  /**
+   * `KUBECONFIG` is not just a first-run default: when the environment points
+   * at extra files, merge the existing ones into the saved source list so the
+   * catalog picks them up on every start.
+   */
+  private mergeEnvKubeconfigs(): void {
+    const candidates = envKubeconfigPaths()
+      .map((entry) => path.resolve(entry.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? "~")))
+      .filter((entry) => {
+        try {
+          return fs.statSync(entry).isFile();
+        } catch {
+          return false;
+        }
+      });
+    const missing = candidates.filter((entry) => !this.state.kubeconfigPaths.includes(entry));
+    if (missing.length === 0) return;
+    this.state = { ...this.state, kubeconfigPaths: [...this.state.kubeconfigPaths, ...missing] };
+    this.persist();
   }
 
   private load(): AppSettings {
@@ -279,6 +334,11 @@ export class SettingsStore {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, "utf8")) as Partial<AppSettings>;
       const state = { ...defaults, ...sanitize(raw) };
+      // Existing settings written before the starter rule existed carry an
+      // empty list. Seed it once so `*dev*` -> green works out of the box.
+      if (state.clusterColorRules.length === 0) {
+        state.clusterColorRules = [...DEFAULT_CLUSTER_COLOR_RULES];
+      }
       // Migration: settings written before hotbar pages existed carry a single
       // `hotbarSlots` array — it becomes page one.
       if (!state.hotbarPages.some((page) => page.some(Boolean)) && state.hotbarSlots.length > 0) {

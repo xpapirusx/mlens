@@ -37,6 +37,8 @@ interface ResourceTableProps {
   onToggleRow?: (object: KubeObject) => void;
   onToggleAll?: () => void;
   rowHeight?: number;
+  /** Horizontal row/header separators; off = borderless table. */
+  borders?: boolean;
   podMetrics?: Map<string, PodUsage>;
   nodeMetrics?: Map<string, NodeUsage>;
   onSelectNamespace?: (namespace: string) => void;
@@ -59,6 +61,9 @@ interface TableRowProps {
   gridTemplate: string;
   stickyOffsets: Map<string, number>;
   rowHeight: number;
+  borders: boolean;
+  /** Animate `top` while the list is inserting/removing rows. */
+  animateTop?: boolean;
   /** The details drawer points at this row. */
   selected: boolean;
   /** This row's checkbox is ticked. */
@@ -97,6 +102,8 @@ const TableRow = memo(function TableRow({
   gridTemplate,
   stickyOffsets,
   rowHeight,
+  borders,
+  animateTop,
   selected,
   checked,
   highlighted,
@@ -124,7 +131,9 @@ const TableRow = memo(function TableRow({
       aria-selected={selected}
       data-index={index}
       className={cn(
-        "group/row absolute left-0 top-0 grid w-full cursor-pointer border-b-subtle transition-colors",
+        "group/row absolute left-0 top-0 grid w-full cursor-pointer transition-colors",
+        borders && "border-b-subtle",
+        animateTop && "transition-[top] duration-150 ease-out motion-reduce:transition-none",
         selected
           ? "selection-strong"
           : highlighted
@@ -148,7 +157,7 @@ const TableRow = memo(function TableRow({
     >
       {selectionMode ? (
         <div
-          className="flex items-center justify-center border-r-subtle"
+          className={cn("flex items-center justify-center", borders && "border-r-subtle")}
           onClick={(event) => {
             event.stopPropagation();
             onToggleRow?.(object);
@@ -175,7 +184,7 @@ const TableRow = memo(function TableRow({
           className={cn(
             "flex min-w-0 items-center overflow-hidden",
             column.compact ? "px-4" : "px-4",
-            cellIndex !== columns.length - 1 && "border-r-subtle",
+            cellIndex !== columns.length - 1 && borders && "border-r-subtle",
             column.align === "right" && "justify-end",
             stickyOffsets.has(column.key) && (selected ? "selection-strong" : "bg-theme-surface"),
           )}
@@ -244,6 +253,7 @@ export function ResourceTable({
   onToggleRow,
   onToggleAll,
   rowHeight = 44,
+  borders = true,
   podMetrics,
   nodeMetrics,
   onSelectNamespace,
@@ -261,6 +271,24 @@ export function ResourceTable({
   const scrollRef = useRef<HTMLDivElement>(null);
   const [highlight, setHighlight] = useState(-1);
   const [previewWidths, setPreviewWidths] = useState<Record<string, number>>({});
+  // A short `top` transition when the list gains/loses rows, so an inserted
+  // resource pushes the others down smoothly instead of teleporting them.
+  const [shiftRows, setShiftRows] = useState(false);
+  const previousRows = useRef<{ length: number; first: string } | null>(null);
+
+  useEffect(() => {
+    const first =
+      rows.length > 0
+        ? `${rows[0].metadata?.uid ?? `${rows[0].metadata?.namespace ?? ""}/${rows[0].metadata?.name ?? ""}`}`
+        : "";
+    const previous = previousRows.current;
+    previousRows.current = { length: rows.length, first };
+    if (!previous) return;
+    if (previous.length === rows.length && previous.first === first) return;
+    setShiftRows(true);
+    const timer = window.setTimeout(() => setShiftRows(false), 200);
+    return () => window.clearTimeout(timer);
+  }, [rows]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -375,11 +403,14 @@ export function ResourceTable({
       <div style={{ minWidth }}>
         <div
           role="row"
-          className="sticky top-0 z-10 grid border-b border-theme-border bg-theme-base"
+          className={cn(
+            "sticky top-0 z-10 grid bg-theme-base",
+            borders && "border-b border-theme-border",
+          )}
           style={{ gridTemplateColumns: gridTemplate, height: 40 }}
         >
           {selectionMode ? (
-            <div className="flex items-center justify-center border-r-subtle">
+            <div className={cn("flex items-center justify-center", borders && "border-r-subtle")}>
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -405,7 +436,7 @@ export function ResourceTable({
                   "group/th relative flex min-w-0 items-center gap-1 text-[calc(11px*var(--font-scale))] font-medium uppercase tracking-wide text-theme-text-secondary",
                   column.compact ? "px-7" : "px-4",
                   stickyOffsets.has(column.key) && "bg-theme-base",
-                  index !== columns.length - 1 && "border-r-subtle",
+                  index !== columns.length - 1 && borders && "border-r-subtle",
                   column.align === "right" && "justify-end",
                   column.sortable !== false && "cursor-pointer select-none hover:text-theme-text-primary",
                 )}
@@ -511,6 +542,8 @@ export function ResourceTable({
                   gridTemplate={gridTemplate}
                   stickyOffsets={stickyOffsets}
                   rowHeight={rowHeight}
+                  borders={borders}
+                  animateTop={shiftRows}
                   selected={selected}
                   checked={selectedKeys.has(key)}
                   highlighted={virtualRow.index === highlight}

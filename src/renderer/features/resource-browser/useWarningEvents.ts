@@ -83,10 +83,10 @@ export function useWarningEvents({
     };
     for (const event of events) {
       const involved = event.involvedObject as
-        | { namespace?: string; name?: string; kind?: string }
+        | { namespace?: string; name?: string; kind?: string; uid?: string }
         | undefined;
       if (!involved?.name) continue;
-      const key = `${involved.namespace ?? ""}/${involved.name}`;
+      const key = involved.uid ?? `${involved.namespace ?? ""}/${involved.name}`;
       const at = stamp(event);
       const current = built.get(key);
       if (current && (current.at ?? "") >= String(at)) {

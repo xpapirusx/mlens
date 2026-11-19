@@ -27,6 +27,7 @@ export function AppShell() {
   const loadSettings = useCatalogStore((state) => state.loadSettings);
   const loadCatalog = useCatalogStore((state) => state.loadCatalog);
   const openSettings = useCatalogStore((state) => state.openSettings);
+  const updateSettings = useCatalogStore((state) => state.updateSettings);
   const splitClusterId = useCatalogStore((state) => state.splitClusterId);
   const splitRatio = useCatalogStore((state) => state.splitRatio);
   const setSplitRatio = useCatalogStore((state) => state.setSplitRatio);
@@ -68,8 +69,8 @@ export function AppShell() {
     if (!splitResizing) return;
     const onMove = (event: PointerEvent) => {
       const rect = mainRef.current?.getBoundingClientRect();
-      if (!rect || rect.width === 0) return;
-      const next = Math.min(0.8, Math.max(0.2, (event.clientX - rect.left) / rect.width));
+      if (!rect || rect.height === 0) return;
+      const next = Math.min(0.8, Math.max(0.2, (event.clientY - rect.top) / rect.height));
       ratioRef.current = next;
       setRatio(next);
     };
@@ -158,6 +159,14 @@ export function AppShell() {
         // (the current cluster stays open in its tab).
         event.preventDefault();
         setActiveCluster(null);
+        return;
+      }
+      if (mod && event.key.toLowerCase() === "b") {
+        // VS Code-style sidebar toggle; shared by the catalog page and every
+        // cluster's resource catalog.
+        event.preventDefault();
+        const collapsed = useCatalogStore.getState().settings?.sidebarCollapsed ?? false;
+        void updateSettings({ sidebarCollapsed: !collapsed });
         return;
       }
       // Cluster tabs: ⌘⇧] / ⌘⇧[ (and Ctrl+Shift+]) like a browser. `event.key`
@@ -255,6 +264,7 @@ export function AppShell() {
     paletteOpen,
     shortcutsOpen,
     setActiveCluster,
+    updateSettings,
   ]);
 
   if (!settings) {
@@ -281,16 +291,14 @@ export function AppShell() {
         <Hotbar activeClusterId={activeClusterId} />
         <main
           ref={mainRef}
-          className={cn(
-            "relative flex min-h-0 min-w-0 flex-1 overflow-hidden",
-            secondaryId ? "flex-row" : "flex-col",
-          )}
+          className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
         >
           {/* Freelens keeps cluster frames alive when switching. mLens keeps a
               mounted workspace per cluster (hidden with CSS) so table scroll,
               open drawers and terminal PTYs all survive a switch. A split
-              shows the active cluster on the left and the chosen one on the
-              right; every other workspace stays mounted but hidden. */}
+              stacks the active cluster above the chosen one (top/bottom), so
+              each pane keeps the full width and the catalog/sidebar size is
+              unchanged; every other workspace stays mounted but hidden. */}
           {!activeClusterId ? (
             <div className="flex min-h-0 flex-1">
               <CatalogPage />
@@ -307,7 +315,7 @@ export function AppShell() {
                   "flex min-h-0 min-w-0",
                   !visible && "hidden",
                   visible && !secondaryId && "flex-1",
-                  isSecondary && "border-l border-theme-border",
+                  isSecondary && "border-t border-theme-border",
                 )}
                 style={
                   visible && secondaryId
@@ -326,13 +334,13 @@ export function AppShell() {
           {secondaryId ? (
             <div
               role="separator"
-              aria-orientation="vertical"
+              aria-orientation="horizontal"
               title="Resize the split"
               className={cn(
-                "absolute inset-y-0 z-40 w-1.5 -translate-x-1/2 cursor-col-resize hover:bg-skyhook-500/40",
+                "absolute inset-x-0 z-40 h-1.5 -translate-y-1/2 cursor-row-resize hover:bg-skyhook-500/40",
                 splitResizing && "bg-skyhook-500/40",
               )}
-              style={{ left: `${ratio * 100}%` }}
+              style={{ top: `${ratio * 100}%` }}
               onPointerDown={(event) => {
                 event.preventDefault();
                 setSplitResizing(true);

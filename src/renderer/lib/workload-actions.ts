@@ -138,7 +138,7 @@ export async function triggerCronJob(clusterId: string, object: KubeObject): Pro
     },
     spec: (jobTemplate.spec as Record<string, unknown> | undefined) ?? {},
   };
-  await call(api.resources.apply({ clusterId, yaml: stringify(job), dryRun: false }));
+  await call(api.resources.apply({ clusterId, yaml: stringify(job), dryRun: false, createOnly: true }));
   return name;
 }
 

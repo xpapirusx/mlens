@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import type { ApiResourceInfo, KubeObject, ResourceKey, TableSort } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
-import { useSessionStore, type DetailTab, type KindState, emptyKindState } from "../../stores/session-store";
+import { activePaneOf, useSessionStore, type DetailTab, type KindState, emptyKindState } from "../../stores/session-store";
 import { findResource, HELM_RELEASES_RESOURCE } from "../../lib/catalog";
 import { resourceStatus } from "../../lib/status";
 import { getColumnsForKind, sortObjects, WARNING_KINDS, type CellContext, type ColumnDef } from "../../lib/columns";
@@ -55,6 +55,7 @@ import { ResourceDiffDialog } from "./ResourceDiffDialog";
 import { BulkAnnotationsDialog } from "./BulkAnnotationsDialog";
 import { NodeDrainDialog } from "../resource-details/NodeDrainDialog";
 import { NodeDebugDialog } from "../resource-details/NodeDebugDialog";
+import { ExecDialog } from "../terminal/ExecDialog";
 import { ClusterOverview } from "../overview/ClusterOverview";
 import { useClaimPods } from "./useClaimPods";
 import { useServiceEndpoints } from "./useServiceEndpoints";
@@ -434,6 +435,7 @@ export function ResourceBrowser({
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [busy, setBusy] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [execTarget, setExecTarget] = useState<{ namespace: string; pod: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // A20: filter option lists are built only while the popover is open, from
@@ -453,8 +455,18 @@ export function ResourceBrowser({
       // focus (the YAML editor handles it).
       const inMonaco = Boolean(target?.closest?.(".monaco-editor"));
       const inTerminal = Boolean(target?.closest?.(".xterm"));
+      // Logs own ⌘F while the focused pane shows the Logs tab ("find in logs").
+      const session = useSessionStore.getState().sessions[clusterId];
+      const logsActive = Boolean(
+        session && !session.editor.minimized && activePaneOf(session)?.tab === "logs",
+      );
       const find =
-        mod && !event.shiftKey && event.key.toLowerCase() === "f" && !inMonaco && !inTerminal;
+        mod &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "f" &&
+        !inMonaco &&
+        !inTerminal &&
+        !logsActive;
       if ((event.key === "/" && !typing && !mod) || find) {
         event.preventDefault();
         searchRef.current?.focus();
@@ -533,26 +545,11 @@ export function ResourceBrowser({
     if (tab) setDetailsTab(clusterId, tab);
   };
 
-  const openExec = async (object: KubeObject) => {
-    if (!resource) return;
+  const openExec = (object: KubeObject) => {
     const podNamespace = object.metadata?.namespace;
     const podName = object.metadata?.name;
     if (!podNamespace || !podName) return;
-    try {
-      const containers = await call(api.pods.containers(clusterId, podNamespace, podName));
-      const container = containers[0]?.name;
-      if (!container) throw new Error("Pod has no containers");
-      openTerminal(clusterId, {
-        type: "pod",
-        clusterId,
-        namespace: podNamespace,
-        pod: podName,
-        container,
-        shell: "/bin/sh",
-      });
-    } catch (error) {
-      toast.error("Cannot open pod shell", errorText(error));
-    }
+    setExecTarget({ namespace: podNamespace, pod: podName });
   };
 
   const openAttach = async (object: KubeObject) => {
@@ -1234,6 +1231,7 @@ export function ResourceBrowser({
           }}
           filterableKeys={filterableKeys}
           rowHeight={settings?.tableRowHeight ?? 44}
+          borders={settings?.tableBorders ?? true}
           podMetrics={metrics.pods}
           nodeMetrics={metrics.nodes}
           onSelectNamespace={(namespace) => setSelectedNamespaces(clusterId, [namespace])}
@@ -1501,7 +1499,7 @@ export function ResourceBrowser({
           <MenuItem
             icon={<SquareTerminal className="h-3.5 w-3.5" />}
             onClick={() => {
-              if (contextObject) void openExec(contextObject);
+              if (contextObject) openExec(contextObject);
               setMenu(null);
             }}
           >
@@ -1677,6 +1675,14 @@ export function ResourceBrowser({
             : null
         }
         onSaved={() => void list.refresh(true)}
+      />
+
+      <ExecDialog
+        open={execTarget !== null}
+        onClose={() => setExecTarget(null)}
+        clusterId={clusterId}
+        namespace={execTarget?.namespace ?? ""}
+        pod={execTarget?.pod ?? ""}
       />
 
       <NodeDrainDialog
@@ -1879,7 +1885,7 @@ function Freshness({
           <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
         </span>
       )}
-      <span>{label}</span>
+      <span key={label} className="status-fade">{label}</span>
       {age !== null ? <span className="tabular">· {age}s ago</span> : null}
     </div>
   );

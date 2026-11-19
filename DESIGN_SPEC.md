@@ -122,8 +122,8 @@ Left → right:
 1. Home (catalog).
 2. Back — when the editor area has an active tab, returns to the previously
    opened resource; otherwise returns to the catalog.
-3. Forward — present but disabled; mLens has no route history yet, and disabled
-   is preferable to a fake action.
+3. No Forward history by design; the cluster strip carries previous/next
+   cluster-tab arrows instead.
 4. Active cluster pill: health dot, cluster name, Kubernetes version.
 5. Command trigger (“Search clusters, resources and actions…”, `⌘K`).
 6. New terminal, theme toggle, settings.
@@ -163,13 +163,14 @@ editors are `no-drag`, so selection, scrolling and editing keep working.
   regex rules (`settings.clusterColorRules`, tested against the cluster name and
   context); the first match wins, otherwise the seeded colour is used. A bare
   `*prod*` pattern works as a wildcard. The catalog avatar uses the same
-  resolution.
+  resolution. A fresh install ships one starter rule, `*dev*` → green; the rule
+  is reseeded if the stored list is empty.
 - Bottom: import kubeconfig, settings.
 
 ### 2.3a Cluster tabs and editor tabs
 
-- A 36px cluster tab strip sits directly under the top bar, with Home/Back/Forward
-  controls at its left (the old top-bar navigation was moved here). Each visited cluster
+- A 36px cluster tab strip sits directly under the top bar, with Home and
+  previous/next cluster-tab arrows at its left (the old top-bar navigation was moved here). Each visited cluster
   keeps a tab with a health dot; the close button disconnects that cluster and
   removes its workspace. Cluster tabs share the editor-area tab shape (rounded-t,
   top accent when active, close on hover). `+` returns to the catalog. The strip
@@ -210,12 +211,14 @@ selected files are still imported. Pasting YAML applies the same check.
 
 ### 2.3c Cross-cluster split screen
 
-- The **Columns2** button beside the cluster tabs opens a picker of other open
-  clusters and pins one as the right pane; both panes are full cluster
+- The **Rows2** button beside the cluster tabs opens a picker of other open
+  clusters and pins one below the active one; both panes are full cluster
   workspaces (sidebar, table, editor area, dock). A chip next to the button
   names the pinned cluster and closes the split.
-- The divider between panes is draggable (20–80%); the active cluster is the
-  left pane. Clicking the right pane's cluster tab swaps the two roles; closing
+- The divider between panes is horizontal and draggable (20–80%); the active
+  cluster is the top pane. Stacking keeps the full width, so the resource
+  catalog, table and editor width do not change. Clicking the bottom pane's
+  cluster tab swaps the two roles; closing
   either pane keeps the other (the survivor becomes active).
 - Every cluster workspace stays mounted and keyed; the split only toggles CSS
   visibility/width, so PTYs, scroll and editor panes survive.
@@ -224,6 +227,20 @@ selected files are still imported. Pasting YAML applies the same check.
 
 ### 2.4 Cluster sidebar
 
+- The sidebar can be collapsed to a slim **icon rail** with the **Collapse
+  catalog** button at the bottom (or `⌘B`): top-level group icons stay visible,
+  the active group (or Overview/Favorites) is highlighted and tooltips carry the
+  names. Group icons open a dropdown of their kinds (with kind icons; the active
+  one gets a checkmark); Favorites has its own list. The Catalog page rail also
+  gets a kubeconfig-sources dropdown. The expand button restores the full tree.
+  The state is global (`settings.sidebarCollapsed`) and shared with the Catalog
+  page.
+- The sidebar has a **Customize catalog** dialog (sliders button in the header):
+  untick any kind or group to hide it (`settings.hiddenCatalogItems`), pin a
+  top-level group to keep it above the rest (`settings.pinnedCatalogGroups`), or
+  reset accidental moves. Drag a kind or a CRD API-group folder onto a group
+  header to move it there (`settings.catalogMoves`, e.g. Istio CRDs → Network);
+  the customize dialog's "Reset moves" undoes all moves.
 - Cluster header: avatar + health dot, cluster name, Kubernetes version and
   context, overflow menu (favourite, copy context, refresh namespaces, settings,
   catalog, disconnect).
@@ -281,8 +298,10 @@ contains a single kind.
 - A `FileCode` button in the dock header (and in the empty dock state) opens the
   **Create from YAML** tab: a multi-document Monaco editor that accepts one
   manifest or several separated by `---`, counts the documents live, and applies
-  through the same server-side-checked path as the Create dialog (Dry run /
-  Apply). This is the primary create flow: the **Create** button in the
+  them through the server-side-checked path (Dry run / Apply). Apply creates a
+  missing object or replaces an existing kind/name, so a pasted manifest can be
+  used to fix a live resource. This
+  is the primary create flow: the **Create** button in the
   resource-browser toolbar opens the same dock tab instead of a modal, and a
   successful apply makes every mounted table refetch
   (`mlens:resources-applied`).
@@ -305,12 +324,15 @@ contains a single kind.
   Close to the right / Split right / Split down / Move to pane. The overflow
   `…` menu lists every tab and the split actions. A new split opens the same
   resource in the new pane.
-- Header per pane: kind outline pill, status badge, API version, Back, Delete,
-  Reload, Expand, Minimize and Close. Minimize hides the whole editor area
+- Header per pane: kind outline pill, status badge, API version,
+  **previous/next open-resource arrows**, Reload, **Edit YAML** (pencil: opens
+  the YAML tab already in edit mode), Delete, then a single grouped control
+  with **Expand / Minimize / Close**. Minimize hides the whole editor area
   without closing anything — tabs stay and the shadow tray above the dock
   restores it (no floating pill). Delete sits next to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
-  Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
+  Forward (Pods; Exec opens a dialog with container and command),
+  Scale / Restart / Set image (Deployments, StatefulSets,
   ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
   rollout (Deployments), Suspend/Resume / Trigger / Set image (Jobs, CronJobs),
   Cordon/Uncordon, Drain and Debug shell (Nodes). Reload (clockwise arrow) refetches data;
@@ -464,7 +486,7 @@ gradients except the catalog hero background and cluster avatar tiles.
 ```
 toolbar 48px : [kind icon] Kind  count  freshness | namespace · search · filters · columns · refresh · Create
 filter bar 32px (only when filters active)
-table      : fixed header + virtualised rows
+table      : fixed header + virtualised rows (add/remove animates the shift, 150ms)
 footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accent "Load 2000 more" chip
 ```
 
@@ -528,10 +550,14 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   reason and message, and the reason as its filter value. It is fed by one
   `type=Warning` event list per namespace scope (`useWarningEvents`), fetched
   only while a kind that has the column is on screen — Freelens' pods-warning
-  column, generalised.
+  column, generalised. Like Freelens, a Pod's warning disappears once
+  `podHasIssues()` is false (Running + Ready with healthy containers), so a
+  readiness probe that failed once does not keep the warning lit; events are
+  keyed by `involvedObject.uid` so a recreated pod does not inherit old ones.
 - The cluster catalog uses the same selection language: checkboxes, select all,
   bulk favourite, remove-from-catalog and a Removed view with restore.
-- Status is surfaced three ways: the status badge column, per-column status
+- Status is surfaced three ways: the plain coloured status text column (no pill
+  outline/background), per-column status
   filters, and a **Problems** toggle that keeps only warning/error resources
   across any kind.
 - Namespace cells are clickable: clicking one scopes the table to that namespace.
@@ -539,7 +565,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   class, and every reference field in Details (`volumeName`, `claimRef`,
   `storageClassName`, `imagePullSecrets`, HPA `scaleTargetRef`, owner refs…).
   Pod **Volumes** link straight to the referenced ConfigMap or Secret (direct
-  volumes and projected sources alike).
+  volumes and projected sources alike). The separate **Volume mounts** section
+  lists each container's `volumeMounts` (init containers marked): mount path,
+  volume name, `subPath` and read-only flag.
 - Workload actions (row context menu and drawer action row): Scale for
   Deployment/StatefulSet/ReplicaSet (merge patch `spec.replicas`, refused when an
   HPA owns the replica count), Restart for Deployment/StatefulSet/DaemonSet,
@@ -558,11 +586,17 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   Deployment keeps its own widths.
 - Top-level sidebar groups can be dragged to reorder them; the order is global.
 - Groups start collapsed when the setting is enabled (on by default); the
-  expanded state is remembered per cluster.
+  session remembers each cluster's expanded state, and every toggle is also
+  written to `settings.sidebarExpandedGroups`, so a newly opened cluster starts
+  with the last arrangement.
 - Sorting cycles ascending → descending → none; default is name ascending.
 - Namespaces: all, one, or **several** at once. Multi-selection merges lists and
   watches per namespace, sums sidebar counts, and shows the Namespace column.
   System namespaces are hidden by default and toggleable in the picker or settings.
+  Pressing **Enter** in the picker's filter selects the exact match (or the first
+  unselected result).
+- Tables can be made borderless: Settings → Data & tables → **Table borders**
+  hides row separators and column dividers.
 - Column visibility is per kind, persisted in the session; default-hidden
   columns (Pod IP, QoS, images…) are declared per kind.
 - Rows open details on click and a context menu on right click (details, YAML,

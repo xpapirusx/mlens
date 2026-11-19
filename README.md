@@ -23,9 +23,10 @@ its own shell, data layer and UI. See
 - **Multi-cluster by design.** Each cluster gets an isolated session with its own
   Kubernetes client, auth context, namespaces, table state, editor tabs and
   terminal PTYs. Switching clusters never disconnects the previous one.
-- **Cross-cluster split screen.** The Columns2 button in the cluster strip pins a
-  second open cluster beside the active one — two full workspaces with a
-  draggable divider. Useful for comparing two environments side by side.
+- **Cross-cluster split screen.** The Rows2 button in the cluster strip pins a
+  second open cluster below the active one — two full workspaces with a
+  draggable horizontal divider. Stacking keeps the full width, so the catalog
+  and table do not change size.
 - **VS Code-like editor area.** Resources open as tabs in a resizable area to the
   right of the table: 1–4 panes in a 2×2 grid, per-pane tab strips with
   drag-to-reorder, drag between panes, middle-click close, Close others / Close
@@ -146,7 +147,11 @@ src/renderer
 ### Clusters and catalog
 
 - Discovers contexts from `~/.kube/config` and the `KUBECONFIG` environment
-  variable; additional sources can be imported at any time.
+  variable; env-provided files are re-merged into the source list on every start.
+  Additional sources can be imported at any time.
+- Catalog customization: hide kinds or whole groups, pin the Custom Resources
+  (CRD) folder to the top, and drag kinds or CRD folders into another group
+  (e.g. Istio into Network).
 - **Import any kubeconfig file**, not just files named `.kubeconfig`: the picker
   offers *All files*, then the content is parsed and validated. Files with
   invalid YAML or no Kubernetes contexts are rejected, and each skipped file is
@@ -159,8 +164,9 @@ src/renderer
 - The catalog sort (open/status, name, recent, source) is remembered across
   restarts. The **Recent** view always lists the most recently opened clusters.
 - Cluster colours: pick a colour from the hotbar context menu, or define regex
-  rules in Settings → Cluster colors (`*prod*` → red, `*test*` → yellow).
-  Manual colours win; without a match the original seeded colour is kept.
+  rules in Settings → Cluster colors (`*prod*` → red, `*test*` → yellow). A
+  default `*dev*` → green rule is included. Manual colours win; without a match
+  the original seeded colour is kept.
 - Cluster tabs, concurrent sessions, and a connecting screen with a real
   three-step checklist (API → namespaces → discovery), percentage and Cancel.
 - Per-cluster **Overview**: nodes ready, pod/workload counts, warning events,
@@ -168,9 +174,9 @@ src/renderer
 
 ### Workspace, tabs and hotbar
 
-- **Cross-cluster split screen** (Columns2 next to the cluster tabs): open a
-  second cluster beside the active one, drag the divider (20–80%), close the
-  split from the chip. Closing either pane promotes the other.
+- **Cross-cluster split screen** (Rows2 next to the cluster tabs): open a
+  second cluster below the active one, drag the horizontal divider (20–80%),
+  close the split from the chip. Closing either pane promotes the other.
 - **Editor area** beside the table, starting under the full-width toolbar:
   - 1–4 panes in a 2×2 grid, resizable on the left edge (down to a 240px table).
   - Per-pane tab strips: drag to reorder, drop onto another pane to move,
@@ -202,10 +208,13 @@ src/renderer
 - Tables support live watches and polling with a freshness indicator, counts,
   debounced search with regex, sorting, per-column filters, namespace scope,
   pinned columns, drag-to-resize columns (double-click to reset), column
-  visibility/order, and keyboard navigation.
+  visibility/order, keyboard navigation, and optional borderless tables
+  (Settings → Data & tables).
 - Column widths and sorting are remembered **per kind tab**
   (`<apiVersion>|<kind>`), so each resource view keeps its own layout across
-  clusters and restarts. Legacy widths from earlier versions are still honoured.
+  clusters and restarts. On a kind's first open the **Name** column is capped at
+  half of the table; resizing stores its own width. Legacy widths from earlier
+  versions are still honoured.
 - Large inventories are paged: the footer shows `N of M loaded` and an accent
   **Load 2000 more (N left)** chip; the table renders only visible rows
   (virtualised). Search or a column filter auto-loads the remaining pages, so a
@@ -220,18 +229,23 @@ src/renderer
 - **Compare across clusters**: pin a resource from the row menu, then choose
   "Compare with selected" on a resource in another cluster; the pinned side
   survives cluster switches.
-- Row actions: details, edit YAML, logs, exec/attach (Pods), scale, restart,
+- Row actions: details, edit YAML, logs, exec/attach (Pods; **Exec** opens a
+  dialog to choose the container and command, e.g. `/bin/sh` or `/bin/bash`),
+  scale, restart,
   pause/resume rollout, suspend/resume and trigger (Jobs/CronJobs), set image,
   cordon/uncordon, drain and debug shell (Nodes), copy kubectl command, delete
   and force delete.
 - Custom resources are first-class: sidebar group per API group, printer
-  columns, and create/edit from YAML with server-side dry-run.
+  columns, and create/edit from YAML with server-side dry-run. The **Create from
+  YAML** dock applies a missing manifest or replaces an existing resource;
+  the header pencil opens YAML straight in edit mode.
 
 ### Resource details
 
 - Each editor pane shows Overview / Details / YAML / Events / Related /
   Logs (Pods only) / Metrics, with kind actions in a right-aligned row under the
-  resource name.
+  resource name. Pod Overview includes **Volume mounts** — per container
+  (init marked) mount path, volume, `subPath` and read-only flag.
 - **YAML** hides server-managed metadata by default (`uid`, `resourceVersion`,
   `generation`, `creationTimestamp`, `managedFields`, `selfLink`) behind an
   "Ignore server metadata" toggle; Apply still merges live metadata and the
@@ -251,7 +265,8 @@ src/renderer
 ### Terminal, logs and port forwarding
 
 - Logs are Pod-only, virtualised (up to 20,000 lines) with streaming, container
-  picker and follow mode.
+  picker and follow mode. `⌘F` / `Ctrl+F` opens **Find in logs** while the Logs
+  tab is active; Enter/Shift+Enter walk the matches.
 - xterm.js terminal with real pod exec over the exec WebSocket, TTY resize,
   search, copy/paste and per-theme ANSI palettes.
 - Port forwarding over the Kubernetes WebSocket protocol (no kubectl process),

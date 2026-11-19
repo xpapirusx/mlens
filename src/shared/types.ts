@@ -268,6 +268,8 @@ export interface ApplyYamlRequest {
   clusterId: ClusterId;
   yaml: string;
   dryRun?: boolean;
+  /** Create-only mode (the "Create from YAML" dock): reject existing names. */
+  createOnly?: boolean;
 }
 
 export interface ApplyYamlResult {
@@ -341,6 +343,8 @@ export interface AppSettings {
   clusterColors: Record<ClusterId, string>;
   /** First matching regex rule paints a cluster; no match → seeded colour. */
   clusterColorRules: ClusterColorRule[];
+  /** Show horizontal row separators and the header divider in resource tables. */
+  tableBorders: boolean;
   /**
    * Open the system browser at `http://127.0.0.1:<localPort>` as soon as a
    * port forward starts. Defaults to on; the dialog exposes the toggle.
@@ -386,6 +390,16 @@ export interface AppSettings {
   annotationPresets: Record<string, string>;
   /** Same idea for the bulk "Labels" action. */
   labelPresets: Record<string, string>;
+  /** Remembered across clusters: a newly opened cluster inherits this map. */
+  sidebarExpandedGroups: Record<string, boolean>;
+  /** Collapse the left catalog/sidebar to a slim rail (⌘B). */
+  sidebarCollapsed: boolean;
+  /** `group:<id>` / `kind:<apiVersion>|<kind>` entries hidden from the catalog. */
+  hiddenCatalogItems: string[];
+  /** Top-level catalog group ids pinned above the rest. */
+  pinnedCatalogGroups: string[];
+  /** `group:<childId>` or `kind:<apiVersion>|<kind>` → target top-level group id. */
+  catalogMoves: Record<string, string>;
   sidebarGroupOrder: string[];
   tableColumnWidths: Record<string, number>;
   tableColumnOrder: Record<string, string[]>;
