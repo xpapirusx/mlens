@@ -71,6 +71,17 @@ export function defaultSettings(): AppSettings {
   };
 }
 
+const MONO_FONT_FAMILIES = [
+  "DM Mono",
+  "Ubuntu Mono",
+  "JetBrains Mono",
+  "Fira Code",
+  "Source Code Pro",
+  "Menlo",
+  "Monaco",
+  "SFMono-Regular",
+];
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
@@ -132,14 +143,22 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   if (typeof out.fontScale === "number") {
     out.fontScale = clamp(Math.round(out.fontScale * 100) / 100, 0.5, 2);
   }
-  if (out.uiFontFamily && !["DM Sans", "Ubuntu", "System UI"].includes(out.uiFontFamily)) {
+  if (
+    out.uiFontFamily &&
+    !["DM Sans", "Ubuntu", "Tinos", "System UI", "DM Mono", "Ubuntu Mono", "JetBrains Mono", "Fira Code", "Source Code Pro"].includes(
+      out.uiFontFamily,
+    )
+  ) {
     delete out.uiFontFamily;
   }
   if (
     out.editorFontFamily &&
-    !["DM Mono", "Ubuntu Mono", "Menlo", "Monaco", "SFMono-Regular"].includes(out.editorFontFamily)
+    !MONO_FONT_FAMILIES.includes(out.editorFontFamily)
   ) {
     delete out.editorFontFamily;
+  }
+  if (out.terminalFontFamily && !MONO_FONT_FAMILIES.includes(out.terminalFontFamily)) {
+    delete out.terminalFontFamily;
   }
   if (typeof out.editorFontSize === "number") {
     out.editorFontSize = clamp(Math.round(out.editorFontSize), 8, 24);

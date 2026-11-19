@@ -161,10 +161,30 @@ marks. mLens does not include Radar's Go backend.
 
 ## Fonts
 
-- **DM Sans Variable** and **DM Mono** — Copyright Google, SIL Open Font License
-  1.1. Distributed via `@fontsource-variable/dm-sans` and `@fontsource/dm-mono`.
-  The OFL permits bundling and redistribution; the fonts are not sold separately.
-- **JetBrains Mono** is not bundled; mLens uses DM Mono for terminals.
+- **DM Sans Variable** and **DM Mono** — Copyright Google, SIL Open Font
+  License 1.1 (`licenses/OFL-1.1-DM-Sans.txt`,
+  `licenses/OFL-1.1-DM-Mono.txt`). Distributed via
+  `@fontsource-variable/dm-sans` and `@fontsource/dm-mono`. The OFL permits
+  bundling and redistribution; the fonts are not sold separately.
+- **JetBrains Mono**, **Fira Code** and **Source Code Pro** — SIL Open Font
+  License 1.1 (`licenses/OFL-1.1-JetBrains-Mono.txt`,
+  `licenses/OFL-1.1-Fira-Code.txt`,
+  `licenses/OFL-1.1-Source-Code-Pro.txt`). Bundled as unmodified WOFF2 subsets
+  (latin, latin-ext, cyrillic; weights 400/700) in
+  `src/renderer/design-system/fonts/`, generated from `@fontsource` 5.3.0
+  packages. Copyright: JetBrains Mono © 2020 The JetBrains Mono Project Authors;
+  Fira Code © 2014–2021 The Fira Code Project Authors; Source Code Pro
+  © 2010–2020 Adobe.
+- **Tinos** — SIL Open Font License 1.1 (`licenses/OFL-1.1-Tinos.txt`), bundled
+  as unmodified WOFF2 subsets (latin, latin-ext, cyrillic; 400/700).
+  Copyright © 2026 The Tinos Project Authors. Tinos is metrically compatible
+  with Times New Roman and is offered only as an open substitute — the
+  proprietary Times New Roman font is not bundled or redistributed.
+- **Ubuntu** and **Ubuntu Mono** — Ubuntu Font Licence 1.0
+  (`licenses/Ubuntu-Font-Licence-1.0.txt`), bundled WOFF2 subsets generated from
+  the Google Fonts CSS API. Copyright Canonical Ltd.
+- **Menlo**, **Monaco**, **SF Mono** and **Times New Roman** are only referenced
+  as system font-family names; no font files are bundled or redistributed.
 
 ---
 

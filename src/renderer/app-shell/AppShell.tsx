@@ -229,7 +229,10 @@ export function AppShell() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-theme-base text-theme-text-primary">
-      <TopBar onOpenPalette={() => setPaletteOpen(true)} />
+      <TopBar
+        onOpenPalette={() => setPaletteOpen(true)}
+        onOpenPortForwards={() => setForwardsOpen(true)}
+      />
       <ClusterTabs />
       <div className="flex min-h-0 flex-1">
         <Hotbar activeClusterId={activeClusterId} />

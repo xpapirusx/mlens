@@ -1,6 +1,6 @@
 # mLens
 
-**mLens is an independent desktop Kubernetes IDE.** One Electron app written
+**mLens is a OpenSource desktop Kubernetes IDE.** One Electron app written
 entirely in TypeScript and React — no Go backend, no separate server, no Docker,
 and no Node.js, kubectl or Helm installation required by end users.
 
@@ -205,7 +205,7 @@ src/renderer
   (virtualised). Search or a column filter auto-loads the remaining pages, so a
   name beyond the first page is still found. Sidebar counts are lazy.
 - Kubernetes-aware cells: Pod container squares, Node CPU/Memory bars against
-  allocatable, node pod counts, Redis-style condition/taint tooltips, live
+  allocatable, node pod counts, Radar-style condition/taint tooltips, live
   Service endpoints, ConfigMap size, Secret type/TLS expiry, Role subjects,
   CRD kind/status, warning-event counts, and exact age tooltips everywhere.
 - Multi-select with bulk actions: delete, saved labels/annotations (selection is
@@ -259,8 +259,10 @@ src/renderer
   Dark Islands, GitHub, Night Owl, Material, One Dark Pro, One Dark, Catppuccin
   (Mocha), Jellybeans, Adwaita — each with its own editor theme and terminal
   palette.
-- UI font (DM Sans / Ubuntu / System UI), font scale, terminal font and size,
-  editor font/size/minimap/tab size, local or UTC time, table row height
+- UI font: any bundled family — DM Sans, Ubuntu, Tinos, DM Mono, Ubuntu Mono,
+  JetBrains Mono, Fira Code, Source Code Pro — or System UI; font scale,
+  terminal and editor font/size (bundled families plus installed Menlo, Monaco,
+  SF Mono), editor minimap/tab size, local or UTC time, table row height
   (24–52px), syntax-highlighted YAML editor and configurable refresh interval.
 
 ---

@@ -380,11 +380,17 @@ Important:
   One Dark, Catppuccin (Mocha), Jellybeans, Adwaita — `html.theme-*` blocks in
   `styles/themes.css`, each with its own `mlens-*` Monaco theme and terminal ANSI
   palette. All are dark themes.
-- Fonts: UI family is `settings.uiFontFamily` (DM Sans, Ubuntu, System UI) and is
+- Fonts: UI family is `settings.uiFontFamily` and accepts **any bundled family**
+  (DM Sans, Ubuntu, Tinos, DM Mono, Ubuntu Mono, JetBrains Mono, Fira Code,
+  Source Code Pro) plus System UI; it is
   applied as an inline `--font-sans` override in `AppShell`; Ubuntu + Ubuntu Mono
   are bundled WOFF2 subsets under `design-system/fonts/` (`fonts.css`). Terminal
-  families are listed in `lib/fonts.ts` (`TERMINAL_FONTS`). Any new theme must add
-  a CSS block, a Monaco theme and a terminal palette.
+  and editor families are listed in `lib/fonts.ts` (`TERMINAL_FONTS`): DM Mono,
+  Ubuntu Mono, **JetBrains Mono**, **Fira Code**, **Source Code Pro**, then
+  installed Menlo/Monaco/SF Mono. The three OFL fonts are bundled WOFF2 subsets
+  (latin / latin-ext / cyrillic, 400+700) and must be validated in
+  `settings/store.ts` (`MONO_FONT_FAMILIES`). Any new theme must add a CSS block,
+  a Monaco theme and a terminal palette.
 - Theme classes are applied by `AppShell` from `settings.colorTheme`; **every
   theme except Radar forces dark mode**. Do not add theme-specific one-off
   component styles; extend tokens.

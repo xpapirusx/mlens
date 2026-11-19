@@ -1,4 +1,4 @@
-import { Command, Minus, Moon, Settings, Square, Sun, X } from "lucide-react";
+import { Command, Minus, Moon, Plug, Settings, Square, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { cn } from "../lib/cn";
@@ -7,7 +7,13 @@ import { api } from "../lib/api";
 
 const isMac = window.mlens.platform === "darwin";
 
-export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
+export function TopBar({
+  onOpenPalette,
+  onOpenPortForwards,
+}: {
+  onOpenPalette: () => void;
+  onOpenPortForwards: () => void;
+}) {
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const openSettings = useCatalogStore((state) => state.openSettings);
@@ -55,19 +61,17 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
       </div>
 
       <div className="app-no-drag flex shrink-0 items-center gap-0.5">
-        {/* {activeClusterId ? (
-          <Tooltip content="Port forwards">
-            <button
-              type="button"
-              className="shell-icon-button"
-              onClick={onOpenPortForwards}
-              title="Port forwards"
-              aria-label="Port forwards"
-            >
-              <Plug className="h-4 w-4" />
-            </button>
-          </Tooltip>
-        ) : null} */}
+        <Tooltip content="Port forwards">
+          <button
+            type="button"
+            className="shell-icon-button"
+            onClick={onOpenPortForwards}
+            title="Port forwards"
+            aria-label="Port forwards"
+          >
+            <Plug className="h-4 w-4" />
+          </button>
+        </Tooltip>
         <Tooltip content={settings?.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
           <button type="button" className="shell-icon-button" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {settings?.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
