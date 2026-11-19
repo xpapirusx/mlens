@@ -158,6 +158,9 @@ src/renderer
   removal (kubeconfig files are never modified); removed clusters can be restored.
 - The catalog sort (open/status, name, recent, source) is remembered across
   restarts. The **Recent** view always lists the most recently opened clusters.
+- Cluster colours: pick a colour from the hotbar context menu, or define regex
+  rules in Settings → Cluster colors (`*prod*` → red, `*test*` → yellow).
+  Manual colours win; without a match the original seeded colour is kept.
 - Cluster tabs, concurrent sessions, and a connecting screen with a real
   three-step checklist (API → namespaces → discovery), percentage and Cancel.
 - Per-cluster **Overview**: nodes ready, pod/workload counts, warning events,
@@ -184,7 +187,10 @@ src/renderer
   repositioning, seeded solid colours and three-letter short names. A favourite
   added from the catalog lands on the **active page**.
 - Command palette (`⌘K`/`Ctrl+K`) for clusters, resources and actions, `g`-prefix
-  letter navigation, and a `?` shortcut overlay.
+  letter navigation, and a `?` shortcut overlay (also a keyboard button in the
+  top bar and a palette action).
+- Keyboard: `⌘N` opens a new cluster tab (catalog), `⌘⇧]` / `⌘⇧[` switch cluster
+  tabs, `Ctrl+Tab` / `Ctrl+Shift+Tab` switch editor tabs, `⌘F` focuses search.
 - Bottom terminal dock: local shells and pod exec/attach, plus the multi-document
   YAML editor.
 

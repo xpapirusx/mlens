@@ -34,6 +34,8 @@ export function defaultSettings(): AppSettings {
     favorites: [],
     recentClusters: [],
     catalogSort: "status",
+    clusterColors: {},
+    clusterColorRules: [],
     portForwardOpenBrowser: true,
     refreshIntervalSeconds: 60,
     terminalFontSize: 13,
@@ -121,6 +123,31 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (out.catalogSort && !["status", "name", "recent", "source"].includes(out.catalogSort)) {
     delete out.catalogSort;
+  }
+  if (out.clusterColors) {
+    out.clusterColors = Object.fromEntries(
+      Object.entries(out.clusterColors).filter(
+        ([id, color]) =>
+          typeof id === "string" &&
+          id.length > 0 &&
+          typeof color === "string" &&
+          /^#[0-9a-f]{6}$/i.test(color),
+      ),
+    ) as Record<ClusterId, string>;
+  }
+  if (out.clusterColorRules) {
+    out.clusterColorRules = out.clusterColorRules
+      .filter(
+        (rule) =>
+          rule &&
+          typeof rule.pattern === "string" &&
+          rule.pattern.trim().length > 0 &&
+          rule.pattern.length <= 200 &&
+          typeof rule.color === "string" &&
+          /^#[0-9a-f]{6}$/i.test(rule.color),
+      )
+      .slice(0, 100)
+      .map((rule) => ({ pattern: rule.pattern, color: rule.color }));
   }
   if (typeof out.portForwardOpenBrowser !== "boolean") delete out.portForwardOpenBrowser;
   if (typeof out.refreshIntervalSeconds === "number") {

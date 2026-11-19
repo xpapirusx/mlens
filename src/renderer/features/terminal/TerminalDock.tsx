@@ -184,7 +184,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
           <button
             type="button"
             className="shell-icon-button h-6 w-6"
-            title="New local terminal"
+            title="New local terminal (⌘T)"
             aria-label="New local terminal"
             onClick={() => openTerminal(clusterId, { type: "local" })}
           >

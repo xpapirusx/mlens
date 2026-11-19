@@ -346,6 +346,11 @@ Important:
   colours, status LED, drag/context-menu repositioning; never gradient avatars.
   The tile tooltip repeats the status as a dot plus Connected / Connecting… /
   Connection error / Not connected.
+  Tiles are painted by `resolveClusterColor`: a manual colour from the hotbar
+  context menu (`settings.clusterColors`) wins, then the first matching regex
+  rule (`settings.clusterColorRules`, tested against name + context), then the
+  seeded FNV colour. A bare `*prod*` pattern is treated as a wildcard when it is
+  not a valid regex.
   Pages are Freelens-style: `‹ N ›` arrows plus a badge menu (switch / new /
   remove page, max 12), overflow favourites flow into later pages, and the tile
   list scrolls with a hover-only scrollbar. A favourite added from the catalog

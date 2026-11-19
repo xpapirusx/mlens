@@ -11,6 +11,11 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
     title: "Navigation",
     rows: [
       { keys: ["⌘", "K"], label: "Command palette / global resource search" },
+      { keys: ["⌘", "N"], label: "New cluster tab (open catalog)" },
+      { keys: ["⌘", "⇧", "]"], label: "Next cluster tab" },
+      { keys: ["⌘", "⇧", "["], label: "Previous cluster tab" },
+      { keys: ["Ctrl", "Tab"], label: "Next editor tab" },
+      { keys: ["Ctrl", "⇧", "Tab"], label: "Previous editor tab" },
       { keys: ["G", "P"], label: "Go to Pods" },
       { keys: ["G", "D"], label: "Go to Deployments" },
       { keys: ["G", "S"], label: "Go to Services" },
@@ -19,6 +24,7 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
       { keys: ["G", "N"], label: "Go to Nodes" },
       { keys: ["G", "O"], label: "Go to cluster Overview" },
       { keys: ["/"], label: "Focus the table search" },
+      { keys: ["⌘", "F"], label: "Focus search (catalog or table)" },
       { keys: ["?"], label: "This shortcut overlay" },
     ],
   },
@@ -28,7 +34,7 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
       { keys: ["↑", "↓"], label: "Move the row highlight" },
       { keys: ["↵"], label: "Open the highlighted resource" },
       { keys: ["Esc"], label: "Close active tab / menu" },
-      { keys: ["⌘", "W"], label: "Close the details drawer" },
+      { keys: ["⌘", "W"], label: "Close active tab, else the cluster tab" },
     ],
   },
   {

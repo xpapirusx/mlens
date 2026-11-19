@@ -6,7 +6,7 @@ import {
   useSessionStore,
   useChromeSessions,
 } from "../stores/session-store";
-import { disconnectCluster } from "../lib/cluster-actions";
+import { closeClusterTab } from "../lib/cluster-actions";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { cn } from "../lib/cn";
 
@@ -46,20 +46,7 @@ export function ClusterTabs() {
   };
 
   const closeTab = async (id: string) => {
-    const next = ids.find((entry) => entry !== id);
-    const wasSecondary = secondaryId === id;
-    const wasActive = activeClusterId === id;
-    await disconnectCluster(id);
-    if (wasSecondary) setSplitCluster(null);
-    if (wasActive) {
-      if (secondaryId && !wasSecondary) {
-        // Closing the left pane promotes the right one instead of losing it.
-        setActiveCluster(secondaryId);
-        setSplitCluster(null);
-      } else {
-        setActiveCluster(next ?? null);
-      }
-    }
+    await closeClusterTab(id);
   };
 
   return (
@@ -146,7 +133,7 @@ export function ClusterTabs() {
                 "shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500",
                 active ? "opacity-70" : "opacity-0 group-hover/tab:opacity-70",
               )}
-              title="Disconnect and close cluster tab"
+              title="Disconnect and close cluster tab (⌘W)"
               onClick={() => void closeTab(id)}
             >
               <X className="h-2.5 w-2.5" />
@@ -157,7 +144,7 @@ export function ClusterTabs() {
       <button
         type="button"
         className="shell-icon-button h-6 w-6 shrink-0"
-        title="Open another cluster from the catalog"
+        title="New cluster tab (⌘N)"
         onClick={() => setActiveCluster(null)}
       >
         <Plus className="h-3.5 w-3.5" />

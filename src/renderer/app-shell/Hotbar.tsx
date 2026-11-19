@@ -21,7 +21,7 @@ import { ContextMenu } from "../design-system/components/ContextMenu";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../design-system/components/Menu";
 import { disconnectCluster, openCluster } from "../lib/cluster-actions";
 import { clusterShortName } from "../lib/short-name";
-import { clusterColor } from "../lib/cluster-color";
+import { CLUSTER_COLOR_PALETTE, resolveClusterColor } from "../lib/cluster-color";
 import type { ClusterSummary } from "@shared/types";
 
 const SLOT_COUNT = 10;
@@ -412,7 +412,15 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                       dragging === cluster.id && "opacity-40",
                       pressed === cluster.id && "hotbar-press",
                     )}
-                    style={{ background: clusterColor(cluster.name) }}
+                    style={{
+                      background: resolveClusterColor(
+                        cluster.id,
+                        cluster.name,
+                        settings?.clusterColors,
+                        settings?.clusterColorRules,
+                        cluster.context,
+                      ),
+                    }}
                     aria-label={cluster.name}
                   >
                     {clusterShortName(cluster.name)}
@@ -578,6 +586,41 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
                 }}
               >
                 Move down
+              </MenuItem>
+              <MenuSeparator />
+              <MenuLabel>Color</MenuLabel>
+              <div className="flex flex-wrap gap-1 px-1.5 pb-1">
+                {CLUSTER_COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    title={color}
+                    aria-label={`Set color ${color}`}
+                    onClick={() => {
+                      void updateSettings({
+                        clusterColors: { ...(settings?.clusterColors ?? {}), [menu.id]: color },
+                      });
+                      setMenu(null);
+                    }}
+                    className={cn(
+                      "h-5 w-5 rounded-full border border-black/20 transition-transform hover:scale-110",
+                      settings?.clusterColors?.[menu.id] === color &&
+                        "ring-2 ring-skyhook-400 ring-offset-1 ring-offset-theme-surface",
+                    )}
+                    style={{ background: color }}
+                  />
+                ))}
+              </div>
+              <MenuItem
+                disabled={!settings?.clusterColors?.[menu.id]}
+                onClick={() => {
+                  const next = { ...(settings?.clusterColors ?? {}) };
+                  delete next[menu.id];
+                  void updateSettings({ clusterColors: next });
+                  setMenu(null);
+                }}
+              >
+                Use automatic color
               </MenuItem>
               <MenuSeparator />
               <MenuItem

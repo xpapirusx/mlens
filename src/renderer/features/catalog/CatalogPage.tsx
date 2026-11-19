@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
   Blocks,
@@ -23,7 +23,7 @@ import { cn } from "../../lib/cn";
 import { formatRelativeTime, basename } from "../../lib/format";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
 import { clusterShortName } from "../../lib/short-name";
-import { clusterColor } from "../../lib/cluster-color";
+import { resolveClusterColor } from "../../lib/cluster-color";
 import { Button } from "../../design-system/components/Button";
 import { SearchInput } from "../../design-system/components/SearchInput";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
@@ -35,6 +35,8 @@ import { toast } from "../../design-system/components/Toast";
 import { api, call, errorText } from "../../lib/api";
 
 type CatalogView = "all" | "favorites" | "recent" | "removed" | { source: string };
+
+const isMac = window.mlens.platform === "darwin";
 
 export function CatalogPage() {
   const clusters = useCatalogStore((state) => state.clusters);
@@ -63,6 +65,23 @@ export function CatalogPage() {
   const [confirmRemove, setConfirmRemove] = useState(false);
   // Persisted in settings so the catalog reopens with the same order.
   const sortBy = settings?.catalogSort ?? "status";
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // ⌘F / Ctrl+F focuses the catalog search (the cluster search is the page's
+  // primary filter; there is no browser find inside the app).
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod || event.key.toLowerCase() !== "f") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.tagName === "TEXTAREA" || target?.isContentEditable) return;
+      event.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const favorites = settings?.favorites ?? [];
 
@@ -369,7 +388,13 @@ export function CatalogPage() {
               )}
             </Menu>
             <div className="w-64">
-              <SearchInput value={search} onChange={setSearch} placeholder="Search clusters…" shortcut="" />
+              <SearchInput
+                ref={searchRef}
+                value={search}
+                onChange={setSearch}
+                placeholder="Search clusters…"
+                shortcut={isMac ? "⌘F" : "Ctrl F"}
+              />
             </div>
             <button
               type="button"
@@ -515,7 +540,15 @@ export function CatalogPage() {
                       />
                       <div
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[calc(10px*var(--font-scale))] font-semibold text-white"
-                        style={{ background: clusterColor(cluster.name) }}
+                        style={{
+                          background: resolveClusterColor(
+                            cluster.id,
+                            cluster.name,
+                            settings?.clusterColors,
+                            settings?.clusterColorRules,
+                            cluster.context,
+                          ),
+                        }}
                       >
                         {clusterShortName(cluster.name)}
                       </div>

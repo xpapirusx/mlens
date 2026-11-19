@@ -142,7 +142,7 @@ export function EditorTabs({ clusterId, pane }: { clusterId: string; pane: Edito
                 "shrink-0 rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary",
                 isActive ? "opacity-70" : "opacity-0 group-hover/tab:opacity-70",
               )}
-              title="Close tab"
+              title="Close tab (⌘W)"
               onClick={() => closePaneTab(clusterId, pane.id, tab)}
             >
               <X className="h-2.5 w-2.5" />

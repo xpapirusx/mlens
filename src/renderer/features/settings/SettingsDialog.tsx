@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   Blocks,
   FileCode,
   Moon,
+  Palette,
   PanelBottom,
   PanelLeft,
   Plug,
@@ -15,6 +16,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import type { ClusterColorRule } from "@shared/types";
 import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
 import { useCatalogStore } from "../../stores/catalog-store";
@@ -22,6 +24,7 @@ import { useChromeSessions, useSessionStore } from "../../stores/session-store";
 import { useAppInfo } from "../../lib/use-app-info";
 import { basename } from "../../lib/format";
 import { TERMINAL_FONTS, UI_FONTS } from "../../lib/fonts";
+import { CLUSTER_COLOR_PALETTE } from "../../lib/cluster-color";
 import { cn } from "../../lib/cn";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
 
@@ -37,10 +40,27 @@ export function SettingsDialog() {
   const clusters = useCatalogStore((state) => state.clusters);
   const sessions = useChromeSessions();
   const info = useAppInfo();
+  // Rules are edited as a local draft: an empty row must survive until the
+  // user types a pattern (main sanitisation drops empty patterns).
+  const [colorRules, setColorRules] = useState<ClusterColorRule[]>(
+    settings?.clusterColorRules ?? [],
+  );
+
+  useEffect(() => {
+    if (settings) setColorRules(settings.clusterColorRules);
+  }, [settings?.clusterColorRules]);
 
   useEffect(() => {
     if (open) void loadCatalog();
   }, [open, loadCatalog]);
+
+  const persistColorRules = (rules: ClusterColorRule[]) => {
+    void updateSettings({
+      clusterColorRules: rules
+        .map((rule) => ({ pattern: rule.pattern.trim(), color: rule.color }))
+        .filter((rule) => rule.pattern.length > 0),
+    });
+  };
 
   if (!settings) return null;
 
@@ -415,6 +435,92 @@ export function SettingsDialog() {
               <RefreshCw className="h-3.5 w-3.5" />
               Rescan
             </Button>
+          </div>
+        </Section>
+
+        <Section title="Cluster colors" icon={<Palette />}>
+          <p className="text-[calc(11px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">
+            Rules are checked top to bottom against the cluster name and context.
+            Patterns are regular expressions; a bare <span className="font-mono">*prod*</span>{" "}
+            also works as a wildcard. A colour picked in the hotbar context menu
+            overrides every rule; without a match the seeded colour is kept.
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {colorRules.map((rule, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  value={rule.pattern}
+                  placeholder="e.g. *prod* or ^msk-"
+                  spellCheck={false}
+                  onChange={(event) => {
+                    const next = colorRules.map((entry, position) =>
+                      position === index ? { ...entry, pattern: event.target.value } : entry,
+                    );
+                    setColorRules(next);
+                  }}
+                  onBlur={() => persistColorRules(colorRules)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                  }}
+                  className="h-7 min-w-0 flex-1 rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary placeholder:text-theme-text-disabled focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
+                />
+                <input
+                  type="color"
+                  value={rule.color}
+                  title="Rule colour"
+                  onChange={(event) => {
+                    const next = colorRules.map((entry, position) =>
+                      position === index ? { ...entry, color: event.target.value } : entry,
+                    );
+                    setColorRules(next);
+                    persistColorRules(next);
+                  }}
+                  className="h-7 w-9 shrink-0 cursor-pointer rounded border border-theme-border bg-theme-elevated p-0.5"
+                />
+                <button
+                  type="button"
+                  className="shrink-0 rounded p-1 text-theme-text-tertiary hover:bg-theme-hover hover:text-red-500"
+                  title="Remove rule"
+                  onClick={() => {
+                    const next = colorRules.filter((_, position) => position !== index);
+                    setColorRules(next);
+                    persistColorRules(next);
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+            {colorRules.length === 0 ? (
+              <div className="text-[calc(11px*var(--font-scale))] text-theme-text-disabled">
+                No rules yet.
+              </div>
+            ) : null}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() =>
+                setColorRules((current) => [
+                  ...current,
+                  { pattern: "", color: CLUSTER_COLOR_PALETTE[0] },
+                ])
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add rule
+            </Button>
+            {Object.keys(settings.clusterColors).length > 0 ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => void updateSettings({ clusterColors: {} })}
+                title="Clear colours assigned from the hotbar context menu"
+              >
+                Reset manual colors ({Object.keys(settings.clusterColors).length})
+              </Button>
+            ) : null}
           </div>
         </Section>
 

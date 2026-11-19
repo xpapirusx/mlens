@@ -1,4 +1,4 @@
-import { Command, Minus, Moon, Plug, Settings, Square, Sun, X } from "lucide-react";
+import { Command, Keyboard, Minus, Moon, Plug, Settings, Square, Sun, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { cn } from "../lib/cn";
@@ -10,9 +10,11 @@ const isMac = window.mlens.platform === "darwin";
 export function TopBar({
   onOpenPalette,
   onOpenPortForwards,
+  onOpenShortcuts,
 }: {
   onOpenPalette: () => void;
   onOpenPortForwards: () => void;
+  onOpenShortcuts: () => void;
 }) {
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
@@ -72,12 +74,23 @@ export function TopBar({
             <Plug className="h-4 w-4" />
           </button>
         </Tooltip>
+        <Tooltip content="Keyboard shortcuts (?)">
+          <button
+            type="button"
+            className="shell-icon-button"
+            onClick={onOpenShortcuts}
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+          >
+            <Keyboard className="h-4 w-4" />
+          </button>
+        </Tooltip>
         <Tooltip content={settings?.theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}>
           <button type="button" className="shell-icon-button" onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
             {settings?.theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
         </Tooltip>
-        <Tooltip content="Settings">
+        <Tooltip content={`Settings (${isMac ? "⌘," : "Ctrl+,"})`}>
           <button type="button" className="shell-icon-button" onClick={() => openSettings(true)} title="Settings" aria-label="Settings">
             <Settings className="h-4 w-4" />
           </button>

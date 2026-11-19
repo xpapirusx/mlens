@@ -186,7 +186,7 @@ export async function kubeRequest<T>(kc: KubeConfig, apiPath: string, options: K
         error instanceof KubeApiError
           ? error
           : new KubeApiError(
-              `Cannot reach the Kubernetes API: ${error.message}. Check the server address, VPN and certificates.`,
+              `Cannot reach the Kubernetes API: ${error.message}. Check the server address, Network and certificates.`,
             ),
       );
     });

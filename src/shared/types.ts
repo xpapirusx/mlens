@@ -322,6 +322,13 @@ export interface ClusterHealth {
 /** Catalog cluster list ordering; remembered across sessions. */
 export type CatalogSort = "status" | "name" | "recent" | "source";
 
+/** Regex → colour rule for cluster avatars/tiles (checked top to bottom). */
+export interface ClusterColorRule {
+  pattern: string;
+  /** `#rrggbb`. */
+  color: string;
+}
+
 export interface AppSettings {
   theme: ThemeMode;
   colorTheme: ColorTheme;
@@ -330,6 +337,10 @@ export interface AppSettings {
   recentClusters: Array<{ id: ClusterId; openedAt: number }>;
   /** Last sort chosen in the cluster catalog. */
   catalogSort: CatalogSort;
+  /** Manual colour per cluster (hotbar context menu); wins over regex rules. */
+  clusterColors: Record<ClusterId, string>;
+  /** First matching regex rule paints a cluster; no match → seeded colour. */
+  clusterColorRules: ClusterColorRule[];
   /**
    * Open the system browser at `http://127.0.0.1:<localPort>` as soon as a
    * port forward starts. Defaults to on; the dialog exposes the toggle.

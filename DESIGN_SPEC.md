@@ -157,6 +157,13 @@ editors are `no-drag`, so selection, scrolling and editing keep working.
   Freelens three-letter short name (`msk-avg-dev…` → `MAD`), a status LED at the
   top-left with a glow when connected, a press animation on click (empty slots
   shake), hover/active ring shadows, and a tooltip with context/server/state.
+- Tile colours are configurable: the context menu offers a palette and
+  "Use automatic color" (manual colours live in `settings.clusterColors` and are
+  remembered per cluster). Settings → **Cluster colors** holds top-to-bottom
+  regex rules (`settings.clusterColorRules`, tested against the cluster name and
+  context); the first match wins, otherwise the seeded colour is used. A bare
+  `*prod*` pattern works as a wildcard. The catalog avatar uses the same
+  resolution.
 - Bottom: import kubeconfig, settings.
 
 ### 2.3a Cluster tabs and editor tabs
@@ -309,26 +316,38 @@ contains a single kind.
   Cordon/Uncordon, Drain and Debug shell (Nodes). Reload (clockwise arrow) refetches data;
   Restart uses the counter-clockwise arrow.
 - Tabs: **Overview, Details, YAML, Events, Related, Logs (Pods only), Metrics**. Related is shown for every kind and lists owners, selectors, services, mounted config, node pods and bound volumes when they exist; the list uses Freelens-style rows (kind, name, namespace, relation, status).
-- `Escape`, `⌘W`/`Ctrl+W` close the active tab.
+- `Escape`, `⌘W`/`Ctrl+W` close the active editor tab; with no open tab, `⌘W`
+  closes the active cluster tab (never the application window).
 - Opening another row replaces the content of the focused pane and pushes the
   previous resource onto that pane's 25-entry back stack. Related-resource
   navigation stays inside the same pane.
 
 ### 2.8 Keyboard
 
+The `?` overlay lists every shortcut; the same sheet opens from the keyboard
+button in the top bar and from the command palette ("Keyboard shortcuts").
+Tooltips on shortcut-bearing controls include the key combo (new cluster tab,
+settings, new terminal, close tab).
+
 | Shortcut | Action |
 |---|---|
 | `⌘K` / `Ctrl+K` | Command palette |
+| `⌘N` / `Ctrl+N` | New cluster tab (opens the catalog to pick a cluster) |
+| `⌘⇧]` / `Ctrl+Shift+]` | Next cluster tab |
+| `⌘⇧[` / `Ctrl+Shift+[` | Previous cluster tab |
+| `Ctrl+Tab` | Next editor tab in the focused pane |
+| `Ctrl+Shift+Tab` | Previous editor tab in the focused pane |
 | `⌘,` / `Ctrl+,` | Settings |
 | `⌘T` / `Ctrl+T` | New local terminal in the current context |
 | `⌘⇧T` / `Ctrl+Shift+T` | New terminal in a chosen cluster/namespace context |
-| `⌘W` / `Ctrl+W` | Close the active editor tab (when open) |
+| `⌘W` / `Ctrl+W` | Close the active editor tab, else the active cluster tab |
+| `⌘F` / `Ctrl+F` | Focus search: catalog or table (terminal search inside a terminal) |
 | `Escape` | Close the active editor tab |
 | `/` | Focus table search (when not typing) |
 | `↑` / `↓` / `Enter` | Move row highlight / open resource |
 | `⌘C` / `Ctrl+C` | Copy terminal selection (otherwise sends ^C) |
 | `⌘V` / `Ctrl+V` | Paste into terminal |
-| `⌘F` / `Ctrl+F` | Terminal search |
+| `⌘F` / `Ctrl+F` | Terminal search (when the terminal is focused) |
 
 ---
 

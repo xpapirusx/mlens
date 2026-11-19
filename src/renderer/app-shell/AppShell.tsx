@@ -12,7 +12,8 @@ import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { PortForwardsPanel } from "../features/port-forward/PortForwardDialog";
 import { ToastViewport } from "../design-system/components/Toast";
 import { useCatalogStore } from "../stores/catalog-store";
-import { hasEditorTab, useSessionStore, useChromeSessions } from "../stores/session-store";
+import { hasEditorTab, useSessionStore, useChromeSessions, activePaneOf, sameRef } from "../stores/session-store";
+import { closeClusterTab } from "../lib/cluster-actions";
 import { Spinner } from "../design-system/components/Spinner";
 import { cn } from "../lib/cn";
 import { uiFontStack } from "../lib/fonts";
@@ -29,6 +30,7 @@ export function AppShell() {
   const splitClusterId = useCatalogStore((state) => state.splitClusterId);
   const splitRatio = useCatalogStore((state) => state.splitRatio);
   const setSplitRatio = useCatalogStore((state) => state.setSplitRatio);
+  const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const hasTab = useSessionStore((state) =>
     activeClusterId ? hasEditorTab(state.sessions[activeClusterId]) : false,
   );
@@ -151,6 +153,39 @@ export function AppShell() {
         openSettings(true);
         return;
       }
+      if (mod && !event.shiftKey && event.key.toLowerCase() === "n") {
+        // VS Code-style "new tab": open the catalog to pick another cluster
+        // (the current cluster stays open in its tab).
+        event.preventDefault();
+        setActiveCluster(null);
+        return;
+      }
+      // Cluster tabs: ⌘⇧] / ⌘⇧[ (and Ctrl+Shift+]) like a browser. `event.key`
+      // is `}` when Shift is held, so match the physical bracket keys.
+      if (mod && event.shiftKey && (event.code === "BracketRight" || event.code === "BracketLeft")) {
+        const ids = Object.keys(useSessionStore.getState().sessions);
+        if (ids.length > 1) {
+          event.preventDefault();
+          const at = activeClusterId ? ids.indexOf(activeClusterId) : -1;
+          const delta = event.code === "BracketRight" ? 1 : -1;
+          const next = ids[(at + delta + ids.length) % ids.length];
+          if (next) setActiveCluster(next);
+        }
+        return;
+      }
+      // Ctrl+Tab / Ctrl+Shift+Tab cycles the focused editor pane's tabs.
+      if (event.ctrlKey && !event.metaKey && event.key === "Tab" && activeClusterId) {
+        event.preventDefault();
+        const session = useSessionStore.getState().sessions[activeClusterId];
+        const pane = activePaneOf(session);
+        if (pane && pane.tabs.length > 1 && pane.active) {
+          const at = pane.tabs.findIndex((tab) => sameRef(tab, pane.active!));
+          const delta = event.shiftKey ? -1 : 1;
+          const next = pane.tabs[(at + delta + pane.tabs.length) % pane.tabs.length];
+          if (next) useSessionStore.getState().activateResource(activeClusterId, next);
+        }
+        return;
+      }
       if (mod && !event.shiftKey && event.key.toLowerCase() === "t" && activeClusterId) {
         event.preventDefault();
         openTerminal(activeClusterId, { type: "local" });
@@ -196,9 +231,15 @@ export function AppShell() {
       if (event.key === "Escape" && activeClusterId && hasTab) {
         closeDetails(activeClusterId);
       }
-      if (mod && event.key.toLowerCase() === "w" && activeClusterId && hasTab) {
+      if (mod && event.key.toLowerCase() === "w") {
+        // ⌘W closes the active editor tab, then the active cluster tab — it
+        // must never close the whole window. A focused terminal keeps its own
+        // Ctrl+W (readline "delete word") on Windows/Linux.
+        if (target?.closest?.(".xterm")) return;
         event.preventDefault();
-        closeDetails(activeClusterId);
+        if (activeClusterId && hasTab) closeDetails(activeClusterId);
+        else if (activeClusterId) void closeClusterTab(activeClusterId);
+        return;
       }
     };
     window.addEventListener("keydown", onKey);
@@ -213,6 +254,7 @@ export function AppShell() {
     activeResources,
     paletteOpen,
     shortcutsOpen,
+    setActiveCluster,
   ]);
 
   if (!settings) {
@@ -232,6 +274,7 @@ export function AppShell() {
       <TopBar
         onOpenPalette={() => setPaletteOpen(true)}
         onOpenPortForwards={() => setForwardsOpen(true)}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <ClusterTabs />
       <div className="flex min-h-0 flex-1">
@@ -306,6 +349,7 @@ export function AppShell() {
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         activeClusterId={activeClusterId}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
       />
       <ToastViewport />
     </div>

@@ -448,9 +448,17 @@ export function ResourceBrowser({
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const typing = target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
-      if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey) {
+      const mod = event.metaKey || event.ctrlKey;
+      // ⌘F focuses the table search too, except while Monaco's own find has
+      // focus (the YAML editor handles it).
+      const inMonaco = Boolean(target?.closest?.(".monaco-editor"));
+      const inTerminal = Boolean(target?.closest?.(".xterm"));
+      const find =
+        mod && !event.shiftKey && event.key.toLowerCase() === "f" && !inMonaco && !inTerminal;
+      if ((event.key === "/" && !typing && !mod) || find) {
         event.preventDefault();
         searchRef.current?.focus();
+        searchRef.current?.select();
       }
     };
     window.addEventListener("keydown", onKey);

@@ -4,6 +4,7 @@ import {
   Blocks,
   Command,
   Download,
+  Keyboard,
   Loader2,
   Moon,
   Search,
@@ -38,10 +39,12 @@ export function CommandPalette({
   open,
   onClose,
   activeClusterId,
+  onOpenShortcuts,
 }: {
   open: boolean;
   onClose: () => void;
   activeClusterId: string | null;
+  onOpenShortcuts: () => void;
 }) {
   const clusters = useCatalogStore((state) => state.clusters);
   const settings = useCatalogStore((state) => state.settings);
@@ -129,8 +132,17 @@ export function CommandPalette({
         id: "catalog",
         label: "Open cluster catalog",
         group: "Navigation",
+        hint: "⌘N",
         icon: <Blocks className="h-3.5 w-3.5" />,
         run: () => setActiveCluster(null),
+      },
+      {
+        id: "shortcuts",
+        label: "Keyboard shortcuts",
+        group: "Navigation",
+        hint: "?",
+        icon: <Keyboard className="h-3.5 w-3.5" />,
+        run: () => onOpenShortcuts(),
       },
       {
         id: "settings",
@@ -179,6 +191,7 @@ export function CommandPalette({
     loadCatalog,
     settings,
     updateSettings,
+    onOpenShortcuts,
   ]);
 
   const filtered = useMemo(() => {

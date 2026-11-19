@@ -40,3 +40,29 @@ export async function disconnectCluster(clusterId: string): Promise<void> {
   sessions.dispose(clusterId);
   toast.info("Cluster disconnected");
 }
+
+/**
+ * Closes a cluster tab (⌘W / the tab's X): disconnects the cluster and keeps
+ * the survivor active. When the active side of a split is closed, the other
+ * cluster is promoted instead of everything disappearing.
+ */
+export async function closeClusterTab(clusterId: string): Promise<void> {
+  const catalog = useCatalogStore.getState();
+  const sessions = useSessionStore.getState();
+  const ids = Object.keys(sessions.sessions);
+  const next = ids.find((entry) => entry !== clusterId);
+  const activeId = catalog.activeClusterId;
+  const splitId = catalog.splitClusterId;
+  const wasSecondary = splitId === clusterId;
+  const wasActive = activeId === clusterId;
+  await disconnectCluster(clusterId);
+  if (wasSecondary) catalog.setSplitCluster(null);
+  if (wasActive) {
+    if (splitId && splitId !== clusterId) {
+      catalog.setActiveCluster(splitId);
+      catalog.setSplitCluster(null);
+    } else {
+      catalog.setActiveCluster(next ?? null);
+    }
+  }
+}

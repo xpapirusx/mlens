@@ -59,7 +59,14 @@ function buildMenu(): void {
     {
       label: "File",
       submenu: [
-        isMac ? { role: "close" as const } : { role: "quit" as const },
+        // No accelerator: ⌘W is handled by the renderer (close editor/cluster
+        // tab) and must not close the window. Keep a menu item for the window.
+        isMac
+          ? {
+              label: "Close Window",
+              click: () => BrowserWindow.getFocusedWindow()?.close(),
+            }
+          : { role: "quit" as const },
       ],
     },
     {
