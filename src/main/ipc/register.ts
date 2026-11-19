@@ -136,19 +136,28 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
       title: "Import kubeconfig",
       properties: ["openFile", "multiSelections"],
       filters: [
-        { name: "Kubeconfig", extensions: ["yaml", "yml", "conf", "kubeconfig"] },
+        // Any file can be a kubeconfig (names differ: config, admin.conf, …).
+        // The content is validated in addPath.
         { name: "All files", extensions: ["*"] },
+        { name: "Kubeconfig", extensions: ["yaml", "yml", "conf", "kubeconfig"] },
       ],
     };
     const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
     if (result.canceled) return { canceled: true, paths: [] };
 
     const added: string[] = [];
+    const failures: Array<{ path: string; error: string }> = [];
     for (const file of result.filePaths) {
-      const source = kubeconfigs.addPath(file);
-      added.push(source.path);
+      try {
+        added.push(kubeconfigs.addPath(file).path);
+      } catch (error) {
+        failures.push({
+          path: file,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
-    return { canceled: false, paths: added };
+    return { canceled: false, paths: added, failures };
   });
 
   ipcMain.handle(IPC.kubeconfigAddPath, (_event, path: unknown) => kubeconfigs.addPath(assertString(path, "path")));

@@ -177,10 +177,14 @@ export class KubeconfigManager {
     return this.addPath(target);
   }
 
-  addPath(kubeconfigPath: string): KubeconfigSource {    const resolved = path.resolve(kubeconfigPath.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? "~"));
+  addPath(kubeconfigPath: string): KubeconfigSource {
+    const resolved = path.resolve(kubeconfigPath.replace(/^~(?=$|\/|\\)/, process.env.HOME ?? "~"));
     if (!fs.existsSync(resolved)) throw new Error(`File not found: ${resolved}`);
     const probe = new KubeConfig();
     probe.loadFromFile(resolved); // throws with a useful message for invalid YAML
+    if (probe.getContexts().length === 0) {
+      throw new Error("No Kubernetes contexts found — this file is not a usable kubeconfig.");
+    }
 
     const paths = this.paths();
     if (!paths.includes(resolved)) {

@@ -1,6 +1,6 @@
 {
   "name": "mlens",
-  "version": "v2.4.34",
+  "version": "v2.4.37",
   "description": "mLens — a modern desktop Kubernetes IDE",
   "main": "./out/main/index.js",
   "author": {

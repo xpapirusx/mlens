@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   Ban,
   Box,
+  ChevronDown,
   CircleCheck,
   Copy,
   Diff,
@@ -104,14 +105,11 @@ export function ResourceBrowser({
   clusterId,
   active,
   side,
-  overlay,
 }: {
   clusterId: string;
   active: boolean;
   /** Editor area; rendered beside the table, below the toolbar row. */
   side?: ReactNode;
-  /** Absolutely positioned layer (minimized-editor pill) inside the row. */
-  overlay?: ReactNode;
 }) {
   // A14: field-level session selectors — a keystroke in search updates only
   // `kindStates`, not every subscriber of the whole session object.
@@ -202,11 +200,15 @@ export function ResourceBrowser({
   const columnWidths = useMemo(() => {
     const result: Record<string, number> = {};
     for (const column of baseColumns) {
-      const value = settings?.tableColumnWidths?.[`${resource?.kind}|${column.key}`];
+      // Per kind-tab key (`<apiVersion>|<kind>|<column>`), with the legacy
+      // `<kind>|<column>` key still honoured for widths saved before the split.
+      const value =
+        (columnOrderKey ? settings?.tableColumnWidths?.[`${columnOrderKey}|${column.key}`] : undefined) ??
+        (resource ? settings?.tableColumnWidths?.[`${resource.kind}|${column.key}`] : undefined);
       if (typeof value === "number") result[column.key] = value;
     }
     return result;
-  }, [baseColumns, settings?.tableColumnWidths, resource?.kind]);
+  }, [baseColumns, settings?.tableColumnWidths, columnOrderKey, resource?.kind]);
   // Columns marked `defaultHidden` (Pod IP, QoS, images, …) start hidden for
   // each kind. Persist that initial choice through the kind state so the
   // column picker and the user's later toggles agree.
@@ -1211,13 +1213,14 @@ export function ResourceBrowser({
             void updateSettings({
               tableColumnWidths: {
                 ...(settings?.tableColumnWidths ?? {}),
-                [`${resource.kind}|${key}`]: width,
+                [`${resource.apiVersion}|${resource.kind}|${key}`]: width,
               },
             });
           }}
           onResetColumnWidth={(key) => {
             if (!resource) return;
             const next = { ...(settings?.tableColumnWidths ?? {}) };
+            delete next[`${resource.apiVersion}|${resource.kind}|${key}`];
             delete next[`${resource.kind}|${key}`];
             void updateSettings({ tableColumnWidths: next });
           }}
@@ -1349,18 +1352,22 @@ export function ResourceBrowser({
         {list.hasMore ? (
           <button
             type="button"
-            className="ml-auto text-accent-text hover:underline disabled:opacity-50"
+            className="ml-auto flex h-5 items-center gap-1 rounded-md border border-skyhook-500/40 bg-skyhook-500/10 px-2 font-medium text-accent-text transition-colors hover:bg-skyhook-500/20 disabled:opacity-50"
             onClick={() => void list.loadMore()}
             disabled={list.loadingAll}
-            title="Fetch the next page; the table only renders the visible rows"
+            title="Fetch the next 2000 resources; search loads every page automatically"
           >
             {list.loadingAll ? (
-              "Loading…"
+              <>
+                <LoaderCircle className="h-3 w-3 animate-spin" />
+                Loading…
+              </>
             ) : (
               <>
-                Load more
+                <ChevronDown className="h-3 w-3" />
+                Load 2000 more
                 {list.total !== null
-                  ? ` (+${Math.max(0, list.total - list.items.length)})`
+                  ? ` (${Math.max(0, list.total - list.items.length)} left)`
                   : ""}
               </>
             )}
@@ -1372,7 +1379,6 @@ export function ResourceBrowser({
 
         </div>
         {side}
-        {overlay}
       </div>
 
       {filterPanel ? (

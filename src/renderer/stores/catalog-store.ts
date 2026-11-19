@@ -175,6 +175,12 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       if (result.canceled) return [];
       await get().loadCatalog();
       if (result.paths.length) toast.success("Kubeconfig imported", result.paths.join("\n"));
+      if (result.failures?.length) {
+        toast.error(
+          `${result.failures.length} file${result.failures.length === 1 ? "" : "s"} skipped`,
+          result.failures.map((failure) => `${failure.path}: ${failure.error}`).join("\n"),
+        );
+      }
       return result.paths;
     } catch (error) {
       toast.error("Cannot import kubeconfig", errorText(error));

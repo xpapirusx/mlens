@@ -9,7 +9,7 @@ import {
 import { ResourceSidebar } from "../features/navigation/ResourceSidebar";
 import { PageTabs } from "../features/resource-browser/PageTabs";
 import { EditorTray } from "../features/resource-details/ResourceTabs";
-import { EditorArea, EditorPill } from "../features/editor/EditorArea";
+import { EditorArea } from "../features/editor/EditorArea";
 import { ResourceBrowser } from "../features/resource-browser/ResourceBrowser";
 import { TerminalDock } from "../features/terminal/TerminalDock";
 import { Button } from "../design-system/components/Button";
@@ -218,7 +218,6 @@ export function ClusterWorkspace({ clusterId, active }: { clusterId: string; act
               onToggleExpanded={toggleEditorExpanded}
             />
           }
-          overlay={<EditorPill clusterId={clusterId} />}
         />
         {editorMinimized && hasTabs ? <EditorTray clusterId={clusterId} /> : null}
         <TerminalDock clusterId={clusterId} active={active} />

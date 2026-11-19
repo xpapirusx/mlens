@@ -1,5 +1,4 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { ChevronUp } from "lucide-react";
 import { editorLayout, useSessionStore } from "../../stores/session-store";
 import { cn } from "../../lib/cn";
 import { EditorPane } from "./EditorPane";
@@ -199,34 +198,3 @@ export const EditorArea = memo(function EditorArea({
   );
 });
 
-/**
- * Floating restore button shown while the editor area is minimized. Lives in
- * the table/editor row (absolute), so the tray above the dock stays clickable.
- */
-export function EditorPill({ clusterId }: { clusterId: string }) {
-  const activeRef = useSessionStore((state) => {
-    const session = state.sessions[clusterId];
-    const pane = session?.editor.panes.find((entry) => entry.id === session.editor.activePaneId);
-    return pane?.active ?? null;
-  });
-  const minimized = useSessionStore(
-    (state) => state.sessions[clusterId]?.editor.minimized ?? false,
-  );
-  const restoreDetails = useSessionStore((state) => state.restoreDetails);
-
-  if (!activeRef || !minimized) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={() => restoreDetails(clusterId)}
-      className="absolute bottom-17 right-3 z-40 flex max-w-[70%] items-center gap-1.5 rounded-lg border border-theme-border bg-theme-elevated px-2.5 py-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary shadow-theme-md transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-      title="Show the minimized editor area"
-    >
-      <ChevronUp className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">
-        {activeRef.kind}/{activeRef.name}
-      </span>
-    </button>
-  );
-}

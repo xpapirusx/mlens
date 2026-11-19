@@ -144,7 +144,9 @@ editors are `no-drag`, so selection, scrolling and editing keep working.
   catalog.
 - **Pages** follow Freelens' multiple hotbars: favourites that do not fit flow
   into the following pages automatically, so no favourite is ever lost. A
-  selector under the tiles shows `‹ N ›` — arrows switch page, and the number
+  favourite added from the catalog is placed on the **active page** (first free
+  slot there, then the following pages), so a newly created page accepts tiles.
+  A selector under the tiles shows `‹ N ›` — arrows switch page, and the number
   badge opens the page list with *New page* / *Remove this page* (up to twelve
   pages, each persisted in `settings.hotbarPages`). The visible page index lives
   in `settings.hotbarPageIndex`.
@@ -193,6 +195,11 @@ selected contexts to favourites or remove them from the catalog. Removal is
 non-destructive: kubeconfig files are never modified. Removed clusters appear in
 a **Removed** catalog view and can be restored; the hotbar, cluster tabs, command
 palette and settings only see visible clusters.
+
+Kubeconfig files are imported through a picker that defaults to **All files** —
+any file name or extension is accepted, then validated by parsing: a file with
+invalid YAML or no contexts is rejected with its own message, and the other
+selected files are still imported. Pasting YAML applies the same check.
 
 ### 2.3c Cross-cluster split screen
 
@@ -293,8 +300,8 @@ contains a single kind.
   resource in the new pane.
 - Header per pane: kind outline pill, status badge, API version, Back, Delete,
   Reload, Expand, Minimize and Close. Minimize hides the whole editor area
-  without closing anything — tabs stay and the floating pill / shadow tray
-  restores it. Delete sits next to Close and always asks for confirmation.
+  without closing anything — tabs stay and the shadow tray above the dock
+  restores it (no floating pill). Delete sits next to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
   Forward (Pods), Scale / Restart / Set image (Deployments, StatefulSets,
   ReplicaSets where applicable), Restart / Set image (DaemonSets), Pause/Resume
@@ -439,7 +446,7 @@ gradients except the catalog hero background and cluster avatar tiles.
 toolbar 48px : [kind icon] Kind  count  freshness | namespace · search · filters · columns · refresh · Create
 filter bar 32px (only when filters active)
 table      : fixed header + virtualised rows
-footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible/load more
+footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accent "Load 2000 more" chip
 ```
 
 - Search is case-insensitive across name, namespace, labels and visible cell
@@ -727,7 +734,7 @@ Per cluster, the following survive switching clusters:
 
 - namespace scope (all / one / several), selected kind, sibling tab position;
 - per-kind search text, regex flag, sort, column filters, hidden columns and
-  column widths;
+  column widths (keyed per kind tab so each resource tab keeps its own);
 - sidebar group expansion (including nested CRD groups) and sidebar width;
 - the editor area (panes, tabs, active resource, per-pane details tab and back
   stack, split sizes and width);

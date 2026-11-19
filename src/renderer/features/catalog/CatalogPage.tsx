@@ -262,7 +262,7 @@ export function CatalogPage() {
             <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold text-theme-text-primary">Welcome to mLens</h1>
               <p className="mt-0.5 max-w-2xl text-[calc(12px*var(--font-scale))] leading-relaxed text-theme-text-secondary">
-                A desktop Kubernetes IDE. Clusters come from your kubeconfig files — nothing is uploaded,
+                A desktop Kubernetes IDE. Clusters come from your kubeconfig files,
                 and every cluster keeps its own session, tabs and navigation.
               </p>
             </div>

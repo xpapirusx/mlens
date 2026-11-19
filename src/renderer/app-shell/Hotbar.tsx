@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Blocks,
@@ -144,15 +144,19 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
     );
 
     // No favourite is ever lost: anything not explicitly placed fills the
-    // first free slot, page by page, in favourite order.
+    // first free slot, starting from the page the user is currently on.
+    const pageOrder = result.map((_, index) => (pageIndex + index) % result.length);
     for (const id of favorites) {
       if (placed.has(id)) continue;
       const cluster = byId.get(id);
       if (!cluster) continue;
       let target: { page: number; slot: number } | null = null;
-      for (let page = 0; page < result.length && !target; page += 1) {
+      for (const page of pageOrder) {
         const slot = result[page].findIndex((entry) => entry === null);
-        if (slot >= 0) target = { page, slot };
+        if (slot >= 0) {
+          target = { page, slot };
+          break;
+        }
       }
       if (!target) break;
       result[target.page][target.slot] = cluster;
@@ -160,7 +164,41 @@ export function Hotbar({ activeClusterId }: { activeClusterId: string | null }) 
     }
 
     return result;
-  }, [storedPages, clusters, settings?.favorites]);
+  }, [storedPages, clusters, settings?.favorites, pageIndex]);
+
+  // A favourite added while another page is active belongs on that page:
+  // persist the placement instead of deriving it, so it does not jump pages.
+  useEffect(() => {
+    if (!settings) return;
+    const pages = settings.hotbarPages.map((page) => [...page]);
+    if (pages.length === 0) return;
+    const visible = new Set(clusters.map((cluster) => cluster.id));
+    const placed = new Set<string>();
+    for (const page of pages) {
+      for (const id of page) if (id) placed.add(id);
+    }
+    const unplaced = settings.favorites.filter((id) => visible.has(id) && !placed.has(id));
+    if (unplaced.length === 0) return;
+    const active = Math.min(Math.max(0, settings.hotbarPageIndex ?? 0), pages.length - 1);
+    const order = pages.map((_, index) => (active + index) % pages.length);
+    let changed = false;
+    for (const id of unplaced) {
+      for (const index of order) {
+        const slot = pages[index].findIndex((entry) => entry === null);
+        if (slot >= 0) {
+          pages[index][slot] = id;
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+    void updateSettings({
+      hotbarPages: pages,
+      hotbarSlots: [...pages[active]],
+      hotbarOrder: pages[active].filter((id): id is string => Boolean(id)),
+    });
+  }, [settings, clusters, updateSettings]);
 
   const slots = resolvedPages[pageIndex] ?? padPage([]);
 

@@ -390,6 +390,8 @@ export interface TableSort {
 export interface AddKubeconfigResult {
   canceled: boolean;
   paths: string[];
+  /** Selected files that were rejected (invalid YAML, no contexts, missing). */
+  failures?: Array<{ path: string; error: string }>;
 }
 
 export interface AppInfo {

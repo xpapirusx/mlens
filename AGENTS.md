@@ -119,7 +119,9 @@ Important:
   (e.g. `state.sessions`, then `Object.keys` in render). Derived arrays in a
   selector cause React error #185 (infinite loop).
 - Column widths and column order are **global settings**, keyed by
-  `<kind>|<column>` and `<apiVersion>|<kind>`, so they survive cluster switches.
+  `<apiVersion>|<kind>|<column>` and `<apiVersion>|<kind>`, so each kind tab keeps
+  its own widths across clusters. The old `<kind>|<column>` key is still read as
+  a fallback for widths saved before the split.
 - Group expansion and favorite kinds are settings/session state, never local
   component state that resets on navigation.
 - **Session selectors are field-level.** Subscribe to
@@ -179,6 +181,10 @@ Important:
   the start dialog exposes the checkbox.
 - Terminal shells get a generated, context-pinned kubeconfig (0600) via
   `KUBECONFIG`; never modify the user's kubeconfig.
+- Kubeconfig import accepts **any file** (the picker defaults to *All files*,
+  no extension is trusted): the file is parsed and must declare at least one
+  context. Invalid files are reported individually while valid selections are
+  still added. Pasted YAML follows the same validation.
 
 ---
 
@@ -342,7 +348,9 @@ Important:
   Connection error / Not connected.
   Pages are Freelens-style: `‹ N ›` arrows plus a badge menu (switch / new /
   remove page, max 12), overflow favourites flow into later pages, and the tile
-  list scrolls with a hover-only scrollbar.
+  list scrolls with a hover-only scrollbar. A favourite added from the catalog
+  lands on the **active page**: Hotbar persists it into that page's first free
+  slot instead of deriving it into page one.
 - Terminal surface stays dark in every theme; Dracula/Freelens themes select the
   corresponding ANSI palette. Logs are Pod-only.
 - Dock: the plus opens a local shell in the active context; the chevron and
@@ -355,7 +363,7 @@ Important:
   cluster tabs, status bar). Chrome labels are `user-select: none`; `main` and
   dialogs allow text selection.
 - The editor area can be minimized without closing it: keep every pane's tabs,
-  set `editor.minimized`, and restore from the floating pill or the tray.
+  set `editor.minimized`, and restore from the tray above the dock.
 - No huge components. Split table/controls/filters/dialogs/renderers.
 - No dead buttons. If not implemented, label it explicitly.
 
@@ -454,6 +462,8 @@ Always run `pnpm typecheck` and `pnpm build` before declaring work done.
 - Docs updated when behaviour/settings/architecture change. Every change set gets
   its own `CHANGELOG.md` section `## vX.Y.Z — DD.MM.YYYY, HH:MM` (patch +1 from
   the previous heading; the timestamp is when the batch was finished) and the
-  matching `package.json` version. There is no `Unreleased` section.
+  matching `package.json` version. There is no `Unreleased` section. Entries are
+  user-facing and short — no internal refactors, perf notes, file names or
+  verification logs.
 - New IPC is in the shared contract and validated in main.
 - Destructive actions confirm and never touch user kubeconfig files.

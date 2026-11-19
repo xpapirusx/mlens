@@ -1,33 +1,45 @@
 # mLens
 
-**A desktop Kubernetes IDE.** Freelens' application structure, Kubernetes
-tools and visual language — in one Electron app written entirely in TypeScript.
+**mLens is an independent desktop Kubernetes IDE.** One Electron app written
+entirely in TypeScript and React — no Go backend, no separate server, no Docker,
+and no Node.js, kubectl or Helm installation required by end users.
 
-mLens is a standalone desktop program: no Go backend, no separate server, no
-Docker, and no Node.js, kubectl or Helm installation required by the end user.
+![mLens cluster catalog](licenses/ide.png)
 
-> Status: **v0.1.0 working prototype**. Clusters, discovery, resource tables,
-> details, YAML, events, logs, local terminals and pod exec work against real
-> Kubernetes clusters. Advanced views (Helm, topology, historical metrics) are
-> not implemented yet and are marked as such in the UI.
-> See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
 
----
+Some conventions of desktop Kubernetes tooling (a cluster hotbar, tabbed
+resources, a bottom terminal dock) are common to the category; mLens implements
+its own shell, data layer and UI. See
+[Licensing and credits](#licensing-and-credits).
 
-## What it looks like
-
-- **Freelens shell:** one window, a cluster hotbar, a catalog/welcome page, a
-  resource sidebar, sibling resource tabs, a VS Code-like editor area with split
-  panes and a bottom terminal dock.
-- **Radar tooling:** dense 44px tables with uppercase 12px headers, status badges,
-  per-column filters, `/` search with regex, namespace scope, CRD columns,
-  compact details tabs, dark console for logs/terminal, DM Sans + DM Mono.
-
-Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
-[`ARCHITECTURE.md`](ARCHITECTURE.md).
+- Full rules: [`DESIGN_SPEC.md`](DESIGN_SPEC.md) · internals:
+  [`ARCHITECTURE.md`](ARCHITECTURE.md) · release history:
+  [`CHANGELOG.md`](CHANGELOG.md) · contributor rules: [`AGENTS.md`](AGENTS.md).
 
 ---
 
+## Highlights
+
+- **Multi-cluster by design.** Each cluster gets an isolated session with its own
+  Kubernetes client, auth context, namespaces, table state, editor tabs and
+  terminal PTYs. Switching clusters never disconnects the previous one.
+- **Cross-cluster split screen.** The Columns2 button in the cluster strip pins a
+  second open cluster beside the active one — two full workspaces with a
+  draggable divider. Useful for comparing two environments side by side.
+- **VS Code-like editor area.** Resources open as tabs in a resizable area to the
+  right of the table: 1–4 panes in a 2×2 grid, per-pane tab strips with
+  drag-to-reorder, drag between panes, middle-click close, Close others / Close
+  to the right, Split right / Split down, and a per-pane overflow menu.
+- **Radar-density tables.** 44px rows, uppercase 12px headers, status language,
+  per-column filters, regex search, pinned columns, virtualised rows and paged
+  loading for very large inventories.
+- **Real Kubernetes, directly.** Discovery, CRDs and printer columns, watches,
+  logs, exec, port forwarding over the Kubernetes WebSocket protocol, YAML
+  apply, scale/restart/pause/suspend, Node drain and debug shells.
+- **No mock data.** If the API, metrics-server or a permission is unavailable,
+  the UI says so; missing metric samples render `–`, never invented values.
+
+---
 
 ## Getting started
 
@@ -41,6 +53,12 @@ Read the full rules in [`DESIGN_SPEC.md`](DESIGN_SPEC.md) and the internals in
 pnpm install
 node node_modules/electron/install.js
 pnpm dev
+```
+
+### macOS sign
+
+```bash
+xattr -c /Applications/mLens.app
 ```
 
 `pnpm install` runs `scripts/postinstall.cjs`, which self-heals two known issues:
@@ -115,11 +133,135 @@ src/main          Electron main: kubeconfig, discovery, watch, logs, exec, pty
 src/preload       contextBridge API (window.mlens)
 src/shared        types + IPC contract shared by both sides
 src/renderer
-  app-shell       Freelens-style window chrome and workspace
-  features        catalog, sidebar, resource browser, details, terminal, settings
-  design-system   Radar-inspired tokens and primitives
+  app-shell       window chrome, cluster tabs, hotbar, workspace split
+  features        catalog, sidebar, browser, editor area, details, terminal, settings
+  design-system   tokens and UI primitives
   stores          Zustand catalog + session state
 ```
+
+---
+
+## Features
+
+### Clusters and catalog
+
+- Discovers contexts from `~/.kube/config` and the `KUBECONFIG` environment
+  variable; additional sources can be imported at any time.
+- **Import any kubeconfig file**, not just files named `.kubeconfig`: the picker
+  offers *All files*, then the content is parsed and validated. Files with
+  invalid YAML or no Kubernetes contexts are rejected, and each skipped file is
+  reported with its own error while valid files are still added.
+- Paste a kubeconfig as YAML; it is validated, written with `0600` permissions
+  under the app data directory and added to the catalog.
+- Catalog views: All clusters, Favorites, Recent, Removed, and one entry per
+  kubeconfig source. Multi-select supports adding favourites and non-destructive
+  removal (kubeconfig files are never modified); removed clusters can be restored.
+- The catalog sort (open/status, name, recent, source) is remembered across
+  restarts. The **Recent** view always lists the most recently opened clusters.
+- Cluster tabs, concurrent sessions, and a connecting screen with a real
+  three-step checklist (API → namespaces → discovery), percentage and Cancel.
+- Per-cluster **Overview**: nodes ready, pod/workload counts, warning events,
+  CPU/memory capacity, API/CRD surface and quick links into kinds.
+
+### Workspace, tabs and hotbar
+
+- **Cross-cluster split screen** (Columns2 next to the cluster tabs): open a
+  second cluster beside the active one, drag the divider (20–80%), close the
+  split from the chip. Closing either pane promotes the other.
+- **Editor area** beside the table, starting under the full-width toolbar:
+  - 1–4 panes in a 2×2 grid, resizable on the left edge (down to a 240px table).
+  - Per-pane tab strips: drag to reorder, drop onto another pane to move,
+    middle-click or context menu to close, Close others/right, Split
+    right/down, overflow menu.
+  - Per-pane inner tabs (Overview/Details/YAML/Events/Related/Logs/Metrics) and
+    a 25-entry Back history.
+  - Expand over the table, or minimize to the shadow tray above the terminal —
+    every tab stays open.
+- Cluster tabs use the same tab shape as editor tabs and keep a health LED;
+  the hotbar tooltip repeats the status (Connected / Connecting… / Connection
+  error / Not connected).
+- Hotbar with 10 slots per page, multiple pages (up to 12), drag/context-menu
+  repositioning, seeded solid colours and three-letter short names. A favourite
+  added from the catalog lands on the **active page**.
+- Command palette (`⌘K`/`Ctrl+K`) for clusters, resources and actions, `g`-prefix
+  letter navigation, and a `?` shortcut overlay.
+- Bottom terminal dock: local shells and pod exec/attach, plus the multi-document
+  YAML editor.
+
+### Resource browser
+
+- Dynamic API discovery including CRDs and their printer columns. Default
+  columns end with **Status** then **Age** (a CRD's own Age column is dropped,
+  never duplicated).
+- Tables support live watches and polling with a freshness indicator, counts,
+  debounced search with regex, sorting, per-column filters, namespace scope,
+  pinned columns, drag-to-resize columns (double-click to reset), column
+  visibility/order, and keyboard navigation.
+- Column widths and sorting are remembered **per kind tab**
+  (`<apiVersion>|<kind>`), so each resource view keeps its own layout across
+  clusters and restarts. Legacy widths from earlier versions are still honoured.
+- Large inventories are paged: the footer shows `N of M loaded` and an accent
+  **Load 2000 more (N left)** chip; the table renders only visible rows
+  (virtualised). Search or a column filter auto-loads the remaining pages, so a
+  name beyond the first page is still found. Sidebar counts are lazy.
+- Kubernetes-aware cells: Pod container squares, Node CPU/Memory bars against
+  allocatable, node pod counts, Redis-style condition/taint tooltips, live
+  Service endpoints, ConfigMap size, Secret type/TLS expiry, Role subjects,
+  CRD kind/status, warning-event counts, and exact age tooltips everywhere.
+- Multi-select with bulk actions: delete, saved labels/annotations (selection is
+  kept after applying), copy names, and **Diff** — a side-by-side Monaco YAML
+  comparison of two resources of the same kind.
+- **Compare across clusters**: pin a resource from the row menu, then choose
+  "Compare with selected" on a resource in another cluster; the pinned side
+  survives cluster switches.
+- Row actions: details, edit YAML, logs, exec/attach (Pods), scale, restart,
+  pause/resume rollout, suspend/resume and trigger (Jobs/CronJobs), set image,
+  cordon/uncordon, drain and debug shell (Nodes), copy kubectl command, delete
+  and force delete.
+- Custom resources are first-class: sidebar group per API group, printer
+  columns, and create/edit from YAML with server-side dry-run.
+
+### Resource details
+
+- Each editor pane shows Overview / Details / YAML / Events / Related /
+  Logs (Pods only) / Metrics, with kind actions in a right-aligned row under the
+  resource name.
+- **YAML** hides server-managed metadata by default (`uid`, `resourceVersion`,
+  `generation`, `creationTimestamp`, `managedFields`, `selfLink`) behind an
+  "Ignore server metadata" toggle; Apply still merges live metadata and the
+  correct resourceVersion.
+- **Events** are real Kubernetes events for the object; **Related** lists owners,
+  selectors, services, mounted config, node pods and volumes, with clickable
+  references.
+- Status badges and condition cards explain themselves through tooltips with
+  conditions sorted newest-first, reason/message, relative age and the exact
+  `lastTransitionTime`.
+- **Helm releases** are synthetic rows parsed from `owner=helm` Secrets — no Helm
+  binary required. The drawer shows the revision timeline (view any revision,
+  compare manifests/values as a Monaco diff, rollback), stored release notes,
+  hooks and the resources a manifest creates. Install/upgrade from a chart is
+  intentionally absent (it needs Helm's Go template engine).
+
+### Terminal, logs and port forwarding
+
+- Logs are Pod-only, virtualised (up to 20,000 lines) with streaming, container
+  picker and follow mode.
+- xterm.js terminal with real pod exec over the exec WebSocket, TTY resize,
+  search, copy/paste and per-theme ANSI palettes.
+- Port forwarding over the Kubernetes WebSocket protocol (no kubectl process),
+  one loopback port per forward. The start dialog has **Open in browser after
+  starting** (on by default); the one-click Forward action honours the same
+  preference. The Port forwards panel lists and stops active forwards.
+
+### Themes and settings
+
+- Themes: Radar (light/dark/system), Dracula, Freelens, Proton, Synthwave '84,
+  Dark Islands, GitHub, Night Owl, Material, One Dark Pro, One Dark, Catppuccin
+  (Mocha), Jellybeans, Adwaita — each with its own editor theme and terminal
+  palette.
+- UI font (DM Sans / Ubuntu / System UI), font scale, terminal font and size,
+  editor font/size/minimap/tab size, local or UTC time, table row height
+  (24–52px), syntax-highlighted YAML editor and configurable refresh interval.
 
 ---
 
@@ -130,281 +272,45 @@ src/renderer
 - Kubeconfig credentials, exec plugins, TLS material and PTYs stay in the main
   process.
 - Strict CSP; popups are denied; HTTP(S) links open in the OS browser.
-- Pasted kubeconfigs are written with `0600` permissions under the app data
-  directory.
+- Pasted and imported kubeconfigs are validated; pasted copies are written with
+  `0600` permissions under the app data directory.
+- Cluster removal only hides entries from the catalog; it never rewrites or
+  deletes a kubeconfig file.
 
 ---
 
 ## Known limitations
 
-- No extension system, Helm, topology, timeline or GitOps-specific views yet.
-  CRDs (including Argo/Flux) appear under a nested Custom Resources tree as
-  generic resources.
+- No extension system, topology, historical metrics or GitOps-specific views.
+  CRDs (including Argo/Flux) appear as generic resources under Custom Resources.
 - Port forwarding is TCP loopback (127.0.0.1), one port per forward, no UDP.
 - A kubeconfig that authenticates through an `exec` plugin (`kubectl oidc-login`,
   `aws`, `gke-gcloud-auth-plugin`, …) needs that binary installed — mLens never
-  ships or runs kubectl itself, but it adds `/etc/paths`, Homebrew and your
-  login-shell directories to PATH at startup so such plugins resolve; if the
-  binary is genuinely missing the error says exactly that.
+  ships or runs kubectl itself, but it augments PATH with `/etc/paths`, Homebrew
+  and the login shell so such plugins resolve.
 - Metrics are live metrics-server values only; no historical Prometheus charts.
-- Forward navigation is disabled; back covers the details history and catalog.
 - Write actions are not pre-filtered by RBAC; the Kubernetes error is shown when
-  the action is denied.
-- No automated test suite yet; the prototype is validated by typechecking,
-  production builds, and manual smoke tests against real clusters (see the
-  verification log in `IMPLEMENTATION_PLAN.md`).
+  an action is denied.
+- No automated test suite yet; the app is validated by typechecking, production
+  builds and manual smoke tests against real clusters.
 
 ---
 
-## Licensing and attribution
+## Licensing and credits
 
-mLens is MIT licensed (`LICENSE`).
+mLens is MIT licensed — see [`LICENSE`](LICENSE).
 
-- **Freelens** (MIT) inspired the application shell, window/tab/sidebar/dock
-  mechanics. No Freelens source files are copied.
-- **Skyhook Radar** (Apache-2.0) inspired the design system and Kubernetes UI
-  patterns; token values and component recipes are adapted with attribution.
-  The Apache license text is included in `licenses/Apache-2.0.txt`.
-- Fonts (DM Sans, DM Mono) are OFL 1.1, loaded via `@fontsource` packages.
-- Build story and full context: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
-- Agent/contributor rules: [`AGENTS.md`](AGENTS.md).
-- Release history: [`CHANGELOG.md`](CHANGELOG.md).
+mLens is an independent project. It is **not affiliated with, endorsed by, or a
+fork of Freelens, Lens, Skyhook or the Cloud Native Computing Foundation**, and
+it contains no source files from those projects.
+
+- Workflow conventions common to desktop Kubernetes IDEs (cluster hotbar, tabbed
+  resources, details drawer, bottom dock) are reimplemented from scratch.
+- The visual design adapts ideas from **Skyhook Radar** (Apache-2.0); the Apache
+  licence text is included in [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt).
+- **Freelens** (MIT) is mentioned only as a design reference for desktop-IDE
+  conventions; its licence text is in
+  [`licenses/Freelens-MIT.txt`](licenses/Freelens-MIT.txt).
+- Fonts: DM Sans and DM Mono (OFL 1.1) via `@fontsource`; Ubuntu and Ubuntu Mono
+  (Ubuntu Font Licence 1.0) are bundled under `licenses/`.
 - Full third-party notices: [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
-
-mLens is an independent project and is not affiliated with Freelens, Skyhook, or
-the Cloud Native Computing Foundation.
-
-
-## Features
-
-### Clusters
-
-- Discovers contexts from `~/.kube/config` and `KUBECONFIG`.
-- Imports additional kubeconfig files (file picker) or pasted YAML.
-- Multiple kubeconfig sources, favourites and recent clusters. Open clusters sort
-  to the top; Status reads **Connected** (version has its own column), with
-  sorting by status, name, recent or kubeconfig source.
-- Multi-select in the catalog: add to favourites, remove clusters from the mLens
-  catalog (non-destructive — kubeconfig files are untouched) and restore them
-  from the Removed view.
-- Cluster tabs at the top; a VS Code-like editor area to the right of the table
-  with 1–4 panes, per-pane tab strips, drag-and-drop reordering/moving and
-  Split right/down.
-- Cross-cluster split screen: the Columns2 button in the cluster tab strip shows
-  a second open cluster beside the active one (two full workspaces) with a
-  draggable divider and a chip that closes the split.
-- Concurrent cluster sessions; opening a cluster switches to its tab
-  immediately and shows a circular connecting spinner with a real step checklist
-  (API server → namespaces → discovery), checkmarks for finished stages and the
-  percentage at the bottom while discovery runs.
-  Switching clusters preserves namespace scope,
-  selected kind, search/sort/filters, sidebar state, open resource tabs and live
-  terminal PTYs.
-- Multiple namespace selection per cluster (all, one, or several). The picker
-  keeps **All namespaces** on top, then the currently selected namespaces, then
-  the rest alphabetically; search and the system-namespace toggle apply to both.
-  Clicking a Namespace cell scopes the table and keeps the Namespace column in
-  place (it can be hidden via the column picker). Scope changes refetch silently:
-  rows swap in place without the central loading animation, while kind or cluster
-  switches still show it.
-- Sidebar favorites (pinned resource kinds), collapsible groups starting folded
-  by default, and a configurable table row height (24–52px).
-- Health, latency, Kubernetes version, context and API server in the UI.
-- Per-cluster **Overview** home page: nodes ready, pod/workload counts, warning
-  events, CPU/memory capacity, API/CRD surface and quick links into kinds.
-- Global resource search from the command palette (`⌘K`, debounced live search),
-  `g`-prefix letter navigation, and a `?` keyboard-shortcut overlay.
-- Connected clusters sort to the top of the catalog.
-- Per-cluster isolation: each cluster has its own Kubernetes client/auth context
-  in the main process.
-
-### Resource browser
-
-- Dynamic API discovery, including CRDs and their printer columns. Default
-  columns end with **Status** then **Age**; a CRD's own `Age` printer column is
-  dropped so it never appears twice, and a customised column order is remembered
-  per kind. Age is a narrow 60px column with compact padding on every kind.
-- Pods, Deployments, StatefulSets, DaemonSets, ReplicaSets, Jobs, CronJobs,
-  Services, Ingresses, NetworkPolicies, ConfigMaps, Secrets, Nodes, Namespaces,
-  Events, PV/PVC, StorageClasses, ServiceAccounts, Roles/Bindings,
-  ClusterRoles/Bindings, HPAs, PDBs, CRDs and every served custom resource.
-- Live watch + polling, freshness indicator, counts, search, sorting, per-column
-  filters, namespace filters, sortable columns, drag-to-resize columns (double-click
-  to reset), horizontal scrolling, column picker and keyboard navigation. Large
-  inventories are paged: the footer shows `N of M loaded`, **Load more** fetches
-  the next page, and the table renders only the visible rows (virtualized). Using
-  search or a column filter auto-loads the remaining pages, so a name beyond the
-  first page is still found. Sidebar counts are lazy — only the resource page
-  currently open, plus Nodes and CRD definitions.
-- Radar container squares in the Pods table (state colours, orange restart ring,
-  init separator, tooltip with reason/exit code/uptime/last termination) and
-  Radar Node columns (CPU/Memory usage bars, **Conditions** whose hover card
-  lists every condition with state, reason and message, and a **Taints** count
-  whose hover card lists every `key=value:effect`).
-- CPU/Memory bars are Radar-style: the `used / total` row with the percentage
-  sits **above** the track, CPU is always millicores (`2200m`) and memory uses
-  short units (`851Mi`, `2.2Gi`). The Nodes table **Pods** column shows scheduled
-  pods against `allocatable.pods` (`88 / 250`) in the same bar style. Hovering a
-  pod's CPU/Memory bar opens Radar's breakdown: containers sorted by percentage
-  (top three), each `used · % · limit/request`, then the node line
-  `Node <name>` / `X% used · this pod Y%`. Sorting the CPU/Memory columns sorts
-  by **actual usage** (metrics.k8s.io sample), not by requests; pods/nodes
-  without a sample sort as zero.
-- **Age** is a tooltip everywhere (table cell, drawer property and CR overview
-  card) showing the exact creation timestamp.- Config / Access Control / Service columns follow Radar: a live **Endpoints**
-  column for Services (Active / No endpoints / None / External), Type and
-  External columns, ConfigMap **Size**, coloured Secret **Type** and TLS
-  **Expires**, ServiceAccount **Automount**, Role/RoleBinding badges with an
-  `sa:`/`grp:` subjects preview, and CRD **Kind** + **Status**.
-- A **Warnings** column for Pods, workloads and Nodes shows the warning count
-  with the latest Warning event in the tooltip (one event list per scope).
-- A **Helm** group lists releases parsed from the `owner=helm` Secrets —
-  status, chart, revision and app version — without a Helm binary. The release
-  drawer adds the **revision timeline** (View any revision, **Compare** two
-  revisions as a Monaco diff of stored Manifests or Values, **Rollback** which
-  re-applies that revision's stored manifest and appends a new record), stored
-  **Release notes** and **Hooks**, copy buttons for notes/values/manifests, and
-  the **Resources** the manifest creates, each one clickable. Hooks show their
-  phase and last run. A comparison opens scrolled to its first changed line, with
-  strong green/red diff colours in every theme. Install/upgrade from a chart
-  stays out of scope (no Helm template engine); only the stored release records
-  are used.
-- Multi-select mode with bulk delete and confirmation. **Annotate** opens a
-  checkbox list of saved annotations and applies any number of them to every
-  selected row; the selection stays after applying, so another preset can follow.
-- **Diff** two selected resources of the same kind: side-by-side Monaco YAML
-  comparison (A = first row in table order), with a toggle that hides
-  server-managed metadata and a Swap action.
-- **Compare across clusters** from the row ⋮ menu: "Select for comparison" pins a
-  resource (the pin survives cluster switches and is shown above the table), then
-  "Compare with selected" on another row opens the same diff — the two sides may
-  be different kinds in different clusters.
-- Sticky row-actions menu on the right of every row (same as right-click):
-  details, edit YAML, logs, attach, exec shell (Pods), scale
-  (Deployments/StatefulSets/ReplicaSets), restart
-  (Deployments/StatefulSets/DaemonSets), pause/resume rollout (Deployments),
-  suspend/resume (Jobs/CronJobs), set image (workloads, including init
-  containers), trigger (CronJobs), cordon/uncordon and drain (Nodes), copy
-  kubectl command, delete and force delete (`gracePeriodSeconds: 0`).
-- Columns can be pinned to the left edge. The table toolbar (Create / Search /
-  live / filters) spans the full width; below it the editor area sits beside the
-  table, resizes on its left edge (down to a 240px table strip), expands over
-  the table and holds up to four panes. Tabs reorder by drag, move between
-  panes, and close via middle-click or the context menu.
-- The editor area can be minimized (chevron) without closing anything: every
-  tab stays and a floating pill or the shadow tray restores it.
-- Reference fields are clickable everywhere: owner references, `volumeName`,
-  `claimRef`, `storageClassName`, `serviceAccountName`, HPA `scaleTargetRef`, …,
-  plus the Controlled-by column and the PVC Pods/Volume/Storage-class columns.
-- Init containers are marked in the Containers column (a hairline separator
-  before the main containers and `init ·` in the tooltip) and listed in their
-  own Pod Overview section.
-- Custom resources and CRDs show their kind name in the sidebar (apiVersion in
-  the tooltip); built-in kinds win over same-named CRDs. Opening a CR defaults the
-  drawer to Details (Freelens field order); its Overview uses Radar-style cards
-  with versions, printer columns and conditions.
-- Create any discovered kind from YAML with server-side dry-run.
-
-### Resource details
-
-Overview / Details / YAML / Events / Related / Logs (Pods) / Metrics inside a
-resizable Freelens-style drawer. The YAML tab hides server-managed metadata
-(`uid`, `resourceVersion`, `generation`, `creationTimestamp`, `managedFields`,
-`selfLink`) by default; the "Ignore server metadata" toggle shows the full stored
-object, and Apply still merges the live object. YAML is printed as
-`apiVersion`, `kind`, `metadata`, **`status`**, `spec`, then the rest, so the
-status block sits above a long spec. Kind actions are labelled buttons in a
-right-aligned row under the name (logs/exec/port-forward for Pods,
-scale/restart/set image/pause/suspend/trigger for workloads, cordon/uncordon and
-drain for Nodes); delete/reload/expand/close stay in the header, and reload only
-refetches data. Drain shows a live plan (DaemonSet/mirror pods kept, emptyDir and
-unmanaged pods flagged) and evicts through `policy/v1`. Pods show init containers and environment variables with inline
-Secret/ConfigMap peeks; ConfigMaps and Secrets are editable from the UI (Secret
-values decoded/encoded). Kind-specific Pod, workload, Service, Ingress, Node,
-data, storage, HPA, CRD and generic CRD renderers; Node Overview uses Radar-style
-capacity cards with an **In use** row, live usage, addresses, platform labels and
-a live **Pods on this node** list, plus **Debug shell** (editable privileged-pod
-manifest → apply → exec console, pod removed with the tab). Pod and workload
-Overviews end with **Permissions via ServiceAccount** — direct and group-inherited
-bindings, the distinct-rule count and a blast-radius warning — and with a
-**Policy** section reading the cluster's PolicyReport families. Services get
-load-balancer/no-selector banners and a live **Endpoints** section; Access
-Control overviews show bindings, rule cards, subjects and used-by pods; TLS
-Secrets show their certificate and expiry. Details carry the full clickable
-**owner chain** (owner → owner's owner, scrollable) and an **editor for labels
-and annotations** with a confirm step; the selection bar can stamp any number of
-saved annotations onto every selected resource and keeps the selection afterwards. Related resources can be filtered
-(search + regex + kind chips). Related resources are resolved from the live API for every kind.
-Secrets reveal only on request.
-
-### Terminal
-
-- Real local shells through node-pty, in a bottom dock with tabs. The shell
-  receives a context-pinned, 0600 KUBECONFIG for the open cluster (and its
-  selected namespace), so `kubectl` starts on the right context.
-- A **Create from YAML** dock tab (the `FileCode` button) takes one manifest or
-  several separated by `---`, dry-runs and applies them through the same path as
-  the Create dialog.
-- Real Kubernetes pod exec over the exec WebSocket (no kubectl), with TTY resize.
-- Port forwarding over the Kubernetes WebSocket protocol: loopback listener,
-  live forwards panel, start/stop, browser opens the forwarded URL on start
-  (checkbox on by default), and one-click port forwarding from the Pod
-  Ports table, no kubectl process.
-- xterm.js search, copy/paste, Radar console theme.
-
-### Themes and layout
-
-- Radar (light/dark/system), **Dracula**, **Freelens**, **Proton** (from
-  luci-theme-proton2025), **Synthwave '84**, **Dark Islands**, **GitHub**,
-  **Night Owl**, **Material**, **One Dark Pro**, **One Dark**, **Catppuccin**,
-  **Jellybeans** and **Adwaita** colour themes; each theme selects its terminal
-  ANSI palette and Monaco theme. All non-Radar themes force dark mode.
-- **Fonts:** UI font choice (DM Sans, Ubuntu, System UI) plus bundled **Ubuntu**
-  and **Ubuntu Mono** WOFF2 subsets; monospace terminal choices include Ubuntu
-  Mono. The global Font size multiplier still scales all text.
-- Hotbar with **pages** (75px rail, 10 slots per page, 40px cells, 12px spacing
-  like Freelens): three-letter short names, seeded tile colours, a status LED,
-  press/shake animations, drag-and-drop and a context-menu "Move to slot"
-  fallback; `‹ N ›` switches pages and the badge opens the page list (new /
-  remove page), favourites flow into the next page instead of being dropped,
-  and the rail scrolls when the window is short. Open clusters stay in the top
-  tab strip. Home/Back navigation lives in the tab strip.
-- A **Font size** setting (Settings → Appearance, after the theme controls):
-  a free numeric multiplier between 50% and 200% that proportionally scales
-  every font in the app — UI text, tables, terminal, YAML editor — while
-  keeping the interface geometry (spacing, table row heights, sidebar/dock
-  sizes) fixed. Default 100%, applies immediately and persists in
-  `settings.json` (`fontScale`).
-- Freelens-style settings brought over: **UI font**, **Timezone** (local/UTC),
-  **Editor** (font family, size, tab size, line numbers, minimap), **Terminal**
-  (shell path, copy-on-select) and the bundled Ubuntu fonts. The kubectl/Helm
-  binary, kubeconfig sync, proxy and extension-registry preferences are
-  intentionally absent — mLens talks to the API directly and has no binary
-  dependencies.
-- Reorderable sidebar groups, column order, column widths (remembered per kind
-  across clusters), and configurable row height from 24 to 52px.
-- Problems filter for warning/error statuses, plus the regular status badges and
-  per-column status filters.
-- Resource tables open **sorted by age, newest first**; an explicit sort is
-  remembered per kind (Pods, CRDs, …) in settings and survives cluster switches
-  and restarts, while a kind opened for the first time falls back to newest.
-- Radar status language: Pods show their real blocker — Pending,
-  ContainerCreating, PodInitializing, Terminating in amber; CrashLoopBackOff,
-  ImagePullBackOff, ErrImagePull and Evicted in red; Running/Completed otherwise.
-  Workloads show **Updating** in amber while a rollout is in progress and
-  **Not ready** / **Failed** in red; the badge tooltip carries the
-  ready/updated counts. Status badges with a detail (container message, node
-  condition reason) explain themselves on hover; the card also lists the
-  resource's `status.conditions`, newest transition first, with state,
-  reason/message, relative age and the exact timestamp. In the editor pane the
-  same card is on the header status badge, and a condition's age opens its exact
-  transition time.
-
-### Design system
-
-Radar-derived tokens and components: cool blue-gray surfaces, one brand blue,
-DM Sans/DM Mono, 6/8/10/14px radii, status hues (success/warning/alert/error/info),
-`light-dark()` theming, 0.5px hairlines, compact badges, menus, tooltips, dialogs,
-collapsible sections, YAML viewer and console.
-
----
