@@ -9,6 +9,7 @@ import type { TerminalTarget } from "../../stores/session-store";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { api, errorText } from "../../lib/api";
 import { cn } from "../../lib/cn";
+import { podCommandArgv } from "../../lib/command-line";
 import { toast } from "../../design-system/components/Toast";
 
 const RADAR_TERMINAL_THEME = {
@@ -444,6 +445,14 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
           terminal.write(
             `\r\n\x1b[38;5;244m[process exited${payload.exitCode !== null ? ` with code ${payload.exitCode}` : ""}${payload.error ? `: ${payload.error}` : ""}]\x1b[0m\r\n`,
           );
+          // The most common exec failure: the container simply has no shell at
+          // that path (distroless images). Say what to do instead of leaving
+          // the OCI error as the only clue.
+          if (payload.error && /no such file|executable file not found|not found in \$PATH/i.test(payload.error)) {
+            terminal.write(
+              "\x1b[38;5;244m[hint] That shell does not exist in this container. Reopen Exec and try /bin/bash, /bin/ash, or a debug shell.\x1b[0m\r\n",
+            );
+          }
         })
       : api.terminal.onExit((payload) => {
           if (payload.sessionId !== sessionId) return;
@@ -490,7 +499,7 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
             namespace: target.namespace,
             pod: target.pod,
             container: target.container,
-            command: attach ? [] : [target.shell ?? "/bin/sh"],
+            command: attach ? [] : podCommandArgv(target.shell),
             tty: !attach,
             cols,
             rows,

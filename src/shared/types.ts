@@ -321,6 +321,51 @@ export interface ClusterHealth {
   latencyMs?: number;
 }
 
+// ── Metrics history (main-process ring buffer over metrics.k8s.io) ────────────
+// mLens samples the metrics API every 30s while a Metrics tab is in use and
+// keeps the last 120 samples (one hour) per container/node in memory. This is
+// live collection, not Prometheus history: there is nothing recorded while the
+// buffer is idle, and nothing survives an app restart.
+
+export interface MetricsDataPoint {
+  /** Sample time, ms since epoch. */
+  timestamp: number;
+  /** CPU usage in millicores. */
+  cpu: number;
+  /** Memory usage in bytes. */
+  memory: number;
+}
+
+export interface MetricsSeries {
+  /** Container name; the node name for a Node sample. */
+  name: string;
+  dataPoints: MetricsDataPoint[];
+}
+
+export interface MetricsHistoryRequest {
+  clusterId: ClusterId;
+  kind: "Pod" | "Node";
+  /** Required for Pods. */
+  namespace?: string;
+  name: string;
+}
+
+export interface MetricsHistory {
+  kind: "Pod" | "Node";
+  name: string;
+  namespace?: string;
+  /** One entry per container (Pods) or one for the node. */
+  series: MetricsSeries[];
+  /** Sampling interval in seconds (30). */
+  intervalSeconds: number;
+  /** Ring capacity in samples (`120` = one hour at 30s). */
+  capacity: number;
+  /** True when metrics.k8s.io is not served by the cluster. */
+  unavailable?: boolean;
+  /** Collection failure; samples already buffered stay usable. */
+  collectionError?: string;
+}
+
 /** Catalog cluster list ordering; remembered across sessions. */
 export type CatalogSort = "status" | "name" | "recent" | "source";
 

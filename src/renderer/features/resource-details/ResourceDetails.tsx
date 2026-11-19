@@ -254,8 +254,11 @@ export function ResourceDetails({
   };
 
   const Icon = getKindIcon(details.ref.kind, resource?.group);
-  const isPod = details.ref.kind === "Pod";
-  const isNode = details.ref.kind === "Node";
+  // A CRD can be served under a built-in kind name (`metalmonk…/Node`); it must
+  // not inherit Pod/Node tabs, Logs or metrics.
+  const isCustom = resource?.isCrd === true;
+  const isPod = !isCustom && details.ref.kind === "Pod";
+  const isNode = !isCustom && details.ref.kind === "Node";
   const caps = workloadCapabilities(details.ref.kind, details.ref.apiVersion);
   const fullHeightTab = tab === "yaml" || tab === "logs";
 
@@ -618,7 +621,7 @@ export function ResourceDetails({
               ...(isPod
                 ? [{ id: "logs" as const, label: "Logs", icon: <SquareTerminal /> }]
                 : []),
-              ...(isPod ? [{ id: "metrics" as const, label: "Metrics", icon: <Activity /> }] : []),
+              ...(isPod || isNode ? [{ id: "metrics" as const, label: "Metrics", icon: <Activity /> }] : []),
               { id: "yaml", label: "YAML", icon: <FileCode /> },
             ]}
           />
@@ -695,12 +698,11 @@ export function ResourceDetails({
               />
             ) : null}
             {tab === "logs" && isPod ? <LogsTab clusterId={clusterId} object={object} /> : null}
-            {tab === "metrics" && isPod ? (
+            {tab === "metrics" && (isPod || isNode) ? (
               <MetricsTab
                 clusterId={clusterId}
                 object={object}
                 resources={resources}
-                refreshSeconds={refreshSeconds}
               />
             ) : null}
           </ErrorBoundary>

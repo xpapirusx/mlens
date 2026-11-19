@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { KubeObject, ResourceKey } from "@shared/types";
 import { api, call, errorText } from "../../lib/api";
 import { helmDetailRow } from "../../lib/helm";
-import { resourceStatus } from "../../lib/status";
+import { resourceStatus, isBuiltinApiVersion } from "../../lib/status";
 
 export interface ResourceObjectState {
   object: KubeObject | null;
@@ -385,7 +385,9 @@ export function useRelatedResources(
       return;
     }
     let disposed = false;
-    const kind = ref.kind;
+    // Custom resources may reuse a built-in kind name (MetalMonk serves `Node`);
+    // the built-in relationship rules below only apply to the real kinds.
+    const kind = isBuiltinApiVersion(ref.apiVersion) ? ref.kind : "";
     const namespace = object.metadata?.namespace;
 
     const list = async (apiVersion: string, listKind: string, listNamespace?: string, fieldSelector?: string) => {

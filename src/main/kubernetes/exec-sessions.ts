@@ -4,6 +4,44 @@ import { TextDecoder } from "node:util";
 import type { ExecRequest, TerminalDataPayload, TerminalExitPayload } from "@shared/types";
 import type { ClusterConnection } from "./session";
 
+/** Kubernetes' status frame on channel 3. */
+interface ExecStatus {
+  status?: string;
+  message?: string;
+  reason?: string;
+  details?: { causes?: Array<{ reason?: string; message?: string }> };
+}
+
+/**
+ * The exec status frame is a `metav1.Status`: the process exit code lives in
+ * `details.causes[reason=ExitCode]`, not in `code` (which is the HTTP-ish
+ * status and usually absent). Reporting `code ?? 0` made every `exit 7` look
+ * like a clean exit.
+ */
+function readExecStatus(status: ExecStatus | undefined): { exitCode: number | null; error?: string } {
+  if (!status) return { exitCode: 0 };
+  const cause = status.details?.causes?.find((entry) => entry.reason === "ExitCode");
+  const parsed = cause?.message !== undefined ? Number(cause.message) : NaN;
+  // A real process exit (including a non-zero one) carries an ExitCode cause.
+  if (Number.isInteger(parsed)) return { exitCode: parsed };
+  // Everything else is an API/runtime failure (missing binary, denied
+  // subresource, container gone): there is no meaningful process exit code.
+  if (status.status === "Failure") {
+    return { exitCode: null, error: status.message ?? status.reason ?? "The exec session failed." };
+  }
+  return { exitCode: 0 };
+}
+
+/** ws surfaces some failures as an Error-like event instead of an Error. */
+function socketErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(error);
+}
+
 /** Writable stdout that also exposes the terminal size Exec() reads for resize frames. */
 class ResizableOutput extends Writable {
   rows = 24;
@@ -97,7 +135,8 @@ export class ExecSessions {
           stdin,
           request.tty,
           (status) => {
-            finish(status?.code ?? 0, status?.message);
+            const result = readExecStatus(status as ExecStatus | undefined);
+            finish(result.exitCode, result.error);
           },
         );
       }
@@ -108,7 +147,7 @@ export class ExecSessions {
       };
       socket.on?.("close", (code) => finish(code ?? 0));
     } catch (error) {
-      finish(null, error instanceof Error ? error.message : String(error));
+      finish(null, socketErrorMessage(error));
     }
   }
 

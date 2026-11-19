@@ -81,7 +81,9 @@ export function useResourceMetrics(options: {
   const podMetrics = resources.find((entry) => entry.kind === "PodMetrics");
   const nodeMetrics = resources.find((entry) => entry.kind === "NodeMetrics");
   const nodeResource = resources.find((entry) => entry.kind === "Node" && entry.apiVersion === "v1");
-  const kind = resource?.kind;
+  // A CRD can be named `Pod` or `Node` in its own group; metrics.k8s.io only
+  // describes the built-in kinds.
+  const kind = resource?.isCrd ? undefined : resource?.kind;
   const needsPods = kind === "Pod";
   const needsNodes = kind === "Node";
   // Pods need the node sample + node allocatable only to explain the pod's

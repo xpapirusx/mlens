@@ -25,7 +25,7 @@ export function useServiceEndpoints({
 }): Map<string, number> {
   const [endpoints, setEndpoints] = useState<KubeObject[]>([]);
   const stableRef = useRef<Map<string, number>>(new Map());
-  const enabled = active && resource?.kind === "Service";
+  const enabled = active && !resource?.isCrd && resource?.kind === "Service";
   const scopeKey = namespaces.join("|");
 
   useEffect(() => {

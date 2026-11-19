@@ -1,6 +1,7 @@
 import type { KubeObject } from "@shared/types";
 import { stringify } from "yaml";
 import { api, call } from "./api";
+import { isBuiltinApiVersion } from "./status";
 
 /**
  * Workload actions shared by the Resource Browser row menu and the Details
@@ -33,6 +34,19 @@ export interface WorkloadCapabilities {
 }
 
 export function workloadCapabilities(kind: string, apiVersion?: string): WorkloadCapabilities {
+  // A custom resource can reuse a built-in kind name (`Node`); scaling,
+  // restarting or draining it with Kubernetes workload patches would be wrong.
+  if (!isBuiltinApiVersion(apiVersion)) {
+    return {
+      scalable: false,
+      restartable: false,
+      pausable: false,
+      suspendable: false,
+      imageEditable: false,
+      triggerable: false,
+      drainable: false,
+    };
+  }
   const lower = kind.toLowerCase();
   return {
     scalable: SCALABLE.has(lower),

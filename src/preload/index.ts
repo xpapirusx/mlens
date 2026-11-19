@@ -26,6 +26,8 @@ import type {
   LogChunkPayload,
   LogEndPayload,
   LogRequest,
+  MetricsHistory,
+  MetricsHistoryRequest,
   NamespaceInfo,
   PodContainerInfo,
   PolicyResourceRequest,
@@ -104,6 +106,10 @@ const api: MlensApi = {
   pods: {
     containers: (clusterId: ClusterId, namespace: string, name: string) =>
       ipcRenderer.invoke(IPC.podContainers, clusterId, namespace, name) as Promise<PodContainerInfo[]>,
+  },
+  metrics: {
+    history: (request: MetricsHistoryRequest) =>
+      ipcRenderer.invoke(IPC.metricsHistory, request) as Promise<MetricsHistory>,
   },
   rbac: {
     subject: (request: RbacSubjectRequest) =>

@@ -310,6 +310,12 @@ contains a single kind.
 - Local shells and pod exec share the same dock, visually identical to Radar's
   console. The per-tab header shows the cluster context and namespace so a
   cross-cluster session is never ambiguous.
+- The pod exec **shell command is a command line**: it is split into argv with
+  quote support (`lib/command-line.ts`), so `sh -c "clear; (bash || ash || sh)"`
+  behaves exactly as in kubectl. The dialog is pre-filled with a bash → ash → sh
+  probe (`command -v … && exec …`) instead of a fixed `/bin/sh`. The terminal
+  reports the command's real exit code, and a container without a shell at all
+  gets a hint instead of a bare OCI error.
 - Double-clicking the dock header collapses/expands it.
 
 ### 2.7 Editor area
@@ -490,8 +496,10 @@ table      : fixed header + virtualised rows (add/remove animates the shift, 150
 footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accent "Load 2000 more" chip
 ```
 
-- Search is case-insensitive across name, namespace, labels and visible cell
-  values; regex mode is available and flagged red when invalid.
+- Search is case-insensitive on the **resource name** (`salt-operator` finds
+  pods named `salt-operator…`, not every pod in the `salt-operator` namespace);
+  regex mode tests the same name and is flagged red when invalid. Namespace,
+  status, labels and other cells are narrowed with the per-column filters.
 - Per-column filters open from the funnel in the header or the toolbar. A column
   is filterable when it has 2–60 distinct values. Filters are include-only
   multi-select with value counts.
@@ -613,6 +621,10 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   uses Radar-style cards: CRD definitions show Group, Kind, Scope and version
   count plus versions/printer columns/conditions; CR instances show kind, API
   version, namespace, age, printer-column values, conditions, status and spec.
+  A CRD may reuse a built-in kind name (`metalmonk.pinata.mws.cloud/v1beta1`
+  serves `Node`): such instances take the CRD's own printer columns, the generic
+  status, overview and actions — never the built-in Node columns, Drain, or
+  Metrics/Logs tabs.
 - **Overview** — kind-specific summary. Pods: phase, node, IPs, QoS, service
   account, containers (image, readiness, restarts, requests/limits, ports),
   a **Ports** table where clicking the port number starts an automatic local
@@ -742,9 +754,13 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   patch.
 - Specification/Status fields are sorted; complex objects/arrays are collapsed
   JSON blocks so the drawer never grows to a multi-thousand-pixel page.
-- **Metrics** — real metrics.k8s.io usage for **Pods only**; when the API is
-  absent the panel says exactly that. No synthetic numbers; historical charts are
-  not implemented.
+- **Metrics** — real metrics.k8s.io usage for **Pods and Nodes**, with Radar's
+  mini charts: a CPU and a memory sparkline over the samples mLens collected
+  in the main process (one per 30s, last hour), pod request/limit lines, node
+  allocatable in each card's footer, plus per-container charts for Pods. The
+  charts are live collection, not Prometheus history: a freshly opened tab
+  starts with a short line instead of an invented past, and when the API is
+  absent the panel says exactly that. No synthetic numbers.
 
 ### 3.6a Port forwarding
 
@@ -845,7 +861,8 @@ These are stated so they are not mistaken for finished features:
 - **No route-level back/forward history** across resource kinds; the forward
   button is disabled, and back covers details history → catalog.
 - **No Helm, topology, timeline, GitOps or audit views** yet.
-- **No Prometheus history charts**; only live metrics-server values.
+- **No Prometheus history charts**; only live metrics-server values, plus the
+  one-hour rolling buffer mLens samples itself while a Metrics tab is open.
 - **No multi-window** support; Freelens also assumes one main window.
 - **No iframe-per-cluster** isolation; sessions are isolated in the main process
   and in keyed renderer state instead.

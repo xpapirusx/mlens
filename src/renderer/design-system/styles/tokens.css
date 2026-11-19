@@ -61,6 +61,10 @@
   --accent-muted: light-dark(rgba(74, 124, 201, 0.12), rgba(106, 159, 224, 0.18));
   --accent-text: light-dark(#3b66a8, #8bb5ea);
 
+  /* Metrics mini charts — Radar's CPU blue / memory violet, tuned per theme. */
+  --chart-cpu: light-dark(#3b82f6, #60a5fa);
+  --chart-memory: light-dark(#8b5cf6, #a78bfa);
+
   /* Selection */
   --selection-bg: light-dark(rgba(74, 124, 201, 0.1), rgba(106, 159, 224, 0.15));
   --selection-bg-strong: light-dark(rgba(74, 124, 201, 0.2), rgba(106, 159, 224, 0.25));

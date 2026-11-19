@@ -5,15 +5,18 @@ import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
 import { Spinner } from "../../design-system/components/Spinner";
 import { api, call, errorText } from "../../lib/api";
+import { DEFAULT_POD_COMMAND } from "../../lib/command-line";
 import { useSessionStore } from "../../stores/session-store";
 import { toast } from "../../design-system/components/Toast";
 
 const SHELLS = ["/bin/sh", "/bin/bash", "/bin/ash", "/bin/zsh", "/bin/fish", "sh", "bash", "powershell", "cmd"];
 
 /**
- * Exec is a dialog rather than an immediate terminal: the first container and
- * `/bin/sh` are only defaults — the user may pick another container or command
- * (busybox images, bash-only images, Windows pods, …) before opening the dock.
+ * Exec is a dialog rather than an immediate terminal: the first container is a
+ * default, and the command is pre-filled with the bash → ash → sh chain — the
+ * user may pick another container or command (busybox images, bash-only images,
+ * Windows pods, …) before opening the dock. The command field takes arguments
+ * (`sh -c "…"`), just like `kubectl exec`.
  */
 export function ExecDialog({
   open,
@@ -31,7 +34,7 @@ export function ExecDialog({
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const [containers, setContainers] = useState<PodContainerInfo[]>([]);
   const [container, setContainer] = useState("");
-  const [shell, setShell] = useState("/bin/sh");
+  const [shell, setShell] = useState(DEFAULT_POD_COMMAND);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +45,7 @@ export function ExecDialog({
     setError(null);
     setContainers([]);
     setContainer("");
-    setShell("/bin/sh");
+    setShell(DEFAULT_POD_COMMAND);
     call(api.pods.containers(clusterId, namespace, pod))
       .then((list) => {
         if (disposed) return;
@@ -71,7 +74,9 @@ export function ExecDialog({
       namespace,
       pod,
       container,
-      shell: shell.trim() || "/bin/sh",
+      // The field may carry arguments (`sh -c "…"`); argv is parsed when the
+      // terminal starts so a pasted kubectl-style command works.
+      shell: shell.trim() || DEFAULT_POD_COMMAND,
     });
     onClose();
   };
@@ -129,7 +134,7 @@ export function ExecDialog({
               onChange={(event) => setShell(event.target.value)}
               spellCheck={false}
               className="mt-1 h-8 w-full rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-sm text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-skyhook-500/60"
-              placeholder="/bin/sh"
+              placeholder={DEFAULT_POD_COMMAND}
             />
             <datalist id="mlens-exec-shells">
               {SHELLS.map((entry) => (
@@ -137,7 +142,7 @@ export function ExecDialog({
               ))}
             </datalist>
             <span className="mt-1 block text-[calc(10px*var(--font-scale))] font-normal text-theme-text-tertiary">
-              For example /bin/sh, /bin/bash, /bin/ash, or powershell for Windows pods.
+              Arguments are supported, e.g. sh -c "clear; (bash || ash || sh)" or powershell for Windows pods.
             </span>
           </label>
           <p className="text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">

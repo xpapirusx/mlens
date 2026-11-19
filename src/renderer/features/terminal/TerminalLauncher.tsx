@@ -8,6 +8,7 @@ import { api, call, errorText } from "../../lib/api";
 import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
 import { cn } from "../../lib/cn";
+import { DEFAULT_POD_COMMAND } from "../../lib/command-line";
 
 export type TerminalMode = "local" | "pod";
 
@@ -37,7 +38,7 @@ export function TerminalLauncher({
   const [namespaces, setNamespaces] = useState<string[]>([]);
   const [pod, setPod] = useState("");
   const [container, setContainer] = useState("");
-  const [shell, setShell] = useState("/bin/sh");
+  const [shell, setShell] = useState(DEFAULT_POD_COMMAND);
   const [pods, setPods] = useState<string[]>([]);
   const [containers, setContainers] = useState<PodContainerInfo[]>([]);
   const [loadingNamespaces, setLoadingNamespaces] = useState(false);
@@ -92,7 +93,7 @@ export function TerminalLauncher({
   useEffect(() => {
     if (!open) return;
     setMode(initialMode);
-    setShell("/bin/sh");
+    setShell(DEFAULT_POD_COMMAND);
     setPods([]);
     setContainers([]);
     setLoadingPods(false);
@@ -190,7 +191,7 @@ export function TerminalLauncher({
         namespace,
         pod,
         container,
-        shell: shell.trim() || "/bin/sh",
+        shell: shell.trim() || DEFAULT_POD_COMMAND,
       });
     }
     onClose();

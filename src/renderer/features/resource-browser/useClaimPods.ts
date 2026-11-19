@@ -23,7 +23,7 @@ export function useClaimPods({
 }): Map<string, string[]> {
   const [pods, setPods] = useState<KubeObject[]>([]);
   const stableRef = useRef<Map<string, string[]>>(new Map());
-  const enabled = active && resource?.kind === "PersistentVolumeClaim";
+  const enabled = active && !resource?.isCrd && resource?.kind === "PersistentVolumeClaim";
   const scopeKey = namespaces.join("|");
 
   useEffect(() => {

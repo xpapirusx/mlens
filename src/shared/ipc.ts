@@ -17,6 +17,8 @@ import type {
   HelmReleaseSummary,
   HelmReleasesRequest,
   HelmRollbackRequest,
+  MetricsHistory,
+  MetricsHistoryRequest,
   PatchResourceRequest,
   KubeObject,
   KubeconfigSource,
@@ -81,6 +83,7 @@ export const IPC = {
   resourcesEvict: "kube:resources-evict",
   resourcesWatchEvent: "kube:resources-watch-event",
   podContainers: "kube:pod-containers",
+  metricsHistory: "kube:metrics-history",
   rbacSubject: "kube:rbac-subject",
   rbacRole: "kube:rbac-role",
   policyResource: "kube:policy-resource",
@@ -156,6 +159,13 @@ export interface MlensApi {
   };
   pods: {
     containers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]>;
+  };
+  metrics: {
+    /**
+     * Rolling CPU/memory samples collected by main from metrics.k8s.io while a
+     * Metrics tab is in use. Live collection, not Prometheus history.
+     */
+    history(request: MetricsHistoryRequest): Promise<MetricsHistory>;
   };
   rbac: {
     /** Effective permissions of a ServiceAccount (direct + group-inherited). */

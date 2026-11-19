@@ -173,7 +173,8 @@ export function ResourceSidebar({
       if (current) list.push(current);
     }
     for (const resource of resources) {
-      if (resource.kind === "Node" || resource.kind === "CustomResourceDefinition") {
+      const builtinNode = resource.kind === "Node" && !resource.isCrd;
+      if (builtinNode || resource.kind === "CustomResourceDefinition") {
         list.push(resource);
       }
     }

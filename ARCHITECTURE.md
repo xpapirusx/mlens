@@ -201,7 +201,10 @@ Discovery is a TypeScript implementation of the standard flow:
 
 The result drives the sidebar, kind picker, tables and CRD printer columns. There
 is no hard-coded “supported resources” list: a CRD installed a minute ago appears
-after discovery refresh.
+after discovery refresh. Kind names are not unique across groups — a CRD can
+serve `Node` — so built-in tables, status mappings, overview dispatchers and
+workload actions are gated by API group (`isBuiltinApiVersion` in
+`lib/status.ts`), never by bare kind.
 
 ### 4.5 Multiple namespace scopes
 
@@ -265,6 +268,16 @@ events into `v4.channel.k8s.io` resize frames. stdin is a `PassThrough` fed by
 xterm. Text is decoded with a streaming `TextDecoder` so multi-byte glyphs are not
 split across chunks. Status frames and socket closes both terminate the session.
 
+The exec command is an **argv array**: the dialog's field is a command line
+parsed by `lib/command-line.ts` (`splitCommandLine`), so
+`sh -c "clear; (bash || ash || sh)"` is sent as three arguments exactly like
+kubectl/Freelens does; so a missing shell
+does not scatter "not found" lines into the session. The process exit
+code comes from the status frame's `details.causes[reason=ExitCode]`; `status.code`
+is the API error code (absent for a normal exit), so using it reported every
+`exit 7` as success. API/runtime failures keep their message and report no exit
+code, and the terminal explains a missing shell.
+
 Attach uses the same session plumbing with `Attach.attach(...)` and no command:
 `term.mode = "attach"` streams the running process (tty off), while exec opens an
 interactive shell with tty on. The drawer exposes both, and the dock renders them
@@ -294,6 +307,21 @@ requests/limits from the Pod spec (request marker), or show node usage against
 allocatable for Nodes. Missing metrics render `–`; there is no fallback to
 synthetic numbers. The whole metrics query is skipped when the metrics API is not
 discovered or the workspace is hidden.
+
+### 4.11a Metrics history for the Metrics tab
+
+`MetricsHistoryStore` (`src/main/kubernetes/metrics-history.ts`) keeps a rolling
+per-cluster buffer because the metrics API only serves the current sample. It
+starts with the first `kube:metrics-history` read for a Pod or Node, then LISTs
+`PodMetrics` and `NodeMetrics` every 30s into a 120-sample ring per container and
+per node (one hour). Collection pauses after ten idle minutes and is discarded on
+disconnect; nothing is persisted. Cluster-wide `PodMetrics` is preferred, with a
+per-namespace fallback (bounded to 12 namespaces) when a namespace-scoped RBAC
+denies it. When `metrics.k8s.io` is not discovered the store reports
+`unavailable` rather than zeros. The renderer draws it with
+`MetricsChart` (Radar-style area sparkline, CPU/memory tokens, request/limit and
+allocatable reference lines, hover crosshair); pod totals are summed by sample
+timestamp, and a collection gap is drawn as a gap.
 
 ### 4.12 Related resources
 

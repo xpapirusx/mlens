@@ -473,7 +473,7 @@ function PodUsageCell({
       <div className="space-y-1.5">
         {shown.map((row) => (
           <div key={row.name} className="space-y-0.5">
-            <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{row.name}</div>
+            <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{row.name}</div>asd
             <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{row.detail}</div>
           </div>
         ))}
@@ -894,10 +894,15 @@ function warningsColumn(): ColumnDef {
 export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: boolean): ColumnDef[] {
   const kind = resource.kind;
   const lower = kind.toLowerCase();
+  // A CRD can reuse a built-in kind name (`metalmonk.pinata.mws.cloud/v1beta1`
+  // also serves `Node`). Built-in columns would read spec/status fields that
+  // custom object does not have (Conditions/Taints/Version showed "Unknown"),
+  // so custom kinds always take the printer-column branch.
+  const builtinKind = resource.isCrd ? "" : lower;
   const columns: ColumnDef[] = [nameColumn];
   const base: ColumnDef[] = [];
 
-  switch (lower) {
+  switch (builtinKind) {
     case "pod": {
       base.push(
         {
@@ -2172,7 +2177,7 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
   }
 
   if (showNamespace && resource.namespaced) columns.push(namespaceColumn);
-  if (WARNING_KINDS.has(kind)) base.push(warningsColumn());
+  if (builtinKind && WARNING_KINDS.has(kind)) base.push(warningsColumn());
   // Radar's default tail: Status immediately before Age. Saved column orders
   // (`settings.tableColumnOrder`) are applied afterwards, so a user who moved
   // columns keeps their arrangement.

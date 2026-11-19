@@ -17,6 +17,8 @@ import type {
   HelmReleaseSummary,
   HelmReleasesRequest,
   HelmRollbackRequest,
+  MetricsHistory,
+  MetricsHistoryRequest,
   PolicyResourceRequest,
   PolicyResourceResponse,
   RbacSubjectRequest,
@@ -36,6 +38,7 @@ import { ClusterConnection } from "./session";
 import { ResourceWatcher } from "./resource-watcher";
 import { LogStreams } from "./log-streams";
 import { ExecSessions } from "./exec-sessions";
+import { MetricsHistoryStore } from "./metrics-history";
 import { policyResource } from "./policy";
 import { getHelmRelease, listHelmReleases, prepareHelmRollback, createReleaseSecret } from "./helm";
 import { rbacRole, rbacSubject } from "./rbac";
@@ -69,6 +72,7 @@ export class ClusterManager {
   readonly watcher = new ResourceWatcher((id) => this.connection(id));
   readonly logs = new LogStreams((id) => this.connection(id));
   readonly exec = new ExecSessions((id) => this.connection(id));
+  readonly metrics = new MetricsHistoryStore((id) => this.connection(id));
 
   constructor(
     private readonly kubeconfigs: KubeconfigManager,
@@ -135,6 +139,7 @@ export class ClusterManager {
     this.watcher.stopCluster(id);
     this.logs.stopCluster(id);
     this.exec.closeCluster(id);
+    this.metrics.stop(id);
     this.sessions.delete(id);
   }
 
@@ -400,6 +405,13 @@ export class ClusterManager {
     }
   }
 
+  /** Rolling CPU/memory samples for a Pod or Node (see MetricsHistoryStore). */
+  async metricsHistory(request: MetricsHistoryRequest): Promise<MetricsHistory> {
+    // Reads the connection lazily inside the store so a disconnected cluster
+    // reports a clear error instead of an empty chart.
+    return this.metrics.history(request);
+  }
+
   async podContainers(clusterId: ClusterId, namespace: string, name: string): Promise<PodContainerInfo[]> {
     const pod = await this.get({ clusterId, apiVersion: "v1", kind: "Pod", namespace, name });
     const specContainers = ((pod.spec?.containers as Array<{ name: string; image: string }> | undefined) ?? []).concat(
@@ -496,5 +508,6 @@ export class ClusterManager {
     this.watcher.stopAll();
     this.logs.stopAll();
     this.exec.closeAll();
+    this.metrics.stopAll();
   }
 }

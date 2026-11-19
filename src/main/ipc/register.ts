@@ -252,6 +252,15 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
     ),
   );
 
+  ipcMain.handle(IPC.metricsHistory, (_event, raw: unknown) => {
+    const request = assertObject<import("@shared/types").MetricsHistoryRequest>(raw, "request");
+    assertString(request.clusterId, "cluster id");
+    assertString(request.name, "name");
+    if (request.kind !== "Pod" && request.kind !== "Node") throw new Error("kind must be Pod or Node");
+    if (request.kind === "Pod") assertString(request.namespace, "namespace");
+    return clusters.metricsHistory(request);
+  });
+
   ipcMain.handle(IPC.rbacSubject, (_event, raw: unknown) =>
     clusters.rbacSubject(assertObject<RbacSubjectRequest>(raw, "request")),
   );

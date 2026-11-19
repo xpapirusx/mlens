@@ -248,12 +248,12 @@ export function ResourceBrowser({
   const warningEvents = useWarningEvents({
     clusterId,
     namespaces: selectedNamespaces,
-    active: active && WARNING_KINDS.has(resource?.kind ?? ""),
+    active: active && !resource?.isCrd && WARNING_KINDS.has(resource?.kind ?? ""),
     refreshSeconds,
   });
   const nodePodCounts = useNodePodCounts({
     clusterId,
-    active: active && resource?.kind === "Node",
+    active: active && !resource?.isCrd && resource?.kind === "Node",
     refreshSeconds,
   });
   const openRef = (target: { kind: string; name: string; namespace?: string; apiVersion?: string }) => {
@@ -314,7 +314,7 @@ export function ResourceBrowser({
   }, [kindState.search, kindState.regex]);
 
   // A10: the input writes the store per keystroke (the box stays instant),
-  // but the full inventory scan runs only after typing pauses.
+  // but the inventory scan runs only after typing pauses.
   const debouncedSearch = useDebouncedValue(kindState.search, 200);
 
   const [problemsOnly, setProblemsOnly] = useState(false);
@@ -335,27 +335,12 @@ export function ResourceBrowser({
     return keys;
   }, [columns]);
 
-  // A11: the search haystack (name, namespace, every column value, label
-  // keys) is built once per list/columns/context change — and only while a
-  // search is active — instead of per keystroke for every row.
+  // The search box narrows by resource name only. Namespace, status, labels and
+  // every other cell are narrowed with the column filters — a term like
+  // `salt-operator` must not pull in every pod that merely lives in that
+  // namespace (Radar-style table semantics for names, explicit filters for the
+  // rest).
   const searching = debouncedSearch.trim().length > 0;
-  const haystacks = useMemo(() => {
-    if (!searching) return null;
-    const built = new Array<string>(list.items.length);
-    for (let index = 0; index < list.items.length; index += 1) {
-      const row = list.items[index];
-      built[index] = [
-        row.metadata?.name,
-        row.metadata?.namespace,
-        ...columns.map((column) => column.value?.(row, cellContext)),
-        ...Object.keys(row.metadata?.labels ?? {}),
-      ]
-        .filter((value) => value !== undefined && value !== null)
-        .join(" ")
-        .toLowerCase();
-    }
-    return built;
-  }, [searching, list.items, columns, cellContext]);
 
   // A20: one pass over the inventory that counts problems and applies the
   // search, the Problems toggle and the column filters together — three
@@ -374,9 +359,7 @@ export function ResourceBrowser({
     const filterColumns = Object.entries(kindState.filters)
       .filter(([, values]) => values.length > 0)
       .map(([key, values]) => ({ column: columns.find((entry) => entry.key === key), values }));
-    const hay = haystacks;
-    const useSearch = searching && hay !== null;
-    const narrowing = useSearch || (problemsOnly && Boolean(resource)) || filterColumns.length > 0;
+    const narrowing = searching || (problemsOnly && Boolean(resource)) || filterColumns.length > 0;
 
     let problems = 0;
     const rows: KubeObject[] = [];
@@ -389,9 +372,9 @@ export function ResourceBrowser({
         if (isProblem) problems += 1;
       }
       if (!narrowing) continue;
-      if (useSearch) {
-        const entry = hay![index];
-        if (regex ? !regex.test(entry) : !entry.includes(needle)) continue;
+      if (searching) {
+        const name = String(row.metadata?.name ?? "");
+        if (regex ? !regex.test(name) : !name.toLowerCase().includes(needle)) continue;
       }
       if (problemsOnly && resource && !isProblem) continue;
       let passes = true;
@@ -411,7 +394,6 @@ export function ResourceBrowser({
     resource,
     debouncedSearch,
     searching,
-    haystacks,
     kindState.regex,
     kindState.filters,
     problemsOnly,
@@ -880,8 +862,10 @@ export function ResourceBrowser({
   const canRestart = caps.restartable;
   const canPause = caps.pausable;
   const canSuspend = caps.suspendable;
-  const isPod = lowerKind === "pod";
-  const isNode = lowerKind === "node";
+  // Built-in row actions only: a CRD can be named `Pod`/`Node` in its own group.
+  const isCustom = resource.isCrd;
+  const isPod = !isCustom && lowerKind === "pod";
+  const isNode = !isCustom && lowerKind === "node";
 
   const toggleCordon = async (object: KubeObject) => {
     if (!resource) return;
@@ -998,6 +982,7 @@ export function ResourceBrowser({
               onRegexChange={(regex) => setKindPatch({ regex })}
               regexError={searchError}
               placeholder={`Search ${kindLabel(resource.kind, resource.plural).toLowerCase()}…`}
+              title="Matches the resource name; use column filters for namespace, status and other cells"
               size="md"
             />
           </div>

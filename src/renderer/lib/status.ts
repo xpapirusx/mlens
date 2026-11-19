@@ -46,6 +46,54 @@ function conditions(object: AnyObject): Array<Record<string, any>> {
   return Array.isArray(object.status?.conditions) ? object.status.conditions : [];
 }
 
+/**
+ * Groups served by Kubernetes itself. A CRD may reuse a built-in kind name
+ * (`Node`, `Service`, `Event`, …) in its own group; its objects do not have the
+ * built-in status shape, so dispatching on the bare kind would label them
+ * "Unknown". The API group, not the kind, decides which mapping applies.
+ */
+const BUILTIN_API_GROUPS = new Set([
+  "",
+  "apps",
+  "batch",
+  "autoscaling",
+  "policy",
+  "networking.k8s.io",
+  "rbac.authorization.k8s.io",
+  "storage.k8s.io",
+  "apiextensions.k8s.io",
+  "apiregistration.k8s.io",
+  "coordination.k8s.io",
+  "discovery.k8s.io",
+  "events.k8s.io",
+  "flowcontrol.apiserver.k8s.io",
+  "node.k8s.io",
+  "scheduling.k8s.io",
+  "certificates.k8s.io",
+  "admissionregistration.k8s.io",
+  "authentication.k8s.io",
+  "authorization.k8s.io",
+  "resource.k8s.io",
+  "internal.apiserver.k8s.io",
+  "storagemigration.k8s.io",
+  "metrics.k8s.io",
+  "custom.metrics.k8s.io",
+  "external.metrics.k8s.io",
+]);
+
+export function isBuiltinApiVersion(apiVersion?: string): boolean {
+  // Partial objects (owner refs, synthetic rows) carry no apiVersion; keep the
+  // kind-based behaviour rather than silently hiding a real status.
+  if (!apiVersion) return true;
+  const group = apiVersion.includes("/") ? apiVersion.slice(0, apiVersion.indexOf("/")) : "";
+  return BUILTIN_API_GROUPS.has(group);
+}
+
+function usesBuiltinStatus(object: AnyObject): boolean {
+  const apiVersion = typeof object?.apiVersion === "string" ? object.apiVersion : "";
+  return isBuiltinApiVersion(apiVersion);
+}
+
 function condition(object: AnyObject, type: string): Record<string, any> | undefined {
   return conditions(object).find((entry) => entry.type === type);
 }
@@ -370,6 +418,9 @@ export function genericStatus(object: AnyObject): ResourceStatus {
 }
 
 export function resourceStatus(object: AnyObject, kind?: string): ResourceStatus {
+  // Custom resources reuse built-in kind names (MetalMonk's `Node`), but their
+  // status is their own schema: never read it with a built-in mapping.
+  if (!usesBuiltinStatus(object)) return genericStatus(object);
   const key = (kind ?? object.kind ?? "").toLowerCase();
   switch (key) {
     case "pod":

@@ -100,7 +100,9 @@ function StatusPill({ object, kind }: { object: AnyObject; kind: string }) {
 }
 
 export function OverviewTab(props: OverviewProps) {
-  const kind = props.resource.kind.toLowerCase();
+  // CRDs may reuse a built-in kind name (MetalMonk's `Node`); their spec/status
+  // is not a Kubernetes node, so they open the generic overview.
+  const kind = props.resource.isCrd ? "" : props.resource.kind.toLowerCase();
   switch (kind) {
     case "pod":
       return <PodOverview {...props} />;

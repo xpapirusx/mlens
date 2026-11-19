@@ -140,11 +140,13 @@ Important:
   returns the previous Map/array reference (`lib/stable.ts` — `sameMapValues`,
   `sameStringList`): timer ticks must not invalidate `cellContext` and the
   search/filter/sort memos downstream (A13).
-- **Search and filtering are precomputed.** The haystack is a memo over
-  `items/columns/cellContext` built only while a term is active, the term is
-  debounced (`useDebouncedValue`), search + Problems + column filters run in
-  one pass, and filter popover options are built lazily on open. Never
-  reintroduce per-keystroke O(rows×cols) scans (A10–A11, A20).
+- **Search and filtering are precomputed.** The search box matches the
+  **resource name only** (substring, or regex when enabled): namespace, status,
+  labels and other cells are narrowed through the column filters, never
+  implicitly by the search term. The term is debounced (`useDebouncedValue`),
+  search + Problems + column filters run in one pass, and filter popover options
+  are built lazily on open. Never reintroduce per-keystroke O(rows×cols) scans
+  (A10–A11, A20).
 
 ---
 
@@ -155,7 +157,10 @@ Important:
   `RequestContext` + `applySecurityAuthentication` so tokens, client certs,
   basic auth and exec credential plugins work.
 - Use discovery (`/api`, `/apis`, CRD list); never hard-code a closed list of
-  supported kinds.
+  supported kinds. **Kind alone is not an identity**: a CRD can serve `Node`,
+  `Service` or `Event` in its own group. Built-in columns, status mappings,
+  overview dispatchers and workload actions must be gated by API group
+  (`isBuiltinApiVersion` in `lib/status.ts`), never by the bare kind.
 - Lists accept namespace scope; multi-namespace views fetch each scope and merge
   by UID. Watches are per scope and reconnect from the last resourceVersion.
   Client-side search and column filters cover the whole inventory: typing in the
@@ -169,7 +174,10 @@ Important:
   kind in the group has been counted, otherwise the kind count. Poll at ≥120s.
 - Metrics (`metrics.k8s.io`) are optional. Missing metrics must render `–`, never
   zero or invented values. Table metrics are fetched only when CPU/Memory columns
-  are visible, at ≥60s.
+  are visible, at ≥60s. The Metrics tab's mini charts read
+  `MetricsHistoryStore` in main (30s samples, 120 per series, collected only
+  while a Metrics tab is in use); never draw a straight line across a collection
+  gap and never claim a longer history than the buffer holds.
 - Mutations: delete asks for confirmation; scale = merge patch of `spec.replicas`;
   restart patches `spec.template.metadata.annotations`; pause/resume patches
   `spec.paused` (Deployments); suspend/resume patches `spec.suspend` (Jobs and
@@ -180,6 +188,14 @@ Important:
   CronJob).
   Manual scaling is refused when an HPA owns the replica count (checked lazily on
   pressing Scale, not in the background).
+- Pod exec takes an **argv array**, never a single command line: the dialog's
+  field is parsed by `lib/command-line.ts` (`splitCommandLine`) so
+  `sh -c "clear; (bash || ash || sh)"` runs exactly as in kubectl/Freelens.
+  The default command probes bash → ash → sh with `command -v` (no missing-shell
+  noise) and execs the first one. Report the process exit code from
+  the status frame's `details.causes[reason=ExitCode]` (not `status.code`, which
+  is the API error code and usually absent); a missing shell shows a hint, not
+  a bare OCI error.
 - Port forwarding is implemented over the Kubernetes WebSocket protocol. The
   server sends the 2-byte little-endian port handshake on channels 0 and 1; the
   client strips it and does not send a port prefix. Do not replace this with a
