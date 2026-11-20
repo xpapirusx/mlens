@@ -7,6 +7,8 @@ import { toast } from "../../design-system/components/Toast";
 export interface ResourceListState {
   items: KubeObject[];
   loading: boolean;
+  /** True while one "Load more" page is in flight. */
+  loadingMore: boolean;
   /** True while "load every page" (search across all names) is running. */
   loadingAll: boolean;
   error: string | null;
@@ -27,6 +29,63 @@ function mergeByUid(items: KubeObject[]): KubeObject[] {
     byUid.set(key, item);
   }
   return [...byUid.values()];
+}
+
+function itemKey(item: KubeObject): string {
+  return item.metadata?.uid ?? `${item.metadata?.namespace}/${item.metadata?.name}`;
+}
+
+/**
+ * Reuse the previous object references when a silent refresh returns the same
+ * resourceVersion. The IPC layer always produces fresh objects, so without
+ * this every list refresh defeats TableRow memoization and re-runs the whole
+ * filter/sort pipeline even though nothing changed.
+ */
+function reconcileItems(previous: KubeObject[], next: KubeObject[]): KubeObject[] {
+  if (previous.length === 0) return next;
+  const sameVersion = (left: KubeObject, right: KubeObject): boolean => {
+    const leftRv = left.metadata?.resourceVersion;
+    const rightRv = right.metadata?.resourceVersion;
+    return Boolean(leftRv && rightRv && leftRv === rightRv && itemKey(left) === itemKey(right));
+  };
+  if (
+    previous.length === next.length &&
+    previous.every((entry, index) => entry === next[index] || sameVersion(entry, next[index]))
+  ) {
+    return previous;
+  }
+
+  const byKey = new Map<string, KubeObject>();
+  for (const entry of previous) byKey.set(itemKey(entry), entry);
+  let changed = previous.length !== next.length;
+  const merged = next.map((entry, index) => {
+    const old = byKey.get(itemKey(entry));
+    if (old && sameVersion(old, entry)) {
+      if (previous[index] !== old) changed = true;
+      return old;
+    }
+    changed = true;
+    return entry;
+  });
+  return changed ? merged : previous;
+}
+
+/**
+ * Append a continuation page without duplicating a row the watch already
+ * delivered while the page was in flight. The watch object is newer than the
+ * list snapshot, so the existing row wins; only unseen keys are appended.
+ */
+function appendPage(previous: KubeObject[], page: KubeObject[]): KubeObject[] {
+  if (previous.length === 0) return page;
+  const seen = new Set(previous.map(itemKey));
+  const added: KubeObject[] = [];
+  for (const item of page) {
+    const key = itemKey(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    added.push(item);
+  }
+  return added.length > 0 ? [...previous, ...added] : previous;
 }
 
 /**
@@ -99,6 +158,7 @@ export function useResourceList(options: {
   const { clusterId, resource, namespaces, refreshSeconds } = options;
   const [items, setItems] = useState<KubeObject[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [watchState, setWatchState] = useState<ResourceListState["watchState"]>("off");
@@ -182,7 +242,9 @@ export function useResourceList(options: {
           resourceVersionRef.current = result.resourceVersion ?? undefined;
           setError(null);
           setContinueToken(result.continueToken);
-          setItems((previous) => (token ? [...previous, ...result.items] : result.items));
+          setItems((previous) =>
+            token ? appendPage(previous, result.items) : reconcileItems(previous, result.items),
+          );
           setTotal((current) =>
             token ? current : result.items.length + (result.remainingItemCount ?? 0),
           );
@@ -212,7 +274,7 @@ export function useResourceList(options: {
           resourceVersionRef.current = results.find((result) => result.resourceVersion)?.resourceVersion;
           setError(null);
           setContinueToken(undefined);
-          setItems(mergeByUid(results.flatMap((result) => result.items)));
+          setItems((previous) => reconcileItems(previous, mergeByUid(results.flatMap((result) => result.items))));
           setTotal(results.reduce((sum, result) => sum + result.items.length + (result.remainingItemCount ?? 0), 0));
           if (!loadedOnce.current) {
             loadedOnce.current = true;
@@ -242,9 +304,14 @@ export function useResourceList(options: {
   );
 
   const loadMore = useCallback(async () => {
-    if (!continueToken) return;
-    await fetchPage(continueToken, true);
-  }, [continueToken, fetchPage]);
+    if (!continueToken || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      await fetchPage(continueToken, true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [continueToken, fetchPage, loadingMore]);
 
   /**
    * Pull every remaining page (capped) so table search and column filters cover
@@ -311,15 +378,17 @@ export function useResourceList(options: {
     // every mounted list refetches when this fires.
     const onApplied = () => void refresh(true);
     window.addEventListener("mlens:resources-applied", onApplied);
-    if (!refreshSeconds) {
-      return () => window.removeEventListener("mlens:resources-applied", onApplied);
-    }
+    return () => window.removeEventListener("mlens:resources-applied", onApplied);
+  }, [resource, refresh]);
+
+  // Polling is a fallback for kinds/streams without a live watch (Helm, watch
+  // errors). While the watch is live, a full list every refreshInterval only
+  // duplicates work the stream already delivers.
+  useEffect(() => {
+    if (!resource || !refreshSeconds || watchState === "live") return;
     const timer = window.setInterval(() => void refresh(true), refreshSeconds * 1000);
-    return () => {
-      window.removeEventListener("mlens:resources-applied", onApplied);
-      window.clearInterval(timer);
-    };
-  }, [resource, refresh, refreshSeconds]);
+    return () => window.clearInterval(timer);
+  }, [resource, refresh, refreshSeconds, watchState]);
 
   // Live watches: one per scope so multi-namespace views stay live too.
   useEffect(() => {
@@ -407,6 +476,7 @@ export function useResourceList(options: {
   return {
     items,
     loading,
+    loadingMore,
     loadingAll,
     error,
     watchState,

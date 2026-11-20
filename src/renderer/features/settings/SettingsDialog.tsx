@@ -9,6 +9,7 @@ import {
   Plug,
   Plus,
   RefreshCw,
+  RotateCcw,
   Settings,
   SquareTerminal,
   Star,
@@ -27,12 +28,15 @@ import { TERMINAL_FONTS, UI_FONTS } from "../../lib/fonts";
 import { CLUSTER_COLOR_PALETTE } from "../../lib/cluster-color";
 import { cn } from "../../lib/cn";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
+import { ConfirmActionDialog } from "../resource-browser/ResourceDialogs";
+import { toast } from "../../design-system/components/Toast";
 
 export function SettingsDialog() {
   const open = useCatalogStore((state) => state.settingsOpen);
   const openSettings = useCatalogStore((state) => state.openSettings);
   const settings = useCatalogStore((state) => state.settings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
+  const resetSettings = useCatalogStore((state) => state.resetSettings);
   const sources = useCatalogStore((state) => state.sources);
   const importViaDialog = useCatalogStore((state) => state.importViaDialog);
   const removeKubeconfig = useCatalogStore((state) => state.removeKubeconfig);
@@ -45,6 +49,8 @@ export function SettingsDialog() {
   const [colorRules, setColorRules] = useState<ClusterColorRule[]>(
     settings?.clusterColorRules ?? [],
   );
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (settings) setColorRules(settings.clusterColorRules);
@@ -72,18 +78,29 @@ export function SettingsDialog() {
       title="Settings"
       subtitle="Preferences are stored locally in the mLens data directory."
       footer={
-        <Button variant="secondary" onClick={() => openSettings(false)}>
-          Close
-        </Button>
+        <>
+          <Button
+            variant="ghost"
+            className="mr-auto"
+            disabled={resetting}
+            onClick={() => setResetOpen(true)}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset to defaults
+          </Button>
+          <Button variant="secondary" onClick={() => openSettings(false)}>
+            Close
+          </Button>
+        </>
       }
     >
       <div className="space-y-6">
         <Section title="Appearance" icon={<Sun />}>
-          <Field label="Color theme" hint="Radar follows the mode below; GitHub Light and White are always light; all other themes are dark.">
+          <Field label="Color theme" hint="The default theme follows the mode below; GitHub Light and White are always light; all other themes are dark.">
             <div className="grid w-full max-w-xl grid-cols-4 gap-2">
               {(
                 [
-                  { value: "radar", label: "Radar" },
+                  { value: "radar", label: "Default" },
                   { value: "dracula", label: "Dracula" },
                   { value: "freelens", label: "Teal" },
                   { value: "proton", label: "Proton" },
@@ -188,6 +205,15 @@ export function SettingsDialog() {
                 </option>
               ))}
             </select>
+          </Field>
+          <Field
+            label="Show CPU and RAM"
+            hint="Display total app CPU and memory in the status bar. Sampled every 5 seconds only while enabled; off by default."
+          >
+            <Switch
+              checked={settings.showPerformanceMetrics ?? false}
+              onChange={(checked) => void updateSettings({ showPerformanceMetrics: checked })}
+            />
           </Field>
           <Field label="Timezone" hint="Timestamps and Age tooltips use local time or UTC.">
             <select
@@ -374,7 +400,7 @@ export function SettingsDialog() {
               onChange={(checked) => void updateSettings({ tableBorders: checked })}
             />
           </Field>
-          <Field label="Table row height" hint="Compact fits more rows; comfortable matches Radar's default density.">
+          <Field label="Table row height" hint="Compact fits more rows; comfortable matches the default density.">
             <select
               value={settings.tableRowHeight}
               onChange={(event) => void updateSettings({ tableRowHeight: Number(event.target.value) })}
@@ -612,12 +638,38 @@ export function SettingsDialog() {
             </span>
           </div>
           <p className="mt-2 text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-tertiary">
-            Shell and window mechanics follow the classic Kubernetes IDE layout. Resource browser, table
-            density, details and design tokens inspired by Skyhook Radar (Apache-2.0). mLens contains no Go
-            backend and ships as a standalone Electron app.
+            Standalone Electron app with a Kubernetes resource browser, dense tables and resource details.
+            mLens contains no Go backend and runs entirely on your machine.
           </p>
         </Section>
       </div>
+
+      <ConfirmActionDialog
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        onConfirm={() => {
+          setResetOpen(false);
+          setResetting(true);
+          void resetSettings()
+            .then((ok) => {
+              if (ok) toast.success("Settings reset to defaults");
+            })
+            .finally(() => setResetting(false));
+        }}
+        title="Reset all settings to defaults?"
+        confirmLabel="Reset settings"
+        danger
+        busy={resetting}
+        description={
+          <div className="space-y-2">
+            <p>
+              Theme, fonts, editor and terminal options, table density, column widths/order/sorts,
+              sidebar/hotbar layout and other preferences return to their defaults.
+            </p>
+            <p>Imported kubeconfig sources are kept; everything else is reset.</p>
+          </div>
+        }
+      />
     </Modal>
   );
 }

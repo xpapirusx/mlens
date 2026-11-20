@@ -108,6 +108,17 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
     arch: process.arch,
   }));
 
+  ipcMain.handle(IPC.appMetrics, () => {
+    const metrics = app.getAppMetrics();
+    let cpu = 0;
+    let memoryKb = 0;
+    for (const metric of metrics) {
+      cpu += metric.cpu?.percentCPUUsage ?? 0;
+      memoryKb += metric.memory?.workingSetSize ?? 0;
+    }
+    return { cpuPercent: Math.round(cpu * 10) / 10, memoryBytes: memoryKb * 1024 };
+  });
+
   ipcMain.handle(IPC.appOpenExternal, async (_event, url: unknown) => {
     const target = assertString(url, "url");
     if (!/^https?:\/\//i.test(target)) throw new Error("Only http(s) links can be opened externally");
@@ -346,4 +357,5 @@ export function registerIpc({ settings, kubeconfigs, clusters, terminals, portFo
   ipcMain.handle(IPC.settingsUpdate, (_event, raw: unknown) =>
     settings.update(assertObject<Partial<AppSettings>>(raw, "settings")),
   );
+  ipcMain.handle(IPC.settingsReset, () => settings.reset());
 }

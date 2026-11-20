@@ -13,7 +13,8 @@ its own shell, data layer and UI. See
 [Licensing and credits](#licensing-and-credits).
 
 - Full rules: [`DESIGN_SPEC.md`](DESIGN_SPEC.md) · internals:
-  [`ARCHITECTURE.md`](ARCHITECTURE.md) · release history:
+  [`ARCHITECTURE.md`](ARCHITECTURE.md) · project map and data flows:
+  [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) · release history:
   [`CHANGELOG.md`](CHANGELOG.md) · contributor rules: [`AGENTS.md`](AGENTS.md).
 
 ---
@@ -31,7 +32,7 @@ its own shell, data layer and UI. See
   right of the table: 1–4 panes in a 2×2 grid, per-pane tab strips with
   drag-to-reorder, drag between panes, middle-click close, Close others / Close
   to the right, Split right / Split down, and a per-pane overflow menu.
-- **Radar-density tables.** 44px rows, uppercase 12px headers, status language,
+- **Dense tables.** 44px rows, uppercase 12px headers, status language,
   per-column filters, regex search, pinned columns, virtualised rows and paged
   loading for very large inventories.
 - **Real Kubernetes, directly.** Discovery, CRDs and printer columns, watches,
@@ -220,7 +221,7 @@ src/renderer
   (virtualised). Search or a column filter auto-loads the remaining pages, so a
   name beyond the first page is still found. Sidebar counts are lazy.
 - Kubernetes-aware cells: Pod container squares, Node CPU/Memory bars against
-  allocatable, node pod counts, Radar-style condition/taint tooltips, live
+  allocatable, node pod counts, condition/taint tooltips, live
   Service endpoints, ConfigMap size, Secret type/TLS expiry, Role subjects,
   CRD kind/status, warning-event counts, and exact age tooltips everywhere.
 - Multi-select with bulk actions: delete, saved labels/annotations (selection is
@@ -276,7 +277,7 @@ src/renderer
 
 ### Themes and settings
 
-- Themes: Radar (light/dark/system), Dracula, Freelens, Proton, Synthwave '84,
+- Themes: Default (light/dark/system), Dracula, Freelens, Proton, Synthwave '84,
   Dark Islands, GitHub, Night Owl, Material, One Dark Pro, One Dark, Catppuccin
   (Mocha), Jellybeans, Adwaita — each with its own editor theme and terminal
   palette.
@@ -285,6 +286,8 @@ src/renderer
   terminal and editor font/size (bundled families plus installed Menlo, Monaco,
   SF Mono), editor minimap/tab size, local or UTC time, table row height
   (24–52px), syntax-highlighted YAML editor and configurable refresh interval.
+- **Reset to defaults** in Settings restores all preferences; imported
+  kubeconfig sources are kept so the catalog is not emptied.
 
 ---
 
@@ -329,8 +332,6 @@ it contains no source files from those projects.
 
 - Workflow conventions common to desktop Kubernetes IDEs (cluster hotbar, tabbed
   resources, details drawer, bottom dock) are reimplemented from scratch.
-- The visual design adapts ideas from **Skyhook Radar** (Apache-2.0); the Apache
-  licence text is included in [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt).
 - **Freelens** (MIT) is mentioned only as a design reference for desktop-IDE
   conventions; its licence text is in
   [`licenses/Freelens-MIT.txt`](licenses/Freelens-MIT.txt).

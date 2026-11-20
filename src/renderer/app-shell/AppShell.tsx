@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Blocks } from "lucide-react";
 import { TopBar } from "./TopBar";
 import { ClusterTabs } from "./ClusterTabs";
 import { Hotbar } from "./Hotbar";
@@ -15,6 +14,7 @@ import { useCatalogStore } from "../stores/catalog-store";
 import { hasEditorTab, useSessionStore, useChromeSessions, activePaneOf, sameRef } from "../stores/session-store";
 import { closeClusterTab } from "../lib/cluster-actions";
 import { Spinner } from "../design-system/components/Spinner";
+import { MlensLogo } from "../design-system/components/MlensLogo";
 import { cn } from "../lib/cn";
 import { uiFontStack } from "../lib/fonts";
 import { setTimeZonePreference } from "../lib/format";
@@ -324,9 +324,7 @@ export function AppShell() {
   if (!settings) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-theme-base text-theme-text-secondary">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-skyhook-400 to-skyhook-800 text-white shadow-theme-lg">
-          <Blocks className="h-6 w-6" />
-        </div>
+        <MlensLogo className="h-12 w-12 shadow-theme-lg" />
         <div className="text-sm font-semibold text-theme-text-primary">mLens</div>
         <Spinner label="Starting…" />
       </div>

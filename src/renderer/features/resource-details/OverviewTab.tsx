@@ -61,14 +61,15 @@ function ResourceLink({
 }) {
   if (!name) return <>–</>;
   return (
-    <button
-      type="button"
-      className="truncate text-accent-text hover:underline"
-      onClick={() => onNavigate(kind, name, namespace)}
-      title={`Open ${kind}/${name}`}
-    >
-      {name}
-    </button>
+    <Tooltip content={name} side="bottom" delay={140} wrapperClassName="min-w-0">
+      <button
+        type="button"
+        className="min-w-0 truncate text-accent-text hover:underline"
+        onClick={() => onNavigate(kind, name, namespace)}
+      >
+        {name}
+      </button>
+    </Tooltip>
   );
 }
 
@@ -304,7 +305,9 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
             {status?.ready ? "Ready" : stateKey === "waiting" ? (state.waiting?.reason ?? "Waiting") : stateKey}
           </span>
           {status?.restartCount ? (
-            <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
+            <Tooltip content={`${status.restartCount} container restart${status.restartCount === 1 ? "" : "s"}`} side="bottom" delay={140}>
+              <span className="badge-sm status-unknown">{status.restartCount} restarts</span>
+            </Tooltip>
           ) : null}
         </div>
         <div className="mt-1.5 break-all font-mono text-[calc(10px*var(--font-scale))] text-theme-text-secondary">

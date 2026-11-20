@@ -27,7 +27,7 @@ interface ResourceTableProps {
   pinnedKeys?: Set<string>;
   onFilterColumn: (column: ColumnDef, event: React.MouseEvent) => void;
   columnWidths: Record<string, number>;
-  onResizeEnd: (key: string, width: number) => void;
+  onResizeEnd: (key: string, width: number, allWidths?: Record<string, number>) => void;
   onResetColumnWidth: (key: string) => void;
   filterableKeys: Set<string>;
   loading: boolean;
@@ -336,7 +336,13 @@ export function ResourceTable({
       ),
     [columns, effectiveWidths, selectionMode],
   );
-  const allSelected = rows.length > 0 && rows.every((row) => selectedKeys.has(row.metadata?.uid ?? `${row.metadata?.namespace}/${row.metadata?.name}`));
+  const allSelected = useMemo(
+    () =>
+      selectedKeys.size > 0 &&
+      rows.length > 0 &&
+      rows.every((row) => selectedKeys.has(row.metadata?.uid ?? `${row.metadata?.namespace}/${row.metadata?.name}`)),
+    [rows, selectedKeys],
+  );
 
   // A16: stable wrappers for the inline closures the browser passes in — the
   // row memo would otherwise see new function identities on every render.
@@ -434,7 +440,7 @@ export function ResourceTable({
                     : undefined
                 }
                 className={cn(
-                  "group/th relative flex min-w-0 items-center gap-1 text-[calc(11px*var(--font-scale))] font-medium uppercase tracking-wide text-theme-text-secondary",
+                  "group/th relative flex min-w-0 items-center gap-1 text-[calc(12px*var(--font-scale))] font-medium uppercase tracking-wider text-theme-text-secondary",
                   column.compact ? "px-7" : "px-4",
                   stickyOffsets.has(column.key) && "bg-theme-base",
                   index !== columns.length - 1 && borders && "border-r-subtle",
@@ -488,25 +494,46 @@ export function ResourceTable({
                     event.preventDefault();
                     event.stopPropagation();
                     const startX = event.clientX;
-                    const startWidth =
-                      effectiveWidths[column.key] ?? (column.flex ? 240 : (column.width ?? 140));
+                    // Snapshot every visible width on the first move. Without
+                    // this the flexible Name column absorbs the change and the
+                    // other tracks visibly slide while one column is dragged.
+                    const snapshot: Record<string, number> = { ...effectiveWidths };
+                    for (const entry of columns) {
+                      if (snapshot[entry.key] === undefined) {
+                        snapshot[entry.key] = entry.flex ? 240 : (entry.width ?? 140);
+                      }
+                    }
+                    const startWidth = snapshot[column.key];
                     let finalWidth = startWidth;
+                    let finalWidths = { ...snapshot };
+                    let moved = false;
+                    let frame: number | null = null;
+                    const preview = () => {
+                      frame = null;
+                      setPreviewWidths(finalWidths);
+                    };
                     const onMove = (moveEvent: PointerEvent) => {
                       finalWidth = Math.max(72, Math.round(startWidth + moveEvent.clientX - startX));
-                      setPreviewWidths((current) => ({ ...current, [column.key]: finalWidth }));
+                      if (finalWidth === startWidth) return;
+                      moved = true;
+                      finalWidths = { ...snapshot, [column.key]: finalWidth };
+                      if (frame === null) frame = window.requestAnimationFrame(preview);
                     };
-                    const onUp = () => {
+                    const finish = () => {
                       window.removeEventListener("pointermove", onMove);
-                      window.removeEventListener("pointerup", onUp);
-                      onResizeEnd(column.key, finalWidth);
-                      setPreviewWidths((current) => {
-                        const next = { ...current };
-                        delete next[column.key];
-                        return next;
-                      });
+                      window.removeEventListener("pointerup", finish);
+                      window.removeEventListener("pointercancel", finish);
+                      if (frame !== null) {
+                        window.cancelAnimationFrame(frame);
+                        frame = null;
+                      }
+                      if (moved) onResizeEnd(column.key, finalWidth, finalWidths);
+                      setPreviewWidths({});
                     };
+                    setPreviewWidths(snapshot);
                     window.addEventListener("pointermove", onMove);
-                    window.addEventListener("pointerup", onUp);
+                    window.addEventListener("pointerup", finish);
+                    window.addEventListener("pointercancel", finish);
                   }}
                 >
                   <div className="mx-auto h-4 w-px bg-theme-border opacity-0 transition-opacity group-hover/th:opacity-100" />
@@ -544,7 +571,11 @@ export function ResourceTable({
                   stickyOffsets={stickyOffsets}
                   rowHeight={rowHeight}
                   borders={borders}
-                  animateTop={shiftRows}
+                  // A smooth top transition is a small-list nicety. On a 10k
+                  // inventory the watch inserts rows continuously; animating
+                  // every absolute row makes neighbouring rows cross while
+                  // they move and can look like duplicated names.
+                  animateTop={shiftRows && rows.length <= 1000}
                   selected={selected}
                   checked={selectedKeys.has(key)}
                   highlighted={virtualRow.index === highlight}

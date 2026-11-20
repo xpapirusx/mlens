@@ -30,7 +30,7 @@ import type { ApiResourceInfo, KubeObject, ResourceKey, TableSort } from "@share
 import { useCatalogStore } from "../../stores/catalog-store";
 import { activePaneOf, useSessionStore, type DetailTab, type KindState, emptyKindState } from "../../stores/session-store";
 import { findResource, HELM_RELEASES_RESOURCE } from "../../lib/catalog";
-import { resourceStatus } from "../../lib/status";
+import { cachedResourceStatus } from "../../lib/status";
 import { getColumnsForKind, sortObjects, WARNING_KINDS, type CellContext, type ColumnDef } from "../../lib/columns";
 import { getKindIcon, kindLabel } from "../../lib/icons";
 import { cn } from "../../lib/cn";
@@ -99,6 +99,7 @@ function rowKey(object: KubeObject): string {
 // notifications (a fresh `[]` per call is the classic React #185 loop).
 const EMPTY_RESOURCES: ApiResourceInfo[] = [];
 const EMPTY_NAMESPACES: string[] = [];
+const EMPTY_SELECTED: KubeObject[] = [];
 const EMPTY_KIND_STATES: Record<string, KindState> = {};
 const EMPTY_FILTER_OPTIONS: ReturnType<typeof buildFilterOptions> = [];
 
@@ -342,9 +343,8 @@ export function ResourceBrowser({
   // rest).
   const searching = debouncedSearch.trim().length > 0;
 
-  // A20: one pass over the inventory that counts problems and applies the
-  // search, the Problems toggle and the column filters together — three
-  // separate memos used to walk the whole list on every change.
+  // Status parsing is the expensive part of the filter scan; the shared cache
+  // in lib/status.ts reuses results for object references P2 kept stable.
   const { rows: filtered, problemCount } = useMemo(() => {
     const term = debouncedSearch.trim();
     let regex: RegExp | null = null;
@@ -367,8 +367,8 @@ export function ResourceBrowser({
       const row = list.items[index];
       let isProblem = false;
       if (resource) {
-        const tone = resourceStatus(row, resource.kind).tone;
-        isProblem = tone === "warning" || tone === "error";
+        const status = cachedResourceStatus(row, resource.kind);
+        isProblem = status.tone === "warning" || status.tone === "error";
         if (isProblem) problems += 1;
       }
       if (!narrowing) continue;
@@ -401,16 +401,101 @@ export function ResourceBrowser({
   ]);
 
   const sortedRef = useRef<ReturnType<typeof sortObjects>>([]);
+  const sortedInputRef = useRef<KubeObject[]>([]);
+  const sortStateRef = useRef<{ key: string; direction: string; context: CellContext } | null>(null);
+
+  // Map identity changes only matter when the active sort column reads that
+  // data. Name/Age/Status must not re-sort all 8 000 rows because a metrics or
+  // warning poll replaced an unrelated Map.
+  const sortContextKey = useMemo(() => {
+    switch (effectiveSort.key) {
+      case "warnings":
+        return warningEvents;
+      case "cpu":
+      case "memory":
+        return [metrics.pods, metrics.nodes] as const;
+      case "endpoints":
+        return serviceEndpoints;
+      case "pods":
+        return [claimPods, nodePodCounts] as const;
+      default:
+        return null;
+    }
+  }, [
+    effectiveSort.key,
+    warningEvents,
+    metrics.pods,
+    metrics.nodes,
+    serviceEndpoints,
+    claimPods,
+    nodePodCounts,
+  ]);
+  // Intentionally follows only the sort-relevant key, not every cellContext
+  // change: the context is passed to sortObjects but an unrelated Map update
+  // must not invalidate the sorted array.
+  const sortCellContext = useMemo(() => cellContext, [sortContextKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const sorted = useMemo(() => {
     const sortColumn = columns.find((column) => column.key === effectiveSort.key);
-    const next = sortObjects(filtered, sortColumn, effectiveSort.direction, cellContext);
-    // A12: keep the previous identity when the order did not change (context
-    // refreshes rebuild the same order) so the memoized table rows skip.
+    const previousInput = sortedInputRef.current;
+    const previousState = sortStateRef.current;
+    let next: KubeObject[] | null = null;
+
+    // Watch updates normally replace a few objects while keeping the input
+    // order. If their sort value did not change, keep the existing order and
+    // only swap the object references; a full O(n log n) sort is unnecessary.
+    if (
+      previousState &&
+      previousState.key === effectiveSort.key &&
+      previousState.direction === effectiveSort.direction &&
+      previousState.context === sortCellContext &&
+      previousInput.length === filtered.length
+    ) {
+      const changed = new Map<string, KubeObject>();
+      let reusable = true;
+      for (let index = 0; index < filtered.length; index += 1) {
+        const old = previousInput[index];
+        const row = filtered[index];
+        if (old === row) continue;
+        const oldKey = rowKey(old);
+        const newKey = rowKey(row);
+        if (oldKey !== newKey) {
+          reusable = false;
+          break;
+        }
+        if (sortColumn?.value) {
+          const oldValue = sortColumn.value(old, sortCellContext);
+          const newValue = sortColumn.value(row, sortCellContext);
+          if (!Object.is(oldValue, newValue)) {
+            reusable = false;
+            break;
+          }
+        }
+        changed.set(newKey, row);
+      }
+      if (reusable) {
+        next =
+          changed.size === 0
+            ? sortedRef.current
+            : sortedRef.current.map((row) => changed.get(rowKey(row)) ?? row);
+      }
+    }
+
+    if (!next) next = sortObjects(filtered, sortColumn, effectiveSort.direction, sortCellContext);
+
+    sortedInputRef.current = filtered;
+    sortStateRef.current = {
+      key: effectiveSort.key,
+      direction: effectiveSort.direction,
+      context: sortCellContext,
+    };
+
+    // A12: keep the previous identity when the order did not change.
     const prev = sortedRef.current;
     if (prev.length === next.length && next.every((row, index) => row === prev[index])) return prev;
     sortedRef.current = next;
     return next;
-  }, [filtered, effectiveSort.key, effectiveSort.direction, columns, cellContext]);
+  }, [filtered, effectiveSort.key, effectiveSort.direction, columns, sortCellContext]);
 
   const [filterPanel, setFilterPanel] = useState<{ key: string; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ object: KubeObject; x: number; y: number } | null>(null);
@@ -578,11 +663,17 @@ export function ResourceBrowser({
     });
   };
 
-  const selectedObjects = list.items.filter((object) => selectedKeys.has(rowKey(object)));
+  const selectedObjects = useMemo(
+    () => (selectedKeys.size === 0 ? EMPTY_SELECTED : list.items.filter((object) => selectedKeys.has(rowKey(object)))),
+    [list.items, selectedKeys],
+  );
 
   // A/B for the diff follow the order the user sees: the first selected row in
   // the table is the original side. `list.items` order can differ after sorting.
-  const selectedInView = sorted.filter((object) => selectedKeys.has(rowKey(object)));
+  const selectedInView = useMemo(
+    () => (selectedKeys.size === 0 ? EMPTY_SELECTED : sorted.filter((object) => selectedKeys.has(rowKey(object)))),
+    [sorted, selectedKeys],
+  );
   const diffPair = selectedInView.length === 2 ? selectedInView : selectedObjects.length === 2 ? selectedObjects : [];
   /** Full identity of a row — used by the diff and by the compare pin. */
   const diffTarget = (object: KubeObject | undefined): ResourceKey | null =>
@@ -1198,14 +1289,14 @@ export function ResourceBrowser({
           pinnedKeys={pinnedKeys}
           onFilterColumn={openFilter}
           columnWidths={columnWidths}
-          onResizeEnd={(key, width) => {
+          onResizeEnd={(key, width, allWidths) => {
             if (!resource) return;
-            void updateSettings({
-              tableColumnWidths: {
-                ...(settings?.tableColumnWidths ?? {}),
-                [`${resource.apiVersion}|${resource.kind}|${key}`]: width,
-              },
-            });
+            const widths = allWidths ?? { [key]: width };
+            const next = { ...(settings?.tableColumnWidths ?? {}) };
+            for (const [columnKey, columnWidth] of Object.entries(widths)) {
+              next[`${resource.apiVersion}|${resource.kind}|${columnKey}`] = columnWidth;
+            }
+            void updateSettings({ tableColumnWidths: next });
           }}
           onResetColumnWidth={(key) => {
             if (!resource) return;
@@ -1333,14 +1424,17 @@ export function ResourceBrowser({
           {list.items.length} loaded
           {list.total !== null && list.total > list.items.length ? ` of ${list.total}` : ""}
         </span>
-        {list.loadingAll ? (
-          <span className="text-accent-text">fetching all pages for search…</span>
-        ) : null}
         <span className="text-theme-text-disabled">·</span>
         <span className="font-mono">{resource.apiVersion}/{resource.kind}</span>
         <span className="text-theme-text-disabled">·</span>
         <span>{resource.isCrd ? "Custom resource" : "Built-in resource"}</span>
-        {list.hasMore ? (
+        {list.loadingAll || list.loadingMore ? (
+          <LoadProgress
+            label={list.loadingAll ? "Fetching all pages" : "Loading more"}
+            loaded={list.items.length}
+            total={list.total}
+          />
+        ) : list.hasMore ? (
           <button
             type="button"
             className="ml-auto flex h-5 items-center gap-1 rounded-md border border-skyhook-500/40 bg-skyhook-500/10 px-2 font-medium text-accent-text transition-colors hover:bg-skyhook-500/20 disabled:opacity-50"
@@ -1348,20 +1442,9 @@ export function ResourceBrowser({
             disabled={list.loadingAll}
             title="Fetch the next 2000 resources; search loads every page automatically"
           >
-            {list.loadingAll ? (
-              <>
-                <LoaderCircle className="h-3 w-3 animate-spin" />
-                Loading…
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3" />
-                Load 2000 more
-                {list.total !== null
-                  ? ` (${Math.max(0, list.total - list.items.length)} left)`
-                  : ""}
-              </>
-            )}
+            <ChevronDown className="h-3 w-3" />
+            Load 2000 more
+            {list.total !== null ? ` (${Math.max(0, list.total - list.items.length)} left)` : ""}
           </button>
         ) : (
           <span className="ml-auto">{filtered.length} visible</span>
@@ -1821,6 +1904,36 @@ export function ResourceBrowser({
         }
       />
     </div>
+  );
+}
+
+function LoadProgress({ label, loaded, total }: { label: string; loaded: number; total: number | null }) {
+  const percent =
+    total !== null && total > 0 ? Math.min(100, Math.max(0, Math.round((loaded / total) * 100))) : null;
+  return (
+    <span
+      className="ml-auto flex h-5 min-w-[10rem] max-w-[18rem] items-center gap-2 rounded-md border border-skyhook-500/40 bg-skyhook-500/10 px-2 font-medium text-accent-text"
+      role="status"
+      aria-live="polite"
+    >
+      <span className="relative h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-skyhook-500/20">
+        {percent === null ? (
+          <span className="loading-sweep absolute inset-y-0 w-1/2 rounded-full bg-skyhook-400/80" />
+        ) : (
+          <>
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-skyhook-400 transition-[width] duration-300 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+            <span className="loading-sweep absolute inset-y-0 w-1/3 bg-white/20" />
+          </>
+        )}
+      </span>
+      <span className="truncate">
+        {label}
+        {percent === null ? "…" : ` ${percent}%`}
+      </span>
+    </span>
   );
 }
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { CircleCheck, CircleExclamationPoint, LoaderCircle } from "lucide-react";
-import type { AppInfo } from "@shared/types";
+import type { AppInfo, AppMetrics } from "@shared/types";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useSessionStore } from "../stores/session-store";
 import { api } from "../lib/api";
+import { formatBytes } from "../lib/format";
 import { cn } from "../lib/cn";
 
 export function StatusBar({ activeClusterId }: { activeClusterId: string | null }) {
@@ -19,10 +20,35 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
     (state) => (activeClusterId ? state.sessions[activeClusterId]?.info?.context : undefined),
   );
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [metrics, setMetrics] = useState<AppMetrics | null>(null);
+  const showMetrics = settings?.showPerformanceMetrics ?? false;
 
   useEffect(() => {
     void api.app.info().then(setInfo).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!showMetrics) {
+      setMetrics(null);
+      return;
+    }
+    let disposed = false;
+    const load = () => {
+      if (document.hidden) return;
+      void api.app
+        .metrics()
+        .then((usage) => {
+          if (!disposed) setMetrics(usage);
+        })
+        .catch(() => undefined);
+    };
+    load();
+    const timer = window.setInterval(load, 5_000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [showMetrics]);
 
   const activeCluster = clusters.find((cluster) => cluster.id === activeClusterId);
   const clusterHealth = activeClusterId ? health[activeClusterId] : undefined;
@@ -58,6 +84,11 @@ export function StatusBar({ activeClusterId }: { activeClusterId: string | null 
       <span className="ml-auto hidden items-center gap-2 sm:flex">
         {activeContext ? (
           <span className="max-w-[16rem] truncate font-mono text-theme-text-disabled">{activeContext}</span>
+        ) : null}
+        {metrics ? (
+          <span className="whitespace-nowrap font-mono text-theme-text-tertiary" title="Total CPU and memory across mLens processes">
+            CPU {metrics.cpuPercent.toFixed(1)}% · RAM {formatBytes(metrics.memoryBytes)}
+          </span>
         ) : null}
         <span className={cn("text-theme-text-disabled")}>
           Electron {info?.electron ?? "—"} · Node {info?.node ?? "—"}

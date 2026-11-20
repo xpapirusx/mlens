@@ -4,6 +4,7 @@ import type {
   AddKubeconfigResult,
   ApiResourceInfo,
   AppInfo,
+  AppMetrics,
   AppSettings,
   ApplyYamlRequest,
   ApplyYamlResult,
@@ -62,6 +63,7 @@ const api: MlensApi = {
   platform: process.platform,
   app: {
     info: () => ipcRenderer.invoke(IPC.appInfo) as Promise<AppInfo>,
+    metrics: () => ipcRenderer.invoke(IPC.appMetrics) as Promise<AppMetrics>,
     openExternal: (url) => ipcRenderer.invoke(IPC.appOpenExternal, url) as Promise<void>,
     minimize: () => ipcRenderer.invoke(IPC.appMinimize) as Promise<void>,
     maximize: () => ipcRenderer.invoke(IPC.appMaximize) as Promise<void>,
@@ -157,6 +159,7 @@ const api: MlensApi = {
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet) as Promise<AppSettings>,
     update: (patch) => ipcRenderer.invoke(IPC.settingsUpdate, patch) as Promise<AppSettings>,
+    reset: () => ipcRenderer.invoke(IPC.settingsReset) as Promise<AppSettings>,
     onChanged: (callback) => on<AppSettings>(IPC.settingsChanged, callback),
   },
 };

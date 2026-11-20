@@ -1,6 +1,6 @@
 {
   "name": "mlens",
-  "version": "v2.4.78",
+  "version": "v2.4.89",
   "description": "mLens — a modern desktop Kubernetes IDE",
   "main": "./out/main/index.js",
   "author": {
@@ -12,6 +12,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
+    "debug:app": "electron --remote-debugging-port=9222 .",
+    "debug:cdp": "node scripts/debug-cdp.mjs",
     "build": "pnpm typecheck && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "pnpm build && electron-builder",

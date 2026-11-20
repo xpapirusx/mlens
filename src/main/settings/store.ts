@@ -42,6 +42,7 @@ export function defaultSettings(): AppSettings {
     clusterColors: {},
     clusterColorRules: [{ pattern: "*dev*", color: "#15803d" }],
     tableBorders: true,
+    showPerformanceMetrics: false,
     portForwardOpenBrowser: true,
     refreshIntervalSeconds: 60,
     terminalFontSize: 13,
@@ -176,6 +177,7 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (typeof out.portForwardOpenBrowser !== "boolean") delete out.portForwardOpenBrowser;
   if (typeof out.tableBorders !== "boolean") delete out.tableBorders;
+  if (typeof out.showPerformanceMetrics !== "boolean") delete out.showPerformanceMetrics;
   if (typeof out.sidebarCollapsed !== "boolean") delete out.sidebarCollapsed;
   if (out.hiddenCatalogItems) {
     out.hiddenCatalogItems = [...new Set(out.hiddenCatalogItems.filter((entry) => typeof entry === "string"))];
@@ -438,6 +440,22 @@ export class SettingsStore {
       next.hotbarSlots = [...next.hotbarPages[next.hotbarPageIndex]];
     }
     this.state = next;
+    this.persist();
+    const value = this.get();
+    for (const listener of this.listeners) listener(value);
+    return value;
+  }
+
+  /**
+   * Reset every preference to the defaults. Only the imported kubeconfig
+   * sources survive: wiping them would empty the catalog, while favorites,
+   * recent/removed clusters and saved presets are ordinary settings.
+   */
+  reset(): AppSettings {
+    this.state = {
+      ...defaultSettings(),
+      kubeconfigPaths: [...this.state.kubeconfigPaths],
+    };
     this.persist();
     const value = this.get();
     for (const listener of this.listeners) listener(value);

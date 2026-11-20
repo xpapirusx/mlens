@@ -478,3 +478,21 @@ export function conditionTone(status?: string): Tone {
   if (status === "False") return "error";
   return "warning";
 }
+
+/**
+ * Status parsing is repeated by the table filter, the sort key and the status
+ * cell for every row. Watch updates replace only changed objects (P2), so a
+ * WeakMap keyed by the object reference reuses the result for everything that
+ * did not change, without keeping any object alive.
+ */
+const statusCache = new WeakMap<object, { kind: string; status: ResourceStatus }>();
+
+export function cachedResourceStatus(object: AnyObject, kind?: string): ResourceStatus {
+  if (!object || typeof object !== "object") return resourceStatus(object, kind);
+  const cacheKey = kind ?? object.kind ?? "";
+  const cached = statusCache.get(object);
+  if (cached && cached.kind === cacheKey) return cached.status;
+  const status = resourceStatus(object, kind);
+  statusCache.set(object, { kind: cacheKey, status });
+  return status;
+}

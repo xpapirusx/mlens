@@ -15,6 +15,15 @@ import https from "node:https";
 const agentCache = new Map<string, http.Agent | https.Agent>();
 const AGENT_CACHE_LIMIT = 24;
 
+/**
+ * Identical GETs are common: a table and the open details can ask for the same
+ * Pods/Endpoints list at the same moment. Joining the in-flight request avoids
+ * a second HTTP round-trip, JSON parse and IPC payload. There is deliberately
+ * no TTL cache here — the entry disappears as soon as the request settles, so
+ * data can never be served from an older point in time.
+ */
+const inflightGets = new WeakMap<KubeConfig, Map<string, Promise<unknown>>>();
+
 function reuseAgent(source: unknown): http.Agent | https.Agent | undefined {
   if (!source || typeof source !== "object") return undefined;
   const candidate = source as { options?: Record<string, unknown>; constructor: unknown };
@@ -99,101 +108,125 @@ export async function kubeRequest<T>(kc: KubeConfig, apiPath: string, options: K
     if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
   }
 
-  const requestOptions: https.RequestOptions = {
-    method: options.method ?? "GET",
-    headers: {
-      Accept: "application/json, */*",
-      ...(options.body !== undefined || options.rawBody !== undefined
-        ? { "Content-Type": "application/json" }
-        : {}),
-      ...options.headers,
-    },
-    timeout: options.timeoutMs ?? 30_000,
-  };
-
-  // Build the same authenticated request context the generated Kubernetes
-  // clients use. This resolves bearer tokens, basic auth and exec credential
-  // plugins (EKS, GKE, AKS) and configures the TLS agent.
   const method = (options.method ?? "GET") as HttpMethod;
-  const context = new RequestContext(url.toString(), method);
-  await kc.applySecurityAuthentication(context);
-  for (const [key, value] of Object.entries(context.getHeaders())) {
-    (requestOptions.headers as Record<string, string>)[key] = value;
-  }
-  const agent = context.getAgent();
-  if (agent) requestOptions.agent = reuseAgent(agent) ?? agent;
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  const coalesce = method === HttpMethod.GET && options.body === undefined && options.rawBody === undefined;
+  const inflightKey = `${method} ${url.toString()} ${timeoutMs}`;
 
-  const body =
-    options.rawBody !== undefined
-      ? options.rawBody
-      : options.body !== undefined
-        ? JSON.stringify(options.body)
-        : undefined;
-  if (body !== undefined) {
-    requestOptions.headers = {
-      ...requestOptions.headers,
-      "Content-Length": Buffer.byteLength(body as Buffer | string),
+  if (coalesce) {
+    const existing = inflightGets.get(kc)?.get(inflightKey);
+    if (existing) return existing as Promise<T>;
+  }
+
+  const execute = async (): Promise<T> => {
+    const requestOptions: https.RequestOptions = {
+      method: options.method ?? "GET",
+      headers: {
+        Accept: "application/json, */*",
+        ...(options.body !== undefined || options.rawBody !== undefined
+          ? { "Content-Type": "application/json" }
+          : {}),
+        ...options.headers,
+      },
+      timeout: timeoutMs,
     };
-  }
 
-  const transport = url.protocol === "https:" ? https : http;
+    // Build the same authenticated request context the generated Kubernetes
+    // clients use. This resolves bearer tokens, basic auth and exec credential
+    // plugins (EKS, GKE, AKS) and configures the TLS agent.
+    const context = new RequestContext(url.toString(), method);
+    await kc.applySecurityAuthentication(context);
+    for (const [key, value] of Object.entries(context.getHeaders())) {
+      (requestOptions.headers as Record<string, string>)[key] = value;
+    }
+    const agent = context.getAgent();
+    if (agent) requestOptions.agent = reuseAgent(agent) ?? agent;
 
-  return await new Promise<T>((resolve, reject) => {
-    const request = transport.request(url, requestOptions, (response) => {
-      const chunks: Buffer[] = [];
-      response.on("data", (chunk: Buffer) => chunks.push(chunk));
-      response.on("error", reject);
-      response.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf8");
-        const status = response.statusCode ?? 0;
+    const body =
+      options.rawBody !== undefined
+        ? options.rawBody
+        : options.body !== undefined
+          ? JSON.stringify(options.body)
+          : undefined;
+    if (body !== undefined) {
+      requestOptions.headers = {
+        ...requestOptions.headers,
+        "Content-Length": Buffer.byteLength(body as Buffer | string),
+      };
+    }
 
-        if (status >= 200 && status < 300) {
-          if (!text) {
-            resolve(undefined as T);
+    const transport = url.protocol === "https:" ? https : http;
+
+    return await new Promise<T>((resolve, reject) => {
+      const request = transport.request(url, requestOptions, (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("error", reject);
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          const status = response.statusCode ?? 0;
+
+          if (status >= 200 && status < 300) {
+            if (!text) {
+              resolve(undefined as T);
+              return;
+            }
+            try {
+              resolve(JSON.parse(text) as T);
+            } catch {
+              resolve(text as T);
+            }
             return;
           }
+
+          let message = text;
+          let reason: string | undefined;
           try {
-            resolve(JSON.parse(text) as T);
+            const parsed = JSON.parse(text) as { message?: string; reason?: string; code?: number };
+            message = parsed.message ?? text;
+            reason = parsed.reason;
           } catch {
-            resolve(text as T);
+            // keep raw text
           }
-          return;
-        }
 
-        let message = text;
-        let reason: string | undefined;
-        try {
-          const parsed = JSON.parse(text) as { message?: string; reason?: string; code?: number };
-          message = parsed.message ?? text;
-          reason = parsed.reason;
-        } catch {
-          // keep raw text
-        }
+          if (status === 401) message = `Authentication failed: ${message}`;
+          else if (status === 403) message = `Access denied by RBAC: ${message}`;
+          else if (status === 404) message = `Not found: ${message}`;
 
-        if (status === 401) message = `Authentication failed: ${message}`;
-        else if (status === 403) message = `Access denied by RBAC: ${message}`;
-        else if (status === 404) message = `Not found: ${message}`;
-
-        reject(new KubeApiError(message || `Kubernetes API responded with ${status}`, status, reason));
+          reject(new KubeApiError(message || `Kubernetes API responded with ${status}`, status, reason));
+        });
       });
-    });
 
-    request.on("timeout", () => {
-      request.destroy(new KubeApiError("Kubernetes API request timed out."));
-    });
-    request.on("error", (error) => {
-      reject(
-        error instanceof KubeApiError
-          ? error
-          : new KubeApiError(
-              `Cannot reach the Kubernetes API: ${error.message}. Check the server address, Network and certificates.`,
-            ),
-      );
-    });
+      request.on("timeout", () => {
+        request.destroy(new KubeApiError("Kubernetes API request timed out."));
+      });
+      request.on("error", (error) => {
+        reject(
+          error instanceof KubeApiError
+            ? error
+            : new KubeApiError(
+                `Cannot reach the Kubernetes API: ${error.message}. Check the server address, Network and certificates.`,
+              ),
+        );
+      });
 
-    if (body !== undefined) request.write(body);
-    request.end();
-  });
+      if (body !== undefined) request.write(body);
+      request.end();
+    });
+  };
+
+  if (!coalesce) return execute();
+
+  const map = inflightGets.get(kc) ?? new Map<string, Promise<unknown>>();
+  const pending = execute();
+  map.set(inflightKey, pending);
+  inflightGets.set(kc, map);
+  // Clean up on both outcomes; the original rejection still reaches the caller.
+  void pending.then(
+    () => map.delete(inflightKey),
+    () => map.delete(inflightKey),
+  );
+  return pending;
 }
 
 export function errorMessage(error: unknown): string {

@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 import { Copy, TriangleExclamationPoint } from "lucide-react";
 import type { ApiResourceInfo } from "@shared/types";
 import { formatAge, formatCpuMilli, formatDurationSeconds, formatMemoryShort, formatRelativeTime, formatTimestamp, parseCpu, parseMemory, parseQuantityCount, formatBytes } from "./format";
-import { resourceStatus, toneTextClass } from "./status";
+import { cachedResourceStatus, toneTextClass } from "./status";
 import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
 import { Tooltip } from "../design-system/components/Tooltip";
@@ -55,10 +55,10 @@ export interface CellContext {
   nodePodCounts?: Map<string, number>;
 }
 
-const statusValue = (object: AnyObject, kind: string): string => resourceStatus(object, kind).text;
+const statusValue = (object: AnyObject, kind: string): string => cachedResourceStatus(object, kind).text;
 
 function StatusCell({ object, kind }: { object: AnyObject; kind: string }) {
-  const status = resourceStatus(object, kind);
+  const status = cachedResourceStatus(object, kind);
   const conditions = ((object.status?.conditions ?? []) as Array<Record<string, any>>);
   // Borderless status: the tone colour and the text only, no pill outline.
   const badge = (
@@ -578,7 +578,11 @@ const ageColumn: ColumnDef = {
   align: "right",
   sortable: true,
   compact: true,
-  value: (object) => object.metadata?.creationTimestamp ?? "",
+  value: (object) => {
+    const timestamp = object.metadata?.creationTimestamp;
+    const parsed = timestamp ? Date.parse(timestamp) : Number.NaN;
+    return Number.isFinite(parsed) ? parsed : 0;
+  },
   cell: (object) => <AgeCell object={object} />,
 };
 
@@ -1008,19 +1012,27 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           value: (object) =>
             podContainers(object).reduce((sum, container) => sum + Number(container.restartCount ?? 0), 0),
           cell: (object) => {
-            const total = podContainers(object).reduce(
-              (sum, container) => sum + Number(container.restartCount ?? 0),
-              0,
-            );
+            const containers = podContainers(object);
+            const total = containers.reduce((sum, container) => sum + Number(container.restartCount ?? 0), 0);
+            const detail = containers
+              .filter((container) => Number(container.restartCount ?? 0) > 0)
+              .map((container) => `${container.name}: ${Number(container.restartCount)} restart${Number(container.restartCount) === 1 ? "" : "s"}`)
+              .join("\n");
             return (
-              <span
-                className={cn(
-                  "mono-nums",
-                  total > 5 ? "text-red-600 dark:text-red-400" : total > 0 ? "text-amber-600 dark:text-amber-400" : "text-theme-text-tertiary",
-                )}
+              <Tooltip
+                content={<span className="whitespace-pre-wrap">{detail || "No container restarts"}</span>}
+                side="bottom"
+                delay={140}
               >
-                {total}
-              </span>
+                <span
+                  className={cn(
+                    "mono-nums",
+                    total > 5 ? "text-red-600 dark:text-red-400" : total > 0 ? "text-amber-600 dark:text-amber-400" : "text-theme-text-tertiary",
+                  )}
+                >
+                  {total}
+                </span>
+              </Tooltip>
             );
           },
           filterValue: () => undefined,
@@ -1065,17 +1077,18 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           value: (object) => object.spec?.nodeName ?? "",
           cell: (object, context) =>
             object.spec?.nodeName ? (
-              <button
-                type="button"
-                className="truncate text-left text-accent-text hover:underline"
-                title={`Open node ${object.spec.nodeName}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  context.onOpenNode?.(object.spec.nodeName);
-                }}
-              >
-                {object.spec.nodeName}
-              </button>
+              <Tooltip content={object.spec.nodeName} side="bottom" delay={140} wrapperClassName="min-w-0">
+                <button
+                  type="button"
+                  className="min-w-0 truncate text-left text-accent-text hover:underline"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    context.onOpenNode?.(object.spec.nodeName);
+                  }}
+                >
+                  {object.spec.nodeName}
+                </button>
+              </Tooltip>
             ) : (
               <TextCell>–</TextCell>
             ),
@@ -2420,6 +2433,8 @@ function printerValue(object: AnyObject, jsonPath: string | undefined, type: str
   return String(current);
 }
 
+const NUMERIC_COLLATOR = new Intl.Collator(undefined, { numeric: true });
+
 export function sortObjects(
   objects: AnyObject[],
   column: ColumnDef | undefined,
@@ -2434,7 +2449,7 @@ export function sortObjects(
   const decorated = objects.map((object) => ({ object, key: value(object, context) }));
   decorated.sort((a, b) => {
     if (typeof a.key === "number" && typeof b.key === "number") return (a.key - b.key) * factor;
-    return String(a.key ?? "").localeCompare(String(b.key ?? ""), undefined, { numeric: true }) * factor;
+    return NUMERIC_COLLATOR.compare(String(a.key ?? ""), String(b.key ?? "")) * factor;
   });
   return decorated.map((entry) => entry.object);
 }

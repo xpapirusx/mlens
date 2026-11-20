@@ -838,12 +838,46 @@ function DetailAction({
       type="button"
       disabled={busy}
       onClick={onClick}
-      className="flex h-6 items-center gap-1 rounded px-1.5 text-[calc(11px*var(--font-scale))] text-theme-text-secondary transition-colors hover:bg-theme-hover hover:text-theme-text-primary disabled:opacity-40 [&>svg]:h-3.5 [&>svg]:w-3.5"
+      className={cn(
+        "flex h-6 items-center gap-1 rounded-full border px-2 text-[calc(11px*var(--font-scale))] font-medium transition-colors disabled:opacity-40 [&>svg]:h-3.5 [&>svg]:w-3.5",
+        actionToneFor(label),
+      )}
     >
       {icon}
       {label}
     </button>
   );
+}
+
+/** Colour-coded action pills: Logs/Exec/Forward and the kind actions read at a glance. */
+function actionToneFor(label: string): string {
+  switch (label) {
+    case "Logs":
+      return "border-sky-500/35 bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 dark:text-sky-300";
+    case "Exec":
+    case "Debug shell":
+      return "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300";
+    case "Forward":
+      return "border-violet-500/35 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-300";
+    case "Scale":
+      return "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300";
+    case "Restart":
+      return "border-orange-500/35 bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:text-orange-300";
+    case "Set image":
+      return "border-cyan-500/35 bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 dark:text-cyan-300";
+    case "Trigger":
+      return "border-emerald-500/35 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300";
+    case "Cordon":
+    case "Uncordon":
+      return "border-orange-500/35 bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:text-orange-300";
+    case "Drain":
+      return "border-red-500/35 bg-red-500/10 text-red-700 hover:bg-red-500/20 dark:text-red-300";
+    default:
+      if (label.startsWith("Resume") || label.startsWith("Pause") || label === "Suspend") {
+        return "border-amber-500/35 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300";
+      }
+      return "border-theme-border bg-theme-elevated/50 text-theme-text-secondary hover:bg-theme-hover hover:text-theme-text-primary";
+  }
 }
 
 function DetailIcon({

@@ -33,6 +33,7 @@ interface CatalogStore {
   setSplitRatio: (ratio: number) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  resetSettings: () => Promise<boolean>;
   loadCatalog: () => Promise<void>;
   setHiddenClusters: (ids: ClusterId[]) => Promise<void>;
   connect: (id: ClusterId) => Promise<boolean>;
@@ -89,6 +90,21 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       }));
     } catch (error) {
       toast.error("Cannot save settings", errorText(error));
+    }
+  },
+
+  resetSettings: async () => {
+    try {
+      const settings = await call(api.settings.reset());
+      const hidden = new Set(settings.hiddenClusters);
+      set((state) => ({
+        settings,
+        clusters: state.allClusters.filter((cluster) => !hidden.has(cluster.id)),
+      }));
+      return true;
+    } catch (error) {
+      toast.error("Cannot reset settings", errorText(error));
+      return false;
     }
   },
 

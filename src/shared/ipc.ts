@@ -2,6 +2,7 @@ import type {
   AddKubeconfigResult,
   ApiResourceInfo,
   AppInfo,
+  AppMetrics,
   AppSettings,
   ApplyYamlRequest,
   ApplyYamlResult,
@@ -52,6 +53,7 @@ import type {
 /** Every IPC channel used by mLens, in one place. */
 export const IPC = {
   appInfo: "app:info",
+  appMetrics: "app:metrics",
   appOpenExternal: "app:open-external",
   appMinimize: "app:window-minimize",
   appMaximize: "app:window-maximize",
@@ -116,6 +118,7 @@ export const IPC = {
 
   settingsGet: "settings:get",
   settingsUpdate: "settings:update",
+  settingsReset: "settings:reset",
   settingsChanged: "settings:changed",
 } as const;
 
@@ -124,6 +127,7 @@ export interface MlensApi {
   platform: string;
   app: {
     info(): Promise<AppInfo>;
+    metrics(): Promise<AppMetrics>;
     openExternal(url: string): Promise<void>;
     minimize(): Promise<void>;
     maximize(): Promise<void>;
@@ -215,6 +219,7 @@ export interface MlensApi {
   settings: {
     get(): Promise<AppSettings>;
     update(patch: Partial<AppSettings>): Promise<AppSettings>;
+    reset(): Promise<AppSettings>;
     onChanged(callback: (settings: AppSettings) => void): () => void;
   };
 }

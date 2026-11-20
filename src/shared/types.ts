@@ -387,6 +387,15 @@ export interface ClusterColorRule {
   color: string;
 }
 
+/**
+ * Aggregate resource usage for the status bar. CPU is summed across Electron
+ * processes and may exceed 100% on multi-core machines; memory is bytes.
+ */
+export interface AppMetrics {
+  cpuPercent: number;
+  memoryBytes: number;
+}
+
 export interface AppSettings {
   theme: ThemeMode;
   colorTheme: ColorTheme;
@@ -401,6 +410,8 @@ export interface AppSettings {
   clusterColorRules: ClusterColorRule[];
   /** Show horizontal row separators and the header divider in resource tables. */
   tableBorders: boolean;
+  /** Show aggregate CPU/RAM usage in the status bar; off by default. */
+  showPerformanceMetrics: boolean;
   /**
    * Open the system browser at `http://127.0.0.1:<localPort>` as soon as a
    * port forward starts. Defaults to on; the dialog exposes the toggle.

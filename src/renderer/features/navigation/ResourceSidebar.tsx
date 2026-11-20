@@ -24,6 +24,7 @@ import { kindColor, kindLabel, getKindIcon } from "../../lib/icons";
 import { cn } from "../../lib/cn";
 import { CountBadge } from "../../design-system/components/Badge";
 import { SearchInput } from "../../design-system/components/SearchInput";
+import { Tooltip } from "../../design-system/components/Tooltip";
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from "../../design-system/components/Menu";
 import { Spinner } from "../../design-system/components/Spinner";
 import { countFor, useResourceCounts } from "./useResourceCounts";
@@ -785,14 +786,23 @@ export function ResourceSidebar({
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex shrink-0 items-center justify-between border-t border-theme-border px-2.5 py-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
-        <span>{info?.namespaces.length ?? 0} namespaces</span>
-        <span className="flex min-w-0 items-center gap-1" title={info?.server}>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-          <span className="max-w-[130px] truncate">
-            {info?.server ? info.server.replace(/^https?:\/\//, "") : ""}
+      <div className="flex shrink-0 items-center gap-2 border-t border-theme-border px-2.5 py-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-disabled">
+        <Tooltip content={`${info?.namespaces.length ?? 0} namespaces`} side="bottom" delay={140}>
+          <span className="shrink-0">{info?.namespaces.length ?? 0} namespaces</span>
+        </Tooltip>
+        <Tooltip
+          content={info?.server ?? ""}
+          side="bottom"
+          delay={140}
+          wrapperClassName="flex min-w-0 flex-1 justify-end"
+        >
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+            <span className="min-w-0 truncate">
+              {info?.server ? info.server.replace(/^https?:\/\//, "") : ""}
+            </span>
           </span>
-        </span>
+        </Tooltip>
       </div>
 
       <CatalogCustomizeDialog

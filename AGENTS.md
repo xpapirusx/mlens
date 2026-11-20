@@ -2,8 +2,27 @@
 
 This file is for AI coding agents and human contributors. Read it before changing
 code. The product decisions live in `DESIGN_SPEC.md`; the technical contract in
-`ARCHITECTURE.md`; the delivery status in `IMPLEMENTATION_PLAN.md`; the build
-story and full context in `PROJECT_CONTEXT.md`.
+`ARCHITECTURE.md`; the project map, data flows and repeat-agent context in
+`PROJECT_CONTEXT.md`; the delivery history in `CHANGELOG.md`; profiling notes in
+`PERFORMANCE_OPTIMIZATION_PROPOSALS.md` and
+`RESOURCE_TABLE_PERFORMANCE_PROPOSALS.md`.
+
+---
+
+## 0. Reading order for a returning agent
+
+1. `PROJECT_CONTEXT.md` — processes, data flows, stores, list/watch pipeline,
+   verification and profiling recipe.
+2. `AGENTS.md` (this file) — product identity, rules, pitfalls and commands.
+3. `ARCHITECTURE.md` for the technical contract and `DESIGN_SPEC.md` for UI
+   decisions.
+4. `PERFORMANCE_OPTIMIZATION_PROPOSALS.md` and
+   `RESOURCE_TABLE_PERFORMANCE_PROPOSALS.md` before touching lists, watches,
+   tables or metrics.
+5. `CHANGELOG.md` for the current version and recent user-facing batches.
+
+Do not re-derive the architecture from scratch; the repository is deliberately
+documented for repeat agent runs.
 
 ---
 
@@ -468,19 +487,66 @@ Important:
 
 ---
 
-## 8. Commands
+## 8. Commands, tests and profiling
 
 ```bash
 pnpm install         # postinstall heals node-pty +x and missing Electron runtime
-pnpm dev             # electron-vite dev
 pnpm typecheck       # tsc main+preload+shared and renderer
-pnpm build           # typecheck + production build
+pnpm build           # typecheck + production build into out/
+pnpm dev             # electron-vite dev server + Electron window (HMR)
+pnpm start           # runs the already built out/ via electron-vite preview
 pnpm dist:mac        # DMG + zip
 pnpm dist:win        # NSIS
 pnpm dist:linux      # AppImage + deb
 ```
 
-Always run `pnpm typecheck` and `pnpm build` before declaring work done.
+There is **no automated unit/e2e test suite** in this repository. Do not invent
+`pnpm test`. The required verification is:
+
+1. `pnpm typecheck` after every change.
+2. `pnpm build` before declaring work done (it reruns typecheck).
+3. The manual smoke checklist in `PROJECT_CONTEXT.md` §9 for anything that
+   touches Kubernetes, IPC, sessions, terminal, logs, settings or the shell.
+
+### macOS notes (the primary dev platform)
+
+- Use Node 22+ and pnpm. If Electron fails with `Error: Electron uninstall`, run
+  `node node_modules/electron/install.js` (online) or `pnpm install`.
+- `pnpm dev` tests the live source with HMR. `pnpm start` tests the **built**
+  `out/`; run `pnpm build` first. If a fix seems missing, check you are not
+  looking at a stale dev or preview window.
+- To run the built app with DevTools/CDP (profiling):
+  `./node_modules/.bin/electron --remote-debugging-port=9222 .`
+- Stop a dev session with `Ctrl+C`; stale Electron:
+  `pgrep -fal "helmcharts/mlens/node_modules.*Electron"`, then kill the parent
+  `Electron .` PID.
+- If pods terminals print `posix_spawnp failed`, the node-pty spawn-helper lost
+  its executable bit; `pnpm install` / `scripts/postinstall.cjs` repairs it.
+- Windows: use PowerShell; paths differ, but `pnpm typecheck` / `pnpm build` are
+  identical. Do not use macOS-only `Electron.app` paths in code or scripts.
+
+### Profiling and poking logic
+
+For the real renderer, launch the built app with remote debugging and poke it
+through the helper:
+
+```bash
+pnpm build
+pnpm debug:app                                   # electron --remote-debugging-port=9222 .
+pnpm debug:cdp "window.mlens.app.metrics()"      # or --list / --file <path>
+```
+
+`window.mlens` exposes clusters/resources/logs/exec/terminal/settings/app;
+Zustand stores are module-scoped, so UI flows are reproduced through DOM clicks
+or React DevTools in `pnpm dev`. The app is **single-instance**: if mLens is
+already open, `pnpm debug:app` only focuses it and exits without opening the
+port — quit it first or pass `--user-data-dir=/tmp/mlens-debug`. Full recipe:
+`PROJECT_CONTEXT.md` §10.
+
+Use `window.mlens.app.metrics()` (aggregate CPU/RAM), `performance.memory` (JS
+heap) and DOM counts over CDP. The 10k-Pods baseline lives in
+`PERFORMANCE_OPTIMIZATION_PROPOSALS.md` §11–12. Never claim a performance win
+without a before/after measurement; close the profiled window when done.
 
 ---
 

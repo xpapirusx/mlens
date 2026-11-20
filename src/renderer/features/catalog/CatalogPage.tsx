@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpDown,
-  Blocks,
   ChevronRight,
   Clock,
   Copy,
@@ -21,6 +20,8 @@ import type { ClusterSummary } from "@shared/types";
 import { useCatalogStore } from "../../stores/catalog-store";
 import { useChromeSessions } from "../../stores/session-store";
 import { useAppInfo } from "../../lib/use-app-info";
+import { MlensLogo } from "../../design-system/components/MlensLogo";
+import { Tooltip } from "../../design-system/components/Tooltip";
 import { cn } from "../../lib/cn";
 import { formatRelativeTime, basename } from "../../lib/format";
 import { openCluster, disconnectCluster } from "../../lib/cluster-actions";
@@ -264,21 +265,23 @@ export function CatalogPage() {
                 )}
               </Menu>
             ) : null}
-          <button
-            type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-            title="Expand catalog (⌘B)"
-            aria-label="Expand catalog"
-            onClick={() => void updateSettings({ sidebarCollapsed: false })}
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
+          </div>
+          <div className="mt-auto flex flex-col items-center pb-1">
+            <button
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
+              title="Expand catalog (⌘B)"
+              aria-label="Expand catalog"
+              onClick={() => void updateSettings({ sidebarCollapsed: false })}
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
           </div>
         </aside>
       ) : (
       <aside className="flex w-52 shrink-0 flex-col border-r border-theme-border bg-theme-sidebar">
         <div className="flex h-10 items-center gap-2 border-b border-theme-border px-3">
-          <Blocks className="h-4 w-4 text-accent-text" />
+          <MlensLogo className="h-4 w-4 shrink-0" />
           <span className="text-[calc(12px*var(--font-scale))] font-semibold text-theme-text-primary">Catalog</span>
         </div>
         <div className="space-y-0.5 p-1.5">
@@ -386,9 +389,7 @@ export function CatalogPage() {
       <div className="min-h-0 flex-1 overflow-y-auto bg-theme-base">
         <div className="border-b border-theme-border bg-gradient-to-b from-theme-surface to-theme-base px-6 py-5">
           <div className="flex flex-wrap items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-skyhook-400 to-skyhook-800 text-white shadow-theme-md">
-              <Blocks className="h-5 w-5" />
-            </div>
+            <MlensLogo className="h-11 w-11 shrink-0 shadow-theme-md" />
             <div className="min-w-0 flex-1">
               <h1 className="text-lg font-semibold text-theme-text-primary">Welcome to mLens</h1>
               <p className="mt-0.5 max-w-2xl text-[calc(12px*var(--font-scale))] leading-relaxed text-theme-text-secondary">
@@ -670,9 +671,16 @@ export function CatalogPage() {
                             <span className="badge-sm status-neutral">current</span>
                           ) : null}
                         </div>
-                        <div className="truncate font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary" title={cluster.server}>
-                          {cluster.server || cluster.context}
-                        </div>
+                        <Tooltip
+                          content={cluster.server || cluster.context}
+                          side="bottom"
+                          delay={140}
+                          wrapperClassName="flex w-full min-w-0"
+                        >
+                          <span className="truncate font-mono text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
+                            {cluster.server || cluster.context}
+                          </span>
+                        </Tooltip>
                       </div>
                       {cluster.error ? (
                         <span className="badge-sm status-unhealthy">invalid</span>
@@ -699,13 +707,27 @@ export function CatalogPage() {
                       {session?.info?.version ? `v${session.info.version}` : "—"}
                     </span>
 
-                    <span className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-secondary" title={cluster.kubeconfigPath}>
-                      {basename(cluster.kubeconfigPath)}
-                    </span>
+                    <Tooltip
+                      content={cluster.kubeconfigPath}
+                      side="bottom"
+                      delay={140}
+                      wrapperClassName="flex w-full min-w-0"
+                    >
+                      <span className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-secondary">
+                        {basename(cluster.kubeconfigPath)}
+                      </span>
+                    </Tooltip>
 
-                    <span className="truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
-                      {cluster.defaultNamespace}
-                    </span>
+                    <Tooltip
+                      content={cluster.defaultNamespace}
+                      side="bottom"
+                      delay={140}
+                      wrapperClassName="flex w-full min-w-0"
+                    >
+                      <span className="truncate font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
+                        {cluster.defaultNamespace}
+                      </span>
+                    </Tooltip>
 
                     <span className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
                       {recent ? formatRelativeTime(new Date(recent.openedAt).toISOString()) : "—"}
@@ -811,21 +833,11 @@ export function CatalogPage() {
               ) : null}
             </div>
             <p className="mt-3 text-[calc(10px*var(--font-scale))] leading-relaxed text-theme-text-disabled">
-              mLens {info?.version ?? "0.1.0"} · design system inspired by Skyhook Radar (Apache-2.0) · shell
-              structure inspired by Freelens (MIT). Contexts are read directly from kubeconfig; credentials never
+              mLens {info?.version ?? "0.1.0"} · Contexts are read directly from kubeconfig; credentials never
               leave this machine.
             </p>
           </div>
         )}
-          <button
-            type="button"
-            className="flex h-7 w-7 items-center justify-center rounded-md text-theme-text-tertiary transition-colors hover:bg-theme-hover hover:text-theme-text-primary"
-            title="Expand catalog (⌘B)"
-            aria-label="Expand catalog"
-            onClick={() => void updateSettings({ sidebarCollapsed: false })}
-          >
-            <PanelLeftOpen className="h-4 w-4" />
-          </button>
       </div>
 
       <ConfirmActionDialog
