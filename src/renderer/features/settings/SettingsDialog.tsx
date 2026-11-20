@@ -16,7 +16,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import type { ClusterColorRule } from "@shared/types";
+import type { ClusterColorRule, TerminalThemeMode } from "@shared/types";
 import { Modal } from "../../design-system/components/Modal";
 import { Button } from "../../design-system/components/Button";
 import { useCatalogStore } from "../../stores/catalog-store";
@@ -79,7 +79,7 @@ export function SettingsDialog() {
     >
       <div className="space-y-6">
         <Section title="Appearance" icon={<Sun />}>
-          <Field label="Color theme" hint="Radar follows the mode below; all other themes are dark.">
+          <Field label="Color theme" hint="Radar follows the mode below; GitHub Light and White are always light; all other themes are dark.">
             <div className="grid w-full max-w-xl grid-cols-4 gap-2">
               {(
                 [
@@ -90,6 +90,8 @@ export function SettingsDialog() {
                   { value: "synthwave", label: "Synthwave '84" },
                   { value: "islands", label: "Dark Islands" },
                   { value: "github", label: "GitHub" },
+                  { value: "github-light", label: "GitHub Light" },
+                  { value: "white", label: "White" },
                   { value: "night-owl", label: "Night Owl" },
                   { value: "material", label: "Material" },
                   { value: "one-dark-pro", label: "One Dark Pro" },
@@ -97,6 +99,13 @@ export function SettingsDialog() {
                   { value: "catppuccin", label: "Catppuccin" },
                   { value: "jellybeans", label: "Jellybeans" },
                   { value: "adwaita", label: "Adwaita" },
+                  { value: "copilot", label: "Copilot" },
+                  { value: "min", label: "Min" },
+                  { value: "aura", label: "Aura" },
+                  { value: "slack", label: "Slack" },
+                  { value: "bluloco", label: "Bluloco Dark" },
+                  { value: "om", label: "Om Theme" },
+                  { value: "vim", label: "Vim" },
                 ] as const
               ).map((option) => (
                 <button
@@ -106,7 +115,13 @@ export function SettingsDialog() {
                   onClick={() =>
                     void updateSettings({
                       colorTheme: option.value,
-                      ...(option.value === "radar" ? {} : { theme: "dark" as const }),
+                      ...(option.value === "radar"
+                        ? {}
+                        : {
+                            theme: (option.value === "github-light" || option.value === "white"
+                              ? "light"
+                              : "dark") as "light" | "dark",
+                          }),
                     })
                   }
                   className={cn(
@@ -161,7 +176,7 @@ export function SettingsDialog() {
               className="h-8 w-20 rounded-md border border-theme-border bg-theme-elevated px-2 font-mono text-xs text-theme-text-primary focus:outline-none"
             />
           </Field>
-          <Field label="UI font" hint="Ubuntu and DM Sans are bundled; System UI uses the operating system font.">
+          <Field label="UI font" hint="Ubuntu and DM Sans are bundled; Noto, DejaVu, Liberation and FreeSans use the fonts shipped with Ubuntu 24; System UI uses the operating system font.">
             <select
               value={settings.uiFontFamily ?? "DM Sans"}
               onChange={(event) => void updateSettings({ uiFontFamily: event.target.value })}
@@ -291,6 +306,22 @@ export function SettingsDialog() {
                   {font.label}
                 </option>
               ))}
+            </select>
+          </Field>
+          <Field
+            label="Theme"
+            hint="Match app theme uses the white terminal on light themes; Dark or Light forces one palette."
+          >
+            <select
+              value={settings.terminalTheme ?? "match"}
+              onChange={(event) =>
+                void updateSettings({ terminalTheme: event.target.value as TerminalThemeMode })
+              }
+              className="h-8 rounded-md border border-theme-border bg-theme-elevated px-2 text-xs text-theme-text-primary focus:outline-none"
+            >
+              <option value="match">Match app theme</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
             </select>
           </Field>
           <Field label="Shell path" hint="Local terminal binary. Empty uses $SHELL (zsh/bash/sh on macOS and Linux).">

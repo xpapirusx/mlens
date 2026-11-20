@@ -18,7 +18,10 @@ import { NodeOverview } from "./NodeOverview";
 import { PermissionsSection } from "./PermissionsSection";
 import { PolicySection } from "./PolicySection";
 import { HelmReleaseOverview } from "./HelmReleaseOverview";
-import { useServiceEndpointsDetail } from "./useDetailsData";
+import { useClaimObjects } from "./useDetailsData";
+import { ServiceOverview } from "./ServiceOverview";
+import { StorageOverview } from "./StorageOverview";
+import { NetworkPolicyOverview } from "./NetworkPolicyOverview";
 import {
   RoleBindingRbacSections,
   RoleBindingsSection,
@@ -139,7 +142,10 @@ export function OverviewTab(props: OverviewProps) {
       return <EventOverview {...props} />;
     case "persistentvolumeclaim":
     case "persistentvolume":
+    case "storageclass":
       return <StorageOverview {...props} />;
+    case "networkpolicy":
+      return <NetworkPolicyOverview {...props} />;
     case "customresourcedefinition":
       return <CrdOverview {...props} />;
     case "horizontalpodautoscaler":
@@ -268,6 +274,14 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
   ] as Array<Record<string, any>>;
   const initContainers = (object.spec?.initContainers ?? []) as Array<Record<string, any>>;
   const mainContainers = (object.spec?.containers ?? []) as Array<Record<string, any>>;
+  const claimNames = [
+    ...new Set(
+      ((object.spec?.volumes ?? []) as Array<Record<string, any>>)
+        .map((volume) => volume.persistentVolumeClaim?.claimName as string | undefined)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+  const claimObjects = useClaimObjects(clusterId, object.metadata?.namespace, claimNames);
 
   const renderContainer = (container: Record<string, any>, order: number, init: boolean) => {
     const status = containerStatuses.find((entry) => entry.name === container.name);
@@ -545,6 +559,10 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
               const namespace = object.metadata?.namespace as string | undefined;
               const configMapName = volume.configMap?.name as string | undefined;
               const secretName = volume.secret?.secretName as string | undefined;
+              const claimName = volume.persistentVolumeClaim?.claimName as string | undefined;
+              const claim = claimName ? claimObjects.byName.get(claimName) : undefined;
+              const claimStatus = claim ? resourceStatus(claim, "PersistentVolumeClaim") : null;
+              const claimCapacity = (claim?.status as any)?.capacity?.storage as string | undefined;
               const projectedSources = (volume.projected?.sources ?? []) as Array<Record<string, any>>;
               const label = volume.configMap
                 ? `configMap/${volume.configMap.name}`
@@ -581,6 +599,28 @@ function PodOverview({ object, onNavigate, onPortForward, onQuickPortForward, cl
                     link("ConfigMap", configMapName, `configMap/${configMapName}`)
                   ) : secretName ? (
                     link("Secret", secretName, `secret/${secretName}`)
+                  ) : volume.persistentVolumeClaim && claimName ? (
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      {link("PersistentVolumeClaim", claimName, `pvc/${claimName}`)}
+                      {claimStatus ? (
+                        <span className={cn("badge-sm", toneClass(claimStatus.tone))} title={claimStatus.detail}>
+                          {claimStatus.text}
+                        </span>
+                      ) : claimObjects.error ? (
+                        <span className="badge-sm status-unknown" title={claimObjects.error}>
+                          status unavailable
+                        </span>
+                      ) : claimObjects.loading ? (
+                        <span className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">loading…</span>
+                      ) : (
+                        <span className="badge-sm status-unknown">not found</span>
+                      )}
+                      {claimCapacity ? (
+                        <span className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">
+                          {claimCapacity}
+                        </span>
+                      ) : null}
+                    </span>
                   ) : volume.projected ? (
                     <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-theme-text-secondary">
                       projected
@@ -927,148 +967,6 @@ function RoleBindingOverview({ object, clusterId, onNavigate }: OverviewProps) {
   );
 }
 
-function ServiceOverview({ object, onNavigate, clusterId }: OverviewProps) {
-  const spec = object.spec ?? {};
-  const type = (spec.type as string | undefined) ?? "ClusterIP";
-  const hasSelector = Object.keys(spec.selector ?? {}).length > 0;
-  const lbIngress = (object.status?.loadBalancer?.ingress ?? []) as Array<{ ip?: string; hostname?: string }>;
-  const endpoints = useServiceEndpointsDetail(clusterId, object.metadata?.namespace, object.metadata?.name);
-
-  return (
-    <div className="space-y-4">
-      {type === "LoadBalancer" && lbIngress.length === 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-amber-700 dark:text-amber-300">
-          <div className="font-medium">Load balancer pending</div>
-          <div className="mt-1 text-xs">
-            The external IP/hostname has not been assigned yet. Check the Events tab for cloud-provider messages.
-          </div>
-        </div>
-      ) : null}
-      {!hasSelector && type !== "ExternalName" ? (
-        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[calc(12px*var(--font-scale))] text-sky-700 dark:text-sky-300">
-          <div className="font-medium">No pod selector</div>
-          <div className="mt-1 text-xs">
-            This Service has no selector — its endpoints must be managed manually or by an external controller.
-          </div>
-        </div>
-      ) : null}
-
-      <DetailSection title="Service" icon={<Network />}>
-        <PropertyList>
-          <Property label="Type" value={type} />
-          <Property label="Cluster IP" value={spec.clusterIP} mono copyable />
-          <Property label="Cluster IPs" value={(spec.clusterIPs ?? []).join(", ")} mono />
-          <Property label="External IPs" value={(spec.externalIPs ?? []).join(", ")} mono />
-          <Property
-            label="Load balancer"
-            value={lbIngress.map((entry) => entry.ip ?? entry.hostname).filter(Boolean).join(", ")}
-            mono
-            copyable
-          />
-          <Property label="Session affinity" value={spec.sessionAffinity ?? "None"} />
-          <Property label="External traffic policy" value={spec.externalTrafficPolicy} />
-          <Property label="Internal traffic policy" value={spec.internalTrafficPolicy} />
-          <Property label="IP family policy" value={spec.ipFamilyPolicy} />
-          <Property label="IP families" value={(spec.ipFamilies ?? []).join(", ")} />
-          <Property label="External name" value={spec.externalName} />
-          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
-        </PropertyList>
-      </DetailSection>
-
-      <DetailSection title="Ports" icon={<Network />} count={spec.ports?.length ?? 0}>
-        <div className="overflow-hidden rounded-md border border-theme-border">
-          <div className="grid grid-cols-5 border-b border-theme-border bg-theme-base px-2 py-1 text-[calc(10px*var(--font-scale))] uppercase tracking-wide text-theme-text-tertiary">
-            <span>Name</span>
-            <span>Port</span>
-            <span>Target</span>
-            <span>NodePort</span>
-            <span>Protocol</span>
-          </div>
-          {(spec.ports ?? []).map((port: any, index: number) => (
-            <div key={index} className="grid grid-cols-5 border-b-subtle px-2 py-1 text-[calc(11px*var(--font-scale))] last:border-0">
-              <span className="truncate text-theme-text-primary">{port.name ?? "–"}</span>
-              <span className="font-mono text-theme-text-secondary">{port.port}</span>
-              <span className="font-mono text-theme-text-secondary">{port.targetPort ?? "–"}</span>
-              <span className="font-mono text-theme-text-secondary">{port.nodePort ?? "–"}</span>
-              <span className="text-theme-text-secondary">{port.protocol ?? "TCP"}</span>
-            </div>
-          ))}
-          {(spec.ports ?? []).length === 0 ? <div className="px-2 py-2 text-xs text-theme-text-tertiary">No ports.</div> : null}
-        </div>
-      </DetailSection>
-
-      <DetailSection title="Selector" icon={<ShieldCheck />}>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(spec.selector ?? {}).map(([key, value]) => (
-            <span key={key} className="badge-sm status-unknown font-mono">
-              {key}={String(value)}
-            </span>
-          ))}
-          {Object.keys(spec.selector ?? {}).length === 0 ? (
-            <span className="text-xs text-theme-text-tertiary">No selector (external or headless).</span>
-          ) : (
-            <button
-              type="button"
-              className="ml-2 text-[calc(11px*var(--font-scale))] text-accent-text hover:underline"
-              onClick={() => onNavigate("Pod", "", object.metadata?.namespace)}
-            >
-              View pods in Related
-            </button>
-          )}
-        </div>
-      </DetailSection>
-
-      {type !== "ExternalName" ? (
-        <DetailSection
-          title="Endpoints"
-          icon={<Network />}
-          count={endpoints.ready.length + endpoints.notReady.length}
-          defaultOpen={endpoints.ready.length === 0}
-        >
-          {endpoints.loading && !endpoints.exists && !endpoints.error ? (
-            <div className="text-xs text-theme-text-tertiary">Loading endpoints…</div>
-          ) : endpoints.error ? (
-            <div className="text-xs text-theme-text-tertiary">Endpoints unavailable: {endpoints.error}</div>
-          ) : !endpoints.exists ? (
-            <div className="text-xs text-theme-text-tertiary">
-              No Endpoints object exists for this Service — it currently has no backing addresses.
-            </div>
-          ) : endpoints.ready.length === 0 && endpoints.notReady.length === 0 ? (
-            <div className="text-xs text-theme-text-tertiary">No addresses are registered for this Service.</div>
-          ) : (
-            <div className="space-y-2">
-              <div className="text-xs text-theme-text-secondary">
-                <span className="text-emerald-600 dark:text-emerald-400">{endpoints.ready.length} ready</span>
-                {endpoints.notReady.length > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="text-amber-600 dark:text-amber-400">{endpoints.notReady.length} not ready</span>
-                  </>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {endpoints.ready.slice(0, 40).map((ip) => (
-                  <span key={`ready-${ip}`} className="badge-sm status-healthy font-mono">
-                    {ip}
-                  </span>
-                ))}
-                {endpoints.notReady.slice(0, 40).map((ip) => (
-                  <span key={`notready-${ip}`} className="badge-sm status-degraded font-mono">
-                    {ip}
-                  </span>
-                ))}
-              </div>
-              {endpoints.ready.length + endpoints.notReady.length > 80 ? (
-                <div className="text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">Showing the first 80 addresses.</div>
-              ) : null}
-            </div>
-          )}
-        </DetailSection>
-      ) : null}
-    </div>
-  );
-}
-
 function IngressOverview({ object }: OverviewProps) {
   const spec = object.spec ?? {};
   return (
@@ -1122,31 +1020,66 @@ function IngressOverview({ object }: OverviewProps) {
 /** Radar's Certificate Info for TLS Secrets: subject, issuer and expiry. */
 function CertificateSection({ object }: { object: AnyObject }) {
   const crt = (object.data as Record<string, string> | undefined)?.["tls.crt"];
-  const info = crt ? parseCertificate(crt) : null;
-  if (!info?.notAfter) return null;
+  if (!crt) return null;
+  const info = parseCertificate(crt);
+  if (!info?.notAfter) {
+    return (
+      <DetailSection title="Certificate" icon={<ShieldCheck />}>
+        <div className="text-[calc(12px*var(--font-scale))] text-amber-600 dark:text-amber-400">
+          The value in <span className="font-mono">tls.crt</span> is not a readable X.509 certificate.
+        </div>
+      </DetailSection>
+    );
+  }
   const days = daysUntil(info.notAfter) ?? 0;
   const expired = days < 0;
-  const soon = !expired && days <= 30;
+  const critical = !expired && days <= 7;
+  const soon = !expired && !critical && days <= 30;
   return (
     <>
-      {expired || soon ? (
+      {expired || critical || soon ? (
         <div
           className={cn(
             "rounded-lg border px-3 py-2 text-[calc(12px*var(--font-scale))]",
-            expired
+            expired || critical
               ? "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300"
               : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
           )}
         >
           <div className="font-medium">
-            {expired ? `Certificate expired ${Math.abs(days)}d ago` : `Certificate expires in ${days}d`}
+            {expired
+              ? `Certificate expired ${Math.abs(days)}d ago`
+              : critical
+                ? `Certificate expires in ${days}d`
+                : `Certificate expires in ${days}d`}
+          </div>
+          <div className="mt-1 text-xs">
+            {expired
+              ? "Replace the certificate or check the renewal controller."
+              : "Check that cert-manager or your CA is renewing this certificate."}
           </div>
         </div>
       ) : null}
       <DetailSection title="Certificate" icon={<ShieldCheck />}>
         <PropertyList>
-          <Property label="Subject" value={info.subjectCn} mono />
+          <Property label="Subject (CN)" value={info.subjectCn} mono />
+          <Property
+            label="SANs"
+            value={
+              info.sans?.length ? (
+                <span className="flex flex-wrap gap-1">
+                  {info.sans.map((san) => (
+                    <span key={san} className="badge-sm status-neutral font-mono">
+                      {san}
+                    </span>
+                  ))}
+                </span>
+              ) : undefined
+            }
+          />
           <Property label="Issuer" value={info.issuerCn} mono />
+          <Property label="Key type" value={info.keyType} mono />
+          <Property label="Serial" value={info.serialNumber} mono />
           <Property
             label="Not before"
             value={info.notBefore ? formatTimestamp(info.notBefore.toISOString()) : "–"}
@@ -1157,7 +1090,7 @@ function CertificateSection({ object }: { object: AnyObject }) {
             value={
               <span
                 className={cn(
-                  expired
+                  expired || critical
                     ? "text-red-600 dark:text-red-400"
                     : soon
                       ? "text-amber-600 dark:text-amber-400"
@@ -1283,52 +1216,6 @@ function EventOverview({ object, onNavigate }: OverviewProps) {
               />
             }
           />
-        </PropertyList>
-      </DetailSection>
-    </div>
-  );
-}
-
-function StorageOverview({ object, onNavigate }: OverviewProps) {
-  const isPvc = object.kind === "PersistentVolumeClaim";
-  const spec = object.spec ?? {};
-  const status = object.status ?? {};
-  return (
-    <div className="space-y-4">
-      <DetailSection title="Storage" icon={<Database />}>
-        <PropertyList>
-          <Property label="Status" value={<StatusPill object={object} kind={object.kind} />} />
-          <Property label="Capacity" value={status.capacity?.storage} mono />
-          <Property label="Access modes" value={(spec.accessModes ?? []).join(", ")} />
-          <Property
-            label="Storage class"
-            value={<ResourceLink kind="StorageClass" name={spec.storageClassName} onNavigate={onNavigate} />}
-          />
-          <Property label="Volume mode" value={spec.volumeMode ?? "Filesystem"} />
-          {isPvc ? (
-            <>
-              <Property
-                label="Volume"
-                value={<ResourceLink kind="PersistentVolume" name={spec.volumeName} onNavigate={onNavigate} />}
-                copyable
-              />
-              <Property label="Requested" value={spec.resources?.requests?.storage} mono />
-            </>
-          ) : (
-            <>
-              <Property label="Reclaim policy" value={spec.persistentVolumeReclaimPolicy} />
-              <Property label="Claim" value={
-                <ResourceLink
-                  kind="PersistentVolumeClaim"
-                  name={spec.claimRef?.name}
-                  namespace={spec.claimRef?.namespace}
-                  onNavigate={onNavigate}
-                />
-              } />
-              <Property label="CSI driver" value={spec.csi?.driver} />
-            </>
-          )}
-          <AgeProperty timestamp={object.metadata?.creationTimestamp} />
         </PropertyList>
       </DetailSection>
     </div>
@@ -1656,6 +1543,35 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
   const nestedStatus = Object.fromEntries(
     Object.entries(status).filter(([, value]) => value !== null && typeof value === "object"),
   );
+  const spec = (object.spec ?? {}) as Record<string, unknown>;
+  const specPriority = [
+    "replicas",
+    "selector",
+    "schedule",
+    "suspend",
+    "concurrencyPolicy",
+    "parallelism",
+    "completions",
+    "backoffLimit",
+    "image",
+    "command",
+    "args",
+    "ports",
+    "resources",
+  ];
+  const flatSpec = Object.entries(spec)
+    .filter(([, value]) => value === null || typeof value !== "object")
+    .sort(([left], [right]) => {
+      const leftIndex = specPriority.indexOf(left);
+      const rightIndex = specPriority.indexOf(right);
+      if (leftIndex >= 0 || rightIndex >= 0) {
+        return (leftIndex >= 0 ? leftIndex : specPriority.length) - (rightIndex >= 0 ? rightIndex : specPriority.length);
+      }
+      return left.localeCompare(right);
+    });
+  const nestedSpec = Object.fromEntries(
+    Object.entries(spec).filter(([, value]) => value !== null && typeof value === "object"),
+  );
 
   return (
     <div className="space-y-4">
@@ -1673,6 +1589,21 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
           {resource.apiVersion} · {resource.kind}
         </div>
       )}
+
+      {Object.keys(status).length === 0 && Object.keys(spec).length === 0 ? (
+        <div className="rounded-lg border border-slate-500/20 bg-slate-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <FileSliders className="mt-0.5 h-5 w-5 shrink-0 text-theme-text-tertiary" />
+            <div>
+              <div className="text-[calc(13px*var(--font-scale))] font-medium text-theme-text-secondary">Custom Resource</div>
+              <div className="mt-1 text-xs text-theme-text-tertiary">
+                This resource type doesn&apos;t have a dedicated view and reports no spec or status fields. Use the YAML tab
+                for the full definition.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2">
         {[
@@ -1764,6 +1695,43 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
         </DetailSection>
       ) : null}
 
+      {Object.keys(nestedStatus).length ? (
+        <DetailSection title="Status details" icon={<Layers />} defaultOpen={false}>
+          <NestedObject value={nestedStatus} />
+        </DetailSection>
+      ) : null}
+
+      <DetailSection
+        title="Specification"
+        icon={<Settings2 />}
+        count={Object.keys(spec).length}
+        defaultOpen={flatSpec.length <= 8}
+      >
+        {Object.keys(spec).length === 0 ? (
+          <div className="text-xs text-theme-text-tertiary">This resource has no spec.</div>
+        ) : flatSpec.length === 0 ? (
+          <NestedObject value={spec} />
+        ) : (
+          <PropertyList>
+            {flatSpec.map(([key, value]) => (
+              <Property
+                key={key}
+                label={statusFieldLabel(key)}
+                value={
+                  typeof value === "boolean"
+                    ? value
+                      ? "Yes"
+                      : "No"
+                    : Array.isArray(value)
+                      ? value.map((entry) => (typeof entry === "object" ? JSON.stringify(entry) : String(entry))).join(", ")
+                      : String(value)
+                }
+                mono
+              />
+            ))}
+          </PropertyList>
+        )}
+      </DetailSection>
       <DetailSection title="Status" icon={<Info />} count={flatStatus.length}>
         {Object.keys(status).length === 0 ? (
           <div className="text-xs text-theme-text-tertiary">This resource has no status fields.</div>
@@ -1791,19 +1759,11 @@ function GenericOverview({ object, resource, onNavigate }: OverviewProps) {
         )}
       </DetailSection>
 
-      {Object.keys(nestedStatus).length ? (
-        <DetailSection title="Status details" icon={<Layers />} defaultOpen={false}>
-          <NestedObject value={nestedStatus} />
+      {Object.keys(nestedSpec).length ? (
+        <DetailSection title="Specification details" icon={<Layers />} defaultOpen={false}>
+          <NestedObject value={nestedSpec} />
         </DetailSection>
       ) : null}
-
-      {/* <DetailSection title="Specification" icon={<Settings2 />} defaultOpen={Object.keys(spec).length <= 10}>
-        {Object.keys(spec).length ? (
-          <NestedObject value={spec} />
-        ) : (
-          <div className="overflow-hidden text-xs text-theme-text-tertiary">This resource has no spec.</div>
-        )}
-      </DetailSection> */}
     </div>
   );
 }

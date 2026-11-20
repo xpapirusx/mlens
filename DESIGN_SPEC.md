@@ -211,15 +211,18 @@ selected files are still imported. Pasting YAML applies the same check.
 
 ### 2.3c Cross-cluster split screen
 
-- The **Rows2** button beside the cluster tabs opens a picker of other open
-  clusters and pins one below the active one; both panes are full cluster
-  workspaces (sidebar, table, editor area, dock). A chip next to the button
-  names the pinned cluster and closes the split.
-- The divider between panes is horizontal and draggable (20–80%); the active
-  cluster is the top pane. Stacking keeps the full width, so the resource
-  catalog, table and editor width do not change. Clicking the bottom pane's
-  cluster tab swaps the two roles; closing
-  either pane keeps the other (the survivor becomes active).
+- The split button beside the cluster tabs opens a picker of other open
+  clusters and pins one next to the active one. **Layout** in the same menu
+  offers **Split right** (side by side) and **Split down** (stacked), matching
+  the editor area's split actions; the choice applies live and the trigger/chip
+  icon follows it. Both panes are full cluster workspaces (sidebar, table,
+  editor area, dock). A chip next to the button names the pinned cluster and
+  closes the split.
+- The divider follows the direction — vertical for split-right (drag by width),
+  horizontal for split-down (drag by height), both limited to 20–80%. The
+  primary cluster is left/top. Clicking the secondary pane's cluster tab swaps
+  the two roles; closing either pane keeps the other (the survivor becomes
+  active).
 - Every cluster workspace stays mounted and keyed; the split only toggles CSS
   visibility/width, so PTYs, scroll and editor panes survive.
 - Both visible workspaces poll; workspaces hidden behind the split keep their
@@ -304,7 +307,11 @@ contains a single kind.
   is the primary create flow: the **Create** button in the
   resource-browser toolbar opens the same dock tab instead of a modal, and a
   successful apply makes every mounted table refetch
-  (`mlens:resources-applied`).
+  (`mlens:resources-applied`). A rejected manifest (parse error, dry-run or
+  apply failure) opens a **scrollable error dialog** with the full server message
+  and a **Copy error** button instead of a toast: validation output is often many
+  lines and is meant to be pasted elsewhere. Closing the dialog keeps the editor
+  buffer untouched, so the YAML can be fixed and re-applied.
 - All terminal tabs stay mounted; only the active one is visible, so scrollback
   and PTY state survive switching.
 - Local shells and pod exec share the same dock, visually identical to Radar's
@@ -333,9 +340,13 @@ contains a single kind.
 - Header per pane: kind outline pill, status badge, API version,
   **previous/next open-resource arrows**, Reload, **Edit YAML** (pencil: opens
   the YAML tab already in edit mode), Delete, then a single grouped control
-  with **Expand / Minimize / Close**. Minimize hides the whole editor area
-  without closing anything — tabs stay and the shadow tray above the dock
-  restores it (no floating pill). Delete sits next to Close and always asks for confirmation.
+  with **Expand / Minimize / Close**. Minimize (`⌘⇧B` / `Ctrl+Shift+B`)
+  hides the whole editor area without closing anything — tabs stay and the
+  shadow tray above the dock restores it (no floating pill). A primary click
+  outside the editor area (table chrome, sidebar, dock, top bar) minimizes it
+  too; clicking a resource row is excluded and opens/restores the editor.
+  Dialogs, menus and the tray do not trigger auto-minimize. Delete sits next
+  to Close and always asks for confirmation.
   A right-aligned kind-action row sits under the resource name: Logs / Exec /
   Forward (Pods; Exec opens a dialog with container and command),
   Scale / Restart / Set image (Deployments, StatefulSets,
@@ -360,6 +371,8 @@ settings, new terminal, close tab).
 | Shortcut | Action |
 |---|---|
 | `⌘K` / `Ctrl+K` | Command palette |
+| `⌘B` / `Ctrl+B` | Collapse or expand the resource catalog |
+| `⌘⇧B` / `Ctrl+Shift+B` | Minimize or restore the editor area (open tabs stay) |
 | `⌘N` / `Ctrl+N` | New cluster tab (opens the catalog to pick a cluster) |
 | `⌘⇧]` / `Ctrl+Shift+]` | Next cluster tab |
 | `⌘⇧[` / `Ctrl+Shift+[` | Previous cluster tab |
@@ -383,8 +396,8 @@ settings, new terminal, close tab).
 
 ### 3.0 Colour themes
 
-Radar is the default contract (light/dark/system). Three additional themes
-override tokens globally and force dark mode:
+Radar is the default contract (light/dark/system). The named themes override
+tokens globally:
 
 - **Dracula** — `#282A36` base, `#21222C` surfaces, `#44475A` elevated,
   `#BD93F9` accent, `#F8F8F2` text; terminal palette from the Dracula ANSI scheme.
@@ -395,11 +408,39 @@ override tokens globally and force dark mode:
   `#23293D` active, blue accent `#5E9EFF` (hover `#7DB2FF`), text
   `#F5F7FA / #C5CAD5 / #9299A8`, status hues `#6BCF7F / #FFD93D / #FF6B6B`,
   hairlines `rgba(255,255,255,…)`; matching Monaco (`mlens-proton`) and
-  terminal palettes. The source theme ships a light variant too; only its dark
-  palette is ported, like Dracula and Freelens.
+  terminal palettes.
+- **Copilot** — adapted from *benjaminbenais/copilot-theme*: `#232A2F` canvas,
+  `#1A2023` chrome, cyan `#89DDFF` accent, yellow `#FFEA6B` highlight; Monaco
+  and ANSI palette follow.
+- **Min** — adapted from *miguelsolorio/min-theme* (MIT), min-dark: near-black
+  grays (`#1A1A1A / #1F1F1F / #2A2A2A`) with the blue `#79B8FF` accent.
+- **Aura** — adapted from *daltonmenezes/aura-theme* (MIT): ink `#15141B`,
+  purple `#A277FF`, mint `#61FFCA`.
+- **Slack Aubergine** — adapted from *slack-theme/visual-studio-code* (MIT):
+  aubergine `#3E313C / #4F384A`, Slack red `#F44C5E`, teal `#3E9689`.
+- **Bluloco Dark** — adapted from *uloco/theme-bluloco-dark* (LGPL-3.0, colour
+  values only): slate `#282C34`, blue `#3691FF`.
+- **GitHub Light** — adapted from *yunlingz/vscode-theme-github-light*
+  (BSD-2-Clause): white canvas, GitHub red `#D73A49` accent, classic
+  blue/green/purple syntax. This is one of the forced-light themes, with its own
+  light Monaco and terminal palettes.
+- **White** — mLens' own clean light shell: white canvas, grey chrome and a blue
+  accent, paired with a white terminal palette.
+- **Om Theme** — adapted from *luizomf/omtheme* (MIT): Dracula's palette on the
+  darker ink `#13141F`.
+- **Vim** — adapted from *Harry-Hopkinson/vim-vscode-theme* (MIT),
+  vim-dark-medium (Gruvbox): `#282828` canvas, `#EBDBB2` text, yellow `#FABD2F`,
+  green/red/blue Gruvbox ANSI.
+- Synthwave '84, Dark Islands, GitHub, Night Owl, Material, One Dark Pro,
+  One Dark, Catppuccin (Mocha), Jellybeans and Adwaita keep their own token
+  blocks, Monaco themes and terminal palettes.
 
 Theme classes live in `design-system/styles/themes.css`; no component-specific
-theme hacks.
+theme hacks. Every named theme except GitHub Light and White forces dark mode;
+GitHub Light and White force light. Radar follows the Light/Dark/System control.
+The terminal palette is `settings.terminalTheme`: **Match app theme** (default)
+uses the light ANSI palette on light shells, **Dark** and **Light** force one
+regardless of the shell.
 
 ### 3.1 Type
 
@@ -407,6 +448,14 @@ theme hacks.
 |---|---|---|
 | UI | **DM Sans Variable** (`@fontsource-variable/dm-sans`) | everything except code |
 | Code / terminal | **DM Mono** (`@fontsource/dm-mono`) | YAML, logs, terminal, identifiers, ages |
+
+Alternative UI fonts: Ubuntu (bundled), Noto Sans, Noto Serif, DejaVu Sans,
+Liberation Sans and FreeSans (the open-source families shipped with Ubuntu 24,
+resolved from the system), Tinos, and the mono families. Alternative terminal/
+editor fonts: Ubuntu Mono (bundled), Noto Sans Mono, DejaVu Sans Mono,
+Liberation Mono, FreeMono, JetBrains Mono, Fira Code, Source Code Pro, then
+installed Menlo/Monaco/SF Mono. System families are listed by name only; a
+missing family falls through the stack instead of breaking the UI.
 
 Base 14px, line-height 1.5. Table body cells 14px; table headers 12px, 500,
 uppercase, letter-spacing wide. Detail section titles 13px/500; drawer title
@@ -573,7 +622,9 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   class, and every reference field in Details (`volumeName`, `claimRef`,
   `storageClassName`, `imagePullSecrets`, HPA `scaleTargetRef`, owner refs…).
   Pod **Volumes** link straight to the referenced ConfigMap or Secret (direct
-  volumes and projected sources alike). The separate **Volume mounts** section
+  volumes and projected sources alike); a **PVC** volume opens the
+  PersistentVolumeClaim and shows its live phase badge and capacity next to the
+  link (loading / read-denied / not-found states included). The separate **Volume mounts** section
   lists each container's `volumeMounts` (init containers marked): mount path,
   volume name, `subPath` and read-only flag.
 - Workload actions (row context menu and drawer action row): Scale for
@@ -661,10 +712,31 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
 - **Service** — Radar's composition: a **Load balancer pending** warning while
   a LoadBalancer has no ingress yet, an info banner when the Service has **no
   pod selector**, then Service (type, IPs, load balancer, session affinity,
-  external/internal traffic policy, IP families), Ports as a five-column table
-  including NodePort, Selector, and an **Endpoints** section listing ready
-  (green) and not-ready (amber) addresses from the live `Endpoints` object —
-  with honest states for "no object yet" and read failures.
+  external/internal traffic policy, IP families) and Ports as cards with
+  `port → targetPort` and NodePort. Each TCP port exposes a clickable
+  port-forward pill (starts a forward to the first ready endpoint Pod and opens
+  it in the browser when that preference is on) and a **Forward** button for
+  the start dialog; the resolved EndpointSlice port is used for named
+  targetPorts. The **EndpointSlices** section lists every slice with its
+  clickable name, address type, `ready/total` badge and address count, and falls
+  back to the live `Endpoints` addresses when the slice inventory is unavailable
+  or empty.
+- **NetworkPolicy** — Radar's policy view: an effective **Policy flow** diagram
+  (ingress from peers → target, target → egress destinations, ports on the
+  arrow, `Deny all` rows for empty rule lists), the target pod selector and
+  effective policy types (including Kubernetes' defaulting when
+  `policyTypes` is omitted), then **Ingress rules** and **Egress rules** as
+  per-rule cards listing podSelector/namespaceSelector (AND), ipBlock with
+  exceptions, and formatted `PROTO/port[-endPort]` values.
+- **Storage** — PVCs show phase (Bound/Pending/Lost colours), capacity,
+  request, access modes in RWO/ROX/RWX/RWOP form, volume mode, StorageClass and
+  bound volume links, a **Used by Pods** section (live pod list in the claim's
+  namespace, each name opens the Pod and carries its live status/node), the
+  provisioner/selected-node/bind-completed annotations that explain a Pending
+  claim, an Unused note and conditions. PVs add the claim reference, the full
+  **CSI** block (driver, volume handle, fs type, attributes) and node affinity.
+  StorageClasses show provisioner, reclaim policy, volume binding mode with its
+  meaning, volume expansion, parameters, mount options and allowed topologies.
 - **Access Control** — Radar's reverse-lookup sections, all from the same RBAC
   snapshot as the Permissions section: a ServiceAccount shows **Permissive
   grant detected**, **Direct bindings**, **Inherited via &lt;group&gt;**,
@@ -685,12 +757,15 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   `N other checks passing`; "no policy applies", "not checked yet" and denied
   report families each say so in their own words instead of looking clean.
 - **Secret / ConfigMap** — Secrets add a **Certificate** section (subject,
-  issuer, not-before, coloured expiry) with an expired/expiring banner, and
-  both kinds show an **Immutable** banner when the flag is set.
-- **Custom resources** — the Overview leads with the live status badge and
-  reads `status` in Radar's fixed order (phase, state, replicas, … then
-  alphabetically) as flat rows, with a collapsed **Status details** block for
-  nested objects.
+  SANs, issuer, key type, serial, not-before, coloured expiry) with an
+  expired/expiring banner (red at ≤7 days, amber at ≤30), and both kinds show
+  an **Immutable** banner when the flag is set.
+- **Custom resources** — the Overview leads with the live status badge, reads
+  `status` in Radar's fixed order (phase, state, replicas, … then
+  alphabetically) as flat rows, then **Conditions**, a collapsed **Status
+  details** block for nested objects, **Specification** in the same flat style
+  and a collapsed **Specification details** tree. A CR with neither spec nor
+  status keeps the metadata cards and explains that only the YAML tab has more.
 - **Helm** — the Helm group's releases open a dedicated Overview: status badge
   (deployed/failed/pending/…), revision, chart and app version, deployed time,
   the owning Secret, then the deployed **Values** and rendered **Manifests** in
@@ -736,13 +811,23 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   bar renders whenever there is anything to filter, including single-group
   kinds such as a Node's Pods-on-node list.
 - **Logs** — available for **Pods only**; container, tail, follow, previous,
-  timestamps, search, download, clear, line numbers. `Ctrl/Cmd+F` opens the
-  search, matched text is highlighted in place (browser-find style) and matching
-  lines are kept; the bar shows an `N / M` counter with **↑/↓ buttons**
-  (Enter / Shift+Enter) that walk the matches, scroll the line into the centre
-  and pause auto-follow. Lines are tinted by level — crit/fatal/panic on red, error on
-  a lighter red, warn on amber, all with a background tint so a scan down the
-  column reads the severity without reading the words.
+  timestamps, search, copy, download, clear. The viewer follows Radar's log
+  surface: each line is parsed into an RFC3339 timestamp (hidden behind a
+  timestamp toggle with Local/UTC/ISO/Relative/Epoch formats), the message, and
+  a level. Level chips (`ERR`, `WARN`, `INFO`, `DBG`, `OTHER`) carry record
+  counts and toggle severity visibility; line text is coloured by level, and
+  structured JSON/logfmt lines collapse into a summary with a level badge,
+  message, error and `{N fields}`, expanding into a syntax-coloured tree whose
+  values filter the view on click. ANSI colours render by default and can be
+  switched off; word wrap and stack-trace grouping have toolbar toggles.
+  `Ctrl/Cmd+F` opens search with regex, case-sensitivity and three modes —
+  highlight, only-matching and hide-matching — and the bar shows an `N / M`
+  counter with **↑/↓ buttons** (Enter / Shift+Enter) that walk the matches,
+  scroll the line into the centre and pause auto-follow. Scrolling up freezes
+  the visible window and shows a **Scroll to bottom · N new lines** pill, so
+  incoming logs never move text under the reader; selecting text also pauses.
+  A hover button copies a single line, and the toolbar copies or downloads the
+  lines currently shown.
 - **Environment** — Pod containers and init containers, env vars, `envFrom`,
   secret/configMap/field references. Ref badges have an eye that fetches the
   referenced ConfigMap/Secret and shows the decoded value inline (no navigation).
@@ -787,8 +872,14 @@ footer 28px : loaded count · apiVersion/kind · CRD/built-in · visible / accen
   just the active workspace. For pod exec it lists pods in the chosen namespace
   (limit 1000, alphabetical) and their containers through the same live API, so
   no terminal feature depends on kubectl.
-- Logs are DOM text (not xterm), DM Mono 11px, numbered, with a forced dark
-  palette, matching Radar's “console is not chrome” rule.
+- The terminal palette follows `settings.terminalTheme`: **Match app theme**
+  uses the light ANSI palette on light shells (Radar light, White, GitHub Light)
+  and the theme's dark palette otherwise; **Dark** / **Light** force one.
+- Logs are DOM text (not xterm), DM Mono 11px, always on the dark console
+  palette (independent of the shell and terminal themes), matching Radar's
+  “console is not chrome” rule: timestamps form the left
+  gutter, level colours tint the message, and ANSI colour, wrapping and
+  structured-record rendering are viewer controls rather than theme choices.
 
 ---
 

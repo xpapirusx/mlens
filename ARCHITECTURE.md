@@ -246,7 +246,9 @@ Namespace column is shown whenever the scope is not exactly one namespace.
   object is resolved through discovery (so CRDs work), then created with `POST`
   or replaced with `PUT` using the existing `resourceVersion`. `status` and
   `managedFields` are stripped. Dry run sends `dryRun=All`.
-- **YAML edits** from the details drawer use the same apply path.
+- **YAML edits** from the details drawer use the same apply path. Apply failures
+  are surfaced in a copyable error dialog from both surfaces; the YAML buffer is
+  never cleared on failure.
 
 RBAC failures (401/403) and 404s are translated into clear messages. Write
 controls are still shown for read-only users, but the server's error is presented
@@ -256,9 +258,14 @@ instead of silently doing nothing; capability-aware scoping is on the roadmap.
 
 `Log.log(namespace, pod, container, writable, { follow, previous, tailLines,
 timestamps })` writes to a `Writable` that forwards decoded UTF-8 chunks over IPC.
-Stopping aborts the request. The viewer caps retained text at ~1.5 MB, buffers
-chunks every 160 ms to avoid render storms, and only auto-scrolls while the user
-is at the bottom.
+Stopping aborts the request. The renderer always requests timestamps, buffers
+chunks every 160 ms and turns each complete line into a record (timestamp,
+message, detected level, JSON/logfmt shape); the retained buffer is capped at
+20 000 records. Lines are virtualized with `@tanstack/react-virtual`. While the
+reader is at the bottom the view follows; scrolling up freezes the visible
+window (`reading`) so incoming lines cannot move the text under the cursor, and
+a pending count feeds the "scroll to bottom" pill. Search, level filters and
+stack-trace grouping operate on records, never on a monolithic text string.
 
 ### 4.9 Pod exec and attach
 
@@ -347,7 +354,9 @@ REST path; RBAC failures are reported as warnings instead of inventing links.
    that cluster's forwards; app quit stops all.
 
 No kubectl process and no SPDY implementation are involved. Limits: TCP only,
-one port per forward, loopback bind.
+one port per forward, loopback bind. Service port cards resolve a ready endpoint
+Pod and its EndpointSlice port in the renderer, then start the same pod forward;
+the main-process protocol stays pod-only.
 
 ### 4.14 Policy reports
 

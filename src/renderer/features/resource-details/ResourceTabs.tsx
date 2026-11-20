@@ -33,11 +33,14 @@ export function EditorTray({ clusterId }: { clusterId: string }) {
   };
 
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-t border-theme-border bg-theme-elevated px-2 shadow-[0_-6px_16px_rgba(0,0,0,0.18)]">
+    <div
+      data-editor-tray="true"
+      className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-t border-theme-border bg-theme-elevated px-2 shadow-[0_-6px_16px_rgba(0,0,0,0.18)]"
+    >
       <button
         type="button"
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
-        title="Restore the editor area"
+        title="Restore the editor area (⌘⇧B)"
         onClick={() => restoreDetails(clusterId)}
       >
         <ChevronUp className="h-3 w-3" />

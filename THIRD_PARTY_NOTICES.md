@@ -159,7 +159,93 @@ marks. mLens does not include Radar's Go backend.
 
 ---
 
+## Copilot Theme
+
+- Source: https://github.com/benjaminbenais/copilot-theme
+- License: no license file in the repository at the time of porting; only the
+  colour values were used.
+- Use: palette of the **Copilot** theme (`html.theme-copilot`,
+  `mlens-copilot` Monaco theme, terminal ANSI palette) — `#232A2F` canvas,
+  `#1A2023` chrome, `#89DDFF` cyan and `#FFEA6B` highlight.
+
+---
+
+## Min Theme
+
+- Source: https://github.com/miguelsolorio/min-theme
+- License: MIT
+- Use: palette of the **Min** theme (`html.theme-min`, `mlens-min` Monaco
+  theme, terminal ANSI palette) — min-dark grayscale with `#79B8FF` accent.
+
+---
+
+## Aura Theme
+
+- Source: https://github.com/daltonmenezes/aura-theme
+- License: MIT
+- Use: palette of the **Aura** theme (`html.theme-aura`, `mlens-aura` Monaco
+  theme, terminal ANSI palette) — ink `#15141B`, purple `#A277FF`, mint
+  `#61FFCA`.
+
+---
+
+## Slack Theme for VS Code
+
+- Source: https://github.com/slack-theme/visual-studio-code
+- License: MIT
+- Use: palette of the **Slack Aubergine** theme (`html.theme-slack`,
+  `mlens-slack` Monaco theme, terminal ANSI palette) — aubergine
+  `#3E313C / #4F384A`, red `#F44C5E`, teal `#3E9689`.
+
+---
+
+## Bluloco Dark
+
+- Source: https://github.com/uloco/theme-bluloco-dark
+- License: LGPL-3.0 (colour values only; no source files copied)
+- Use: palette of the **Bluloco Dark** theme (`html.theme-bluloco`,
+  `mlens-bluloco` Monaco theme, terminal ANSI palette) — slate `#282C34`,
+  blue `#3691FF`.
+
+---
+
+## GitHub Light (yunlingz)
+
+- Source: https://github.com/yunlingz/vscode-theme-github-light
+- License: BSD-2-Clause (SPDX headers in the theme file)
+- Use: palette of the **GitHub Light** theme (`html.theme-github-light`,
+  `mlens-github-light` Monaco theme and its light terminal ANSI palette) — white
+  canvas, red `#D73A49` accent, GitHub's blue/green/purple syntax colours.
+
+---
+
+## Om Theme
+
+- Source: https://github.com/luizomf/omtheme
+- License: MIT
+- Use: palette of the **Om Theme** (`html.theme-om`, `mlens-om` Monaco theme,
+  terminal ANSI palette) — Dracula's palette on the darker ink `#13141F`.
+
+---
+
+## Vim Theme (Gruvbox)
+
+- Source: https://github.com/Harry-Hopkinson/vim-vscode-theme
+- License: MIT
+- Use: palette of the **Vim** theme (`html.theme-vim`, `mlens-vim` Monaco
+  theme, terminal ANSI palette), vim-dark-medium — `#282828` canvas,
+  `#EBDBB2` text, `#FABD2F` accent and Gruvbox ANSI colours.
+
+---
+
 ## Fonts
+
+- **Noto Sans**, **Noto Serif**, **Noto Sans Mono** — SIL Open Font License
+  1.1; **DejaVu Sans**, **DejaVu Sans Mono** — Bitstream Vera / DejaVu licence;
+  **Liberation Sans**, **Liberation Mono** — SIL Open Font License 1.1;
+  **FreeSans**, **FreeMono** — GNU FreeFont with the font exception. These are
+  referenced as system font-family names for the open-source fonts shipped with
+  Ubuntu 24; no font files are bundled or redistributed.
 
 - **DM Sans Variable** and **DM Mono** — Copyright Google, SIL Open Font
   License 1.1 (`licenses/OFL-1.1-DM-Sans.txt`,

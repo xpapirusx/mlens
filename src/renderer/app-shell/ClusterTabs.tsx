@@ -1,4 +1,4 @@
-import { Blocks, ChevronLeft, ChevronRight, Home, Plus, Rows2, X } from "lucide-react";
+import { Blocks, ChevronLeft, ChevronRight, Columns2, Home, Plus, Rows2, X } from "lucide-react";
 import { useCatalogStore } from "../stores/catalog-store";
 import { useChromeSessions } from "../stores/session-store";
 import { closeClusterTab } from "../lib/cluster-actions";
@@ -13,6 +13,8 @@ export function ClusterTabs() {
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
   const clusters = useCatalogStore((state) => state.clusters);
   const splitClusterId = useCatalogStore((state) => state.splitClusterId);
+  const splitDirection = useCatalogStore((state) => state.splitDirection);
+  const setSplitDirection = useCatalogStore((state) => state.setSplitDirection);
   const setSplitCluster = useCatalogStore((state) => state.setSplitCluster);
 
   const ids = Object.keys(sessions);
@@ -147,19 +149,35 @@ export function ClusterTabs() {
             )}
             title={
               secondaryId
-                ? "Split screen: switch or close the second cluster"
+                ? "Split screen: switch, direction or close the second cluster"
                 : "Split screen with another cluster"
             }
             aria-label="Split screen"
             onClick={toggle}
           >
-            <Rows2 className="h-3.5 w-3.5" />
+            {splitDirection === "right" ? <Columns2 className="h-3.5 w-3.5" /> : <Rows2 className="h-3.5 w-3.5" />}
           </button>
         )}
       >
         {({ close }) => (
           <>
-            <MenuLabel>Split screen</MenuLabel>
+            <MenuLabel>Layout</MenuLabel>
+            <MenuItem
+              icon={<Columns2 className="h-3 w-3" />}
+              shortcut={splitDirection === "right" ? "✓" : undefined}
+              onClick={() => setSplitDirection("right")}
+            >
+              Split right
+            </MenuItem>
+            <MenuItem
+              icon={<Rows2 className="h-3 w-3" />}
+              shortcut={splitDirection === "down" ? "✓" : undefined}
+              onClick={() => setSplitDirection("down")}
+            >
+              Split down
+            </MenuItem>
+            <MenuSeparator />
+            <MenuLabel>Second cluster</MenuLabel>
             {ids.filter((id) => id !== activeClusterId).length === 0 ? (
               <MenuItem disabled>Open another cluster first</MenuItem>
             ) : null}
@@ -213,7 +231,7 @@ export function ClusterTabs() {
       </Menu>
       {secondaryId ? (
         <span className="flex h-6 max-w-[12rem] shrink-0 items-center gap-1 rounded border border-theme-border bg-theme-surface px-1.5 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
-          <Rows2 className="h-3 w-3 shrink-0" />
+          {splitDirection === "right" ? <Columns2 className="h-3 w-3 shrink-0" /> : <Rows2 className="h-3 w-3 shrink-0" />}
           <span className="truncate">
             {clusters.find((entry) => entry.id === secondaryId)?.name ??
               secondaryId.split("::").pop()}

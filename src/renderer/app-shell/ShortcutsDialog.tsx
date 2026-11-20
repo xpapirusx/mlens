@@ -11,6 +11,8 @@ const GROUPS: Array<{ title: string; rows: ShortcutRow[] }> = [
     title: "Navigation",
     rows: [
       { keys: ["⌘", "K"], label: "Command palette / global resource search" },
+      { keys: ["⌘", "B"], label: "Collapse or expand the resource catalog" },
+      { keys: ["⌘", "⇧", "B"], label: "Minimize or restore the editor area" },
       { keys: ["⌘", "N"], label: "New cluster tab (open catalog)" },
       { keys: ["⌘", "⇧", "]"], label: "Next cluster tab" },
       { keys: ["⌘", "⇧", "["], label: "Previous cluster tab" },

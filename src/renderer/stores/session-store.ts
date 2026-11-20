@@ -131,6 +131,8 @@ interface SessionStore {
   /** Closes the active tab of the active pane (kept as the Escape/⌘W action). */
   closeDetails: (id: ClusterId) => void;
   minimizeDetails: (id: ClusterId) => void;
+  /** Minimize/restore the editor area without closing any tab. */
+  toggleDetails: (id: ClusterId) => void;
   restoreDetails: (id: ClusterId) => void;
   activateResource: (id: ClusterId, ref: ResourceKey) => void;
   closeResourceTab: (id: ClusterId, ref: ResourceKey) => void;
@@ -629,6 +631,15 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       const session = state.sessions[id];
       if (!session || !hasEditorTab(session)) return state;
       return applyEditor(state, id, session, { minimized: true });
+    });
+  },
+
+  toggleDetails: (id) => {
+    set((state) => {
+      const session = state.sessions[id];
+      if (!session) return state;
+      if (!session.editor.minimized && !hasEditorTab(session)) return state;
+      return applyEditor(state, id, session, { minimized: !session.editor.minimized });
     });
   },
 

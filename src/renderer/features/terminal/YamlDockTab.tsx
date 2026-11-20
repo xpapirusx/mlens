@@ -3,6 +3,7 @@ import { FileCode } from "lucide-react";
 import { YamlEditor } from "../../design-system/components/YamlEditor";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
+import { ApplyErrorDialog, type ApplyErrorDetails } from "../../design-system/components/ApplyErrorDialog";
 import { cn } from "../../lib/cn";
 
 const BUTTON =
@@ -29,12 +30,14 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
   const [yaml, setYaml] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastRun, setLastRun] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<ApplyErrorDetails | null>(null);
 
   const apply = async (dryRun: boolean) => {
     if (!yaml.trim()) {
       toast.error("Nothing to apply", "Paste a YAML manifest first.");
       return;
     }
+    setApplyError(null);
     setBusy(true);
     try {
       const results = await call(api.resources.apply({ clusterId, yaml, dryRun }));
@@ -52,9 +55,11 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
         window.dispatchEvent(new CustomEvent("mlens:resources-applied"));
       }
     } catch (error) {
-      const message = errorText(error);
-      setLastRun(`${dryRun ? "Dry run" : "Apply"} failed — ${message}`);
-      toast.error(dryRun ? "Dry run failed" : "Apply failed", message);
+      setLastRun(`${dryRun ? "Dry run" : "Apply"} failed`);
+      setApplyError({
+        title: dryRun ? "Dry run failed" : "Apply failed",
+        message: errorText(error),
+      });
     } finally {
       setBusy(false);
     }
@@ -76,6 +81,7 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
             onClick={() => {
               setYaml("");
               setLastRun(null);
+              setApplyError(null);
             }}
           >
             Clear
@@ -102,6 +108,8 @@ export function YamlDockTab({ clusterId, active }: { clusterId: string; active: 
             "Apply creates missing objects and overwrites existing ones after a server-side check."}
         </span>
       </div>
+
+      <ApplyErrorDialog error={applyError} onClose={() => setApplyError(null)} />
     </div>
   );
 }

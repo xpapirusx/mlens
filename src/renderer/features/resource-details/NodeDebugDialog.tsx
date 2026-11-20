@@ -5,6 +5,7 @@ import { Button } from "../../design-system/components/Button";
 import { YamlEditor } from "../../design-system/components/YamlEditor";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
+import { ApplyErrorDialog, type ApplyErrorDetails } from "../../design-system/components/ApplyErrorDialog";
 import { useSessionStore } from "../../stores/session-store";
 
 const POLL_MS = 1_000;
@@ -85,6 +86,7 @@ export function NodeDebugDialog({
   const [phase, setPhase] = useState<Phase>("edit");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [applyError, setApplyError] = useState<ApplyErrorDetails | null>(null);
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const abortRef = useRef(false);
 
@@ -95,12 +97,14 @@ export function NodeDebugDialog({
     setPhase("edit");
     setStatus("");
     setBusy(false);
+    setApplyError(null);
     return () => {
       abortRef.current = true;
     };
   }, [open, nodeName]);
 
   const apply = async (dryRun: boolean) => {
+    setApplyError(null);
     setBusy(true);
     try {
       const results = await call(api.resources.apply({ clusterId, yaml, dryRun, createOnly: true }));
@@ -166,7 +170,7 @@ export function NodeDebugDialog({
       throw new Error("Timed out waiting for the debug pod to reach Running.");
     } catch (error) {
       if (abortRef.current) return;
-      toast.error("Debug shell failed", errorText(error));
+      setApplyError({ title: "Debug shell failed", message: errorText(error) });
       setPhase("edit");
       setStatus("");
     } finally {
@@ -177,43 +181,47 @@ export function NodeDebugDialog({
   const running = phase !== "edit";
 
   return (
-    <Modal
-      open={open}
-      onClose={running ? () => undefined : onClose}
-      width={860}
-      title={`Debug shell · ${nodeName}`}
-      subtitle="Privileged pod pinned to this node; edit the YAML before applying. The host root is mounted at /host."
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => void apply(true)} disabled={busy || running}>
-            Dry run
-          </Button>
-          <Button variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => void apply(false)} disabled={busy || running}>
-            {busy ? "Starting…" : "Apply & open console"}
-          </Button>
-        </>
-      }
-    >
-      <div className="h-[46vh] overflow-hidden rounded-lg border border-theme-border">
-        <YamlEditor value={yaml} onChange={setYaml} readOnly={running} />
-      </div>
-      <div className="mt-2 flex items-center gap-2 text-[calc(11px*var(--font-scale))]">
-        {running ? (
+    <>
+      <Modal
+        open={open}
+        onClose={running ? () => undefined : onClose}
+        width={860}
+        title={`Debug shell · ${nodeName}`}
+        subtitle="Privileged pod pinned to this node; edit the YAML before applying. The host root is mounted at /host."
+        footer={
           <>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-skyhook-500" />
-            <span className="text-theme-text-secondary">{status}</span>
+            <Button variant="ghost" onClick={() => void apply(true)} disabled={busy || running}>
+              Dry run
+            </Button>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => void apply(false)} disabled={busy || running}>
+              {busy ? "Starting…" : "Apply & open console"}
+            </Button>
           </>
-        ) : (
-          <span className="text-theme-text-tertiary">
-            <Terminal className="mr-1 inline h-3 w-3" />
-            After apply the pod is waited out and an exec console opens in the bottom dock; closing that tab
-            deletes the pod.
-          </span>
-        )}
-      </div>
-    </Modal>
+        }
+      >
+        <div className="h-[46vh] overflow-hidden rounded-lg border border-theme-border">
+          <YamlEditor value={yaml} onChange={setYaml} readOnly={running} />
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[calc(11px*var(--font-scale))]">
+          {running ? (
+            <>
+              <span className="h-2 w-2 animate-pulse rounded-full bg-skyhook-500" />
+              <span className="text-theme-text-secondary">{status}</span>
+            </>
+          ) : (
+            <span className="text-theme-text-tertiary">
+              <Terminal className="mr-1 inline h-3 w-3" />
+              After apply the pod is waited out and an exec console opens in the bottom dock; closing that tab
+              deletes the pod.
+            </span>
+          )}
+        </div>
+      </Modal>
+
+      <ApplyErrorDialog error={applyError} onClose={() => setApplyError(null)} />
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { Button } from "../../design-system/components/Button";
 import { api, call, errorText } from "../../lib/api";
 import { toast } from "../../design-system/components/Toast";
 import { objectYaml } from "../../lib/object-yaml";
+import { ApplyErrorDialog, type ApplyErrorDetails } from "../../design-system/components/ApplyErrorDialog";
 import { cn } from "../../lib/cn";
 
 export function YamlTab({
@@ -35,6 +36,7 @@ export function YamlTab({
   const [editing, setEditing] = useState(Boolean(startEditing));
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [applyError, setApplyError] = useState<ApplyErrorDetails | null>(null);
   const editorRef = useRef<YamlEditorHandle>(null);
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export function YamlTab({
   }, [startEditing, onEditingStarted]);
 
   const apply = async (dryRun: boolean) => {
+    setApplyError(null);
     setBusy(true);
     try {
       const result = await call(api.resources.apply({ clusterId, yaml: value, dryRun }));
@@ -59,7 +62,10 @@ export function YamlTab({
         onApplied();
       }
     } catch (error) {
-      toast.error(dryRun ? "Dry run failed" : "Apply failed", errorText(error));
+      setApplyError({
+        title: dryRun ? "Dry run failed" : "Apply failed",
+        message: errorText(error),
+      });
     } finally {
       setBusy(false);
     }
@@ -164,6 +170,8 @@ export function YamlTab({
       <div className="min-h-0 flex-1">
         <YamlEditor ref={editorRef} value={value} onChange={setValue} readOnly={!editing} />
       </div>
+
+      <ApplyErrorDialog error={applyError} onClose={() => setApplyError(null)} />
     </div>
   );
 }

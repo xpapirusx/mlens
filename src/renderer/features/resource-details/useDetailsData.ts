@@ -134,6 +134,8 @@ export function useEvents(
 export interface ServiceEndpointsState {
   ready: string[];
   notReady: string[];
+  /** Pod names from the ready addresses' targetRef — the port-forward targets. */
+  readyPods: string[];
   loading: boolean;
   error: string | null;
   /** False when the Service has no Endpoints object at all. */
@@ -154,6 +156,7 @@ export function useServiceEndpointsDetail(
   const [state, setState] = useState<ServiceEndpointsState>({
     ready: [],
     notReady: [],
+    readyPods: [],
     loading: false,
     error: null,
     exists: false,
@@ -178,19 +181,23 @@ export function useServiceEndpointsDetail(
         if (disposed) return;
         const object = result.items[0];
         const subsets = ((object?.subsets ?? []) as Array<{
-          addresses?: Array<{ ip?: string }>;
+          addresses?: Array<{ ip?: string; targetRef?: { kind?: string; name?: string } }>;
           notReadyAddresses?: Array<{ ip?: string }>;
         }>);
         const ready: string[] = [];
         const notReady: string[] = [];
+        const readyPods: string[] = [];
         for (const subset of subsets) {
-          for (const address of subset.addresses ?? []) if (address.ip) ready.push(address.ip);
+          for (const address of subset.addresses ?? []) {
+            if (address.ip) ready.push(address.ip);
+            if (address.targetRef?.kind === "Pod" && address.targetRef.name) readyPods.push(address.targetRef.name);
+          }
           for (const address of subset.notReadyAddresses ?? []) if (address.ip) notReady.push(address.ip);
         }
-        setState({ ready, notReady, loading: false, error: null, exists: Boolean(object) });
+        setState({ ready, notReady, readyPods, loading: false, error: null, exists: Boolean(object) });
       } catch (fetchError) {
         if (!disposed) {
-          setState({ ready: [], notReady: [], loading: false, error: errorText(fetchError), exists: false });
+          setState({ ready: [], notReady: [], readyPods: [], loading: false, error: errorText(fetchError), exists: false });
         }
       }
     };
@@ -204,6 +211,189 @@ export function useServiceEndpointsDetail(
       window.clearInterval(timer);
     };
   }, [clusterId, namespace, name, refreshSeconds]);
+
+  return state;
+}
+
+export interface ServiceEndpointSliceState {
+  items: KubeObject[];
+  loading: boolean;
+  error: string | null;
+}
+/**
+ * EndpointSlices that belong to one Service (selected by the standard
+ * `kubernetes.io/service-name` label). The details view uses them for the
+ * ready/total status and — more importantly — for the pod names and resolved
+ * target ports the Service's port-forward action needs.
+ */
+export function useServiceEndpointSlices(
+  clusterId: string,
+  namespace: string | undefined,
+  name: string | undefined,
+  refreshSeconds = 30,
+): ServiceEndpointSliceState {
+  const [state, setState] = useState<ServiceEndpointSliceState>({ items: [], loading: false, error: null });
+
+  useEffect(() => {
+    if (!namespace || !name) return;
+    let disposed = false;
+    const load = async () => {
+      setState((current) => ({ ...current, loading: true }));
+      try {
+        const result = await call(
+          api.resources.list({
+            clusterId,
+            apiVersion: "discovery.k8s.io/v1",
+            kind: "EndpointSlice",
+            namespace,
+            labelSelector: `kubernetes.io/service-name=${name}`,
+            limit: 200,
+          }),
+        );
+        if (disposed) return;
+        setState({ items: result.items as KubeObject[], loading: false, error: null });
+      } catch (fetchError) {
+        if (!disposed) setState({ items: [], loading: false, error: errorText(fetchError) });
+      }
+    };
+    void load();
+    if (!refreshSeconds) return () => { disposed = true; };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, Math.max(15, refreshSeconds) * 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [clusterId, namespace, name, refreshSeconds]);
+
+  return state;
+}
+
+export interface ClaimPodsState {
+  pods: KubeObject[];
+  loading: boolean;
+  error: string | null;
+}
+
+/**
+ * Pods in this namespace that mount a specific PersistentVolumeClaim. Used by
+ * the PVC details view to answer "who is using this volume?" — the table's Pods
+ * column already does it for the whole list, but the open claim needs one
+ * claim's consumers while the table may be on another scope.
+ */
+export function useClaimPods(
+  clusterId: string,
+  namespace: string | undefined,
+  claimName: string | undefined,
+  refreshSeconds = 60,
+): ClaimPodsState {
+  const [state, setState] = useState<ClaimPodsState>({ pods: [], loading: false, error: null });
+
+  useEffect(() => {
+    if (!namespace || !claimName) {
+      setState({ pods: [], loading: false, error: null });
+      return;
+    }
+    let disposed = false;
+    const load = async () => {
+      setState((current) => ({ ...current, loading: current.pods.length === 0 }));
+      try {
+        const result = await call(
+          api.resources.list({
+            clusterId,
+            apiVersion: "v1",
+            kind: "Pod",
+            namespace,
+            limit: 2000,
+          }),
+        );
+        if (disposed) return;
+        const pods = result.items.filter((pod) =>
+          ((pod.spec?.volumes ?? []) as Array<Record<string, any>>).some(
+            (volume) => volume.persistentVolumeClaim?.claimName === claimName,
+          ),
+        );
+        setState({ pods, loading: false, error: null });
+      } catch (fetchError) {
+        if (!disposed) setState({ pods: [], loading: false, error: errorText(fetchError) });
+      }
+    };
+    void load();
+    if (!refreshSeconds) return () => { disposed = true; };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, Math.max(30, refreshSeconds) * 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [clusterId, namespace, claimName, refreshSeconds]);
+
+  return state;
+}
+
+export interface ClaimObjectsState {
+  byName: Map<string, KubeObject>;
+  loading: boolean;
+  error: string | null;
+}
+
+/**
+ * The PVC objects behind a Pod's volumes, so the Volumes section can show a
+ * claim's live phase next to its link instead of just the claim name.
+ */
+export function useClaimObjects(
+  clusterId: string,
+  namespace: string | undefined,
+  names: string[],
+  refreshSeconds = 60,
+): ClaimObjectsState {
+  const [state, setState] = useState<ClaimObjectsState>({ byName: new Map(), loading: false, error: null });
+  const namesKey = names.join("|");
+
+  useEffect(() => {
+    if (!namespace || names.length === 0) {
+      setState({ byName: new Map(), loading: false, error: null });
+      return;
+    }
+    let disposed = false;
+    const load = async () => {
+      setState((current) => ({ ...current, loading: current.byName.size === 0 }));
+      try {
+        const result = await call(
+          api.resources.list({
+            clusterId,
+            apiVersion: "v1",
+            kind: "PersistentVolumeClaim",
+            namespace,
+            limit: 1000,
+          }),
+        );
+        if (disposed) return;
+        const wanted = new Set(names);
+        const byName = new Map<string, KubeObject>();
+        for (const item of result.items) {
+          const name = item.metadata?.name;
+          if (name && wanted.has(name)) byName.set(name, item);
+        }
+        setState({ byName, loading: false, error: null });
+      } catch (fetchError) {
+        if (!disposed) setState({ byName: new Map(), loading: false, error: errorText(fetchError) });
+      }
+    };
+    void load();
+    if (!refreshSeconds) return () => { disposed = true; };
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, Math.max(30, refreshSeconds) * 1000);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+    // namesKey is the stable representation of the names array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusterId, namespace, namesKey, refreshSeconds]);
 
   return state;
 }

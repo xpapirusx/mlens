@@ -5,6 +5,8 @@
 
 export type ClusterId = string;
 export type ThemeMode = "light" | "dark" | "system";
+/** Terminal palette: follow the shell theme, or force dark/light. */
+export type TerminalThemeMode = "match" | "dark" | "light";
 export type ColorTheme =
   | "radar"
   | "dracula"
@@ -19,7 +21,16 @@ export type ColorTheme =
   | "one-dark"
   | "catppuccin"
   | "jellybeans"
-  | "adwaita";
+  | "adwaita"
+  | "copilot"
+  | "min"
+  | "aura"
+  | "slack"
+  | "bluloco"
+  | "github-light"
+  | "om"
+  | "vim"
+  | "white";
 
 export interface KubeconfigSource {
   path: string;
@@ -398,6 +409,8 @@ export interface AppSettings {
   refreshIntervalSeconds: number;
   terminalFontSize: number;
   terminalFontFamily: string;
+  /** Terminal colour palette: match the shell, or force dark/light. */
+  terminalTheme: TerminalThemeMode;
   defaultShell?: string;
   confirmBeforeDelete: boolean;
   showSystemNamespaces: boolean;

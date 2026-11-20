@@ -259,13 +259,17 @@ Important:
   closures handed to rows defeat the memo. The sidebar drag writes the width
   straight to the DOM (`rootRef` on the `<aside>`) and commits to the store
   once on `pointerup`; never call `setSidebarWidth` per pointermove.
-- Logs render from a line array (`lines[]` + a partial tail, cap 20000 lines)
-  through `@tanstack/react-virtual`; the stream flush moves buffered chunks
-  into complete rows every 160ms. Do not go back to a monolithic `text` string
-  (concat + `.slice(-1_500_000)` per flush) or an unvirtualized `lines.map` —
-  chatty containers used to freeze the tab on ~30k DOM rows. While the focused
-  pane shows the Logs tab, `⌘F`/`Ctrl+F` opens **Find in logs** (the table search
-  yields that shortcut); Enter/Shift+Enter walk the matches.
+- Logs render from a record array (parsed timestamp/message/level, plus a
+  partial tail, cap 20 000 records) through `@tanstack/react-virtual`; the
+  stream flush moves buffered chunks into complete records every 160ms. Do not
+  go back to a monolithic `text` string (concat + `.slice(-1_500_000)` per
+  flush) or an unvirtualized `records.map` — chatty containers used to freeze
+  the tab on ~30k DOM rows. While the focused pane shows the Logs tab,
+  `⌘F`/`Ctrl+F` opens **Find in logs** (the table search yields that shortcut);
+  Enter/Shift+Enter walk the matches. The viewer is Radar's: level chips with
+  counts, structured JSON/logfmt summaries, ANSI, timestamp formats, stack
+  grouping, and a frozen reading window when the user scrolls away from live
+  output.
 - The namespace scope picker lists **All namespaces** first, then the currently
   selected namespaces (after a separator), then the rest alphabetically. Search
   and the system-namespace toggle filter both groups; **Enter** selects the exact
@@ -373,15 +377,16 @@ Important:
   resizes on its left edge (down to a 240px table strip, so it can stretch much
   further left than the old drawer), expands over the table, and minimizes into
   the shadow tray above the dock; tabs stay open and clickable.
-- Cross-cluster split: the **Rows2** button in the cluster tab strip pins a
-  second open cluster, and two full `ClusterWorkspace`s stack **top/bottom**
-  (the active one above), so every pane keeps the full width and the catalog /
-  sidebar / table width is unchanged.
+- Cross-cluster split: the split button in the cluster tab strip pins a second
+  open cluster, either **side by side** (split right) or **stacked** (split
+  down) — the same two choices as the editor area. The picker switches direction
+  live; the primary cluster is left/top, the secondary right/bottom.
   Workspaces stay in one keyed list; visibility and pane size use CSS (`hidden`,
-  flex-grow, `order`) — never unmount one to split. The horizontal divider drags
-  20–80%, clicking the bottom pane's cluster tab swaps roles, and closing either
-  pane promotes the survivor. Both visible
-  workspaces poll; hidden ones keep watches but stay paused.
+  flex-grow, `order`, main flex direction) — never unmount one to split. The
+  divider is vertical for split-right and horizontal for split-down and drags
+  20–80%; clicking the secondary pane's cluster tab swaps roles, and closing
+  either pane promotes the survivor. Both visible workspaces poll; hidden ones
+  keep watches but stay paused.
 - Sidebar collapse: `⌘B` or the **Collapse catalog** button at the bottom of the
   resource sidebar collapses it to a **slim icon rail** (top-level groups +
   Overview/Favorites) with the active entry highlighted; tooltips carry the
@@ -405,8 +410,11 @@ Important:
   list scrolls with a hover-only scrollbar. A favourite added from the catalog
   lands on the **active page**: Hotbar persists it into that page's first free
   slot instead of deriving it into page one.
-- Terminal surface stays dark in every theme; Dracula/Freelens themes select the
-  corresponding ANSI palette. Logs are Pod-only.
+- Terminal surface follows `settings.terminalTheme`: **Match app theme** uses
+  the light ANSI palette on light shells (Radar light, White, GitHub Light) and
+  the theme's dark palette otherwise; **Dark** / **Light** force a palette.
+  Each named theme ships its own ANSI palette. GitHub Light and White are the
+  forced-light shell themes; the terminal chrome follows the app surface. Logs are Pod-only.
 - Dock: the plus opens a local shell in the active context; the chevron and
   `⌘⇧T` open the context launcher (any connected cluster, namespace, pod exec,
   container, shell). Keep the one-click plus behaviour.
@@ -417,7 +425,12 @@ Important:
   cluster tabs, status bar). Chrome labels are `user-select: none`; `main` and
   dialogs allow text selection.
 - The editor area can be minimized without closing it: keep every pane's tabs,
-  set `editor.minimized`, and restore from the tray above the dock.
+  set `editor.minimized`, and restore from the tray above the dock. `⌘⇧B` /
+  `Ctrl+Shift+B` toggles minimize/restore; `⌘B` / `Ctrl+B` remains the
+  catalog-sidebar toggle. Clicking anywhere outside the editor area (sidebar,
+  table chrome, dock, top bar…) also minimizes it; clicking a resource row is
+  excluded and opens/restores the editor as usual. Dialogs, menus and the
+  restore tray never trigger the auto-minimize.
 - No huge components. Split table/controls/filters/dialogs/renderers.
 - No dead buttons. If not implemented, label it explicitly.
 
@@ -430,24 +443,28 @@ Important:
   `TerminalView.tsx`.
 - Freelens — `html.theme-freelens`, teal accent, Freelens terminal palette.
 - Proton — `html.theme-proton`, slate/blue palette.
-- Synthwave '84, Dark Islands, GitHub, Night Owl, Material, One Dark Pro,
-  One Dark, Catppuccin (Mocha), Jellybeans, Adwaita — `html.theme-*` blocks in
-  `styles/themes.css`, each with its own `mlens-*` Monaco theme and terminal ANSI
-  palette. All are dark themes.
-- Fonts: UI family is `settings.uiFontFamily` and accepts **any bundled family**
-  (DM Sans, Ubuntu, Tinos, DM Mono, Ubuntu Mono, JetBrains Mono, Fira Code,
-  Source Code Pro) plus System UI; it is
-  applied as an inline `--font-sans` override in `AppShell`; Ubuntu + Ubuntu Mono
-  are bundled WOFF2 subsets under `design-system/fonts/` (`fonts.css`). Terminal
-  and editor families are listed in `lib/fonts.ts` (`TERMINAL_FONTS`): DM Mono,
-  Ubuntu Mono, **JetBrains Mono**, **Fira Code**, **Source Code Pro**, then
-  installed Menlo/Monaco/SF Mono. The three OFL fonts are bundled WOFF2 subsets
-  (latin / latin-ext / cyrillic, 400+700) and must be validated in
-  `settings/store.ts` (`MONO_FONT_FAMILIES`). Any new theme must add a CSS block,
-  a Monaco theme and a terminal palette.
-- Theme classes are applied by `AppShell` from `settings.colorTheme`; **every
-  theme except Radar forces dark mode**. Do not add theme-specific one-off
-  component styles; extend tokens.
+- Synthwave '84, Dark Islands, GitHub, GitHub Light, White, Night Owl, Material,
+  One Dark Pro, One Dark, Catppuccin (Mocha), Jellybeans, Adwaita, Copilot, Min,
+  Aura, Slack Aubergine, Bluloco Dark, Om Theme and Vim — `html.theme-*` blocks
+  in `styles/themes.css`, each with its own `mlens-*` Monaco theme and terminal
+  ANSI palette. Every theme except Radar, **GitHub Light** and **White** forces
+  dark mode; GitHub Light and White force light.
+- Fonts: UI family is `settings.uiFontFamily` and accepts any listed family
+  (DM Sans, Ubuntu, Noto Sans, Noto Serif, DejaVu Sans, Liberation Sans,
+  FreeSans, Tinos, DM Mono, Ubuntu Mono, Noto Sans Mono, DejaVu Sans Mono,
+  Liberation Mono, FreeMono, JetBrains Mono, Fira Code, Source Code Pro) plus
+  System UI; it is applied as an inline `--font-sans` override in `AppShell`.
+  Ubuntu and Ubuntu Mono are bundled WOFF2 subsets under
+  `design-system/fonts/` (`fonts.css`); Noto, DejaVu, Liberation and FreeSans
+  resolve to the open-source families shipped with Ubuntu 24 and fall back
+  cleanly elsewhere. Terminal and editor families are listed in `lib/fonts.ts`
+  (`TERMINAL_FONTS`): DM Mono, Ubuntu Mono, Noto Sans Mono, DejaVu Sans Mono,
+  Liberation Mono, FreeMono, **JetBrains Mono**, **Fira Code**,
+  **Source Code Pro**, then installed Menlo/Monaco/SF Mono. The three OFL fonts
+  are bundled WOFF2 subsets (latin / latin-ext / cyrillic, 400+700) and every
+  value must be validated in `settings/store.ts` (`MONO_FONT_FAMILIES`,
+  `uiFontFamily`). Any new theme must add a CSS block, a Monaco theme and a
+  terminal palette.
 
 ---
 

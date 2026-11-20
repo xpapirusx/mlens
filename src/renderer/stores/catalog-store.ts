@@ -22,11 +22,14 @@ interface CatalogStore {
    */
   compareSelection: ResourceKey | null;
   setCompareSelection: (selection: ResourceKey | null) => void;
-  /** Secondary cluster shown to the right of the active one (screen split). */
+  /** Secondary cluster shown beside the active one (screen split). */
   splitClusterId: ClusterId | null;
+  /** Split direction: side by side (`right`) or stacked (`down`). */
+  splitDirection: "right" | "down";
   /** Fraction of the main area given to the primary workspace (0.2–0.8). */
   splitRatio: number;
   setSplitCluster: (id: ClusterId | null) => void;
+  setSplitDirection: (direction: "right" | "down") => void;
   setSplitRatio: (ratio: number) => void;
   loadSettings: () => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
@@ -58,11 +61,13 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
   compareSelection: null,
   setCompareSelection: (selection) => set({ compareSelection: selection }),
   splitClusterId: null,
+  splitDirection: "right" as const,
   splitRatio: 0.5,
   setSplitCluster: (id) =>
     set((state) => ({
       splitClusterId: id && id === state.activeClusterId ? null : id,
     })),
+  setSplitDirection: (direction) => set({ splitDirection: direction }),
   setSplitRatio: (ratio) => set({ splitRatio: Math.min(0.8, Math.max(0.2, ratio)) }),
 
   loadSettings: async () => {

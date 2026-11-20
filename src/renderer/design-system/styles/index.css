@@ -101,6 +101,15 @@
   }
 }
 
+/* Log search highlight: the log surface is always dark, so a fixed amber
+   highlight reads correctly in every app theme. */
+mark.log-highlight {
+  background: rgba(250, 200, 0, 0.55);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
 /* Utility used by compact metadata rows */
 .tabular {
   font-variant-numeric: tabular-nums;
@@ -256,4 +265,17 @@
 #root .overflow-y-auto,
 #root .overflow-x-auto {
   -webkit-app-region: no-drag;
+}
+
+/* Monaco paints its own selection rectangles. The app-wide `user-select: text`
+   must not let the browser paint a second, line-height-sized native selection
+   on top of the rendered text — that is what made a YAML selection look larger
+   than the selected glyphs. */
+#root .monaco-editor .view-lines,
+#root .monaco-editor .view-lines * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+#root .monaco-editor .view-lines ::selection {
+  background: transparent;
 }

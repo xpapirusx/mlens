@@ -46,6 +46,7 @@ export function defaultSettings(): AppSettings {
     refreshIntervalSeconds: 60,
     terminalFontSize: 13,
     terminalFontFamily: "DM Mono",
+    terminalTheme: "match",
     confirmBeforeDelete: true,
     showSystemNamespaces: false,
     sidebarWidth: 236,
@@ -87,6 +88,10 @@ export function defaultSettings(): AppSettings {
 const MONO_FONT_FAMILIES = [
   "DM Mono",
   "Ubuntu Mono",
+  "Noto Sans Mono",
+  "DejaVu Sans Mono",
+  "Liberation Mono",
+  "FreeMono",
   "JetBrains Mono",
   "Fira Code",
   "Source Code Pro",
@@ -119,6 +124,15 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
       "catppuccin",
       "jellybeans",
       "adwaita",
+      "copilot",
+      "min",
+      "aura",
+      "slack",
+      "bluloco",
+      "github-light",
+      "om",
+      "vim",
+      "white",
     ].includes(out.colorTheme)
   ) {
     delete out.colorTheme;
@@ -198,9 +212,26 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (
     out.uiFontFamily &&
-    !["DM Sans", "Ubuntu", "Tinos", "System UI", "DM Mono", "Ubuntu Mono", "JetBrains Mono", "Fira Code", "Source Code Pro"].includes(
-      out.uiFontFamily,
-    )
+    ![
+      "DM Sans",
+      "Ubuntu",
+      "Noto Sans",
+      "Noto Serif",
+      "DejaVu Sans",
+      "Liberation Sans",
+      "FreeSans",
+      "Tinos",
+      "System UI",
+      "DM Mono",
+      "Ubuntu Mono",
+      "Noto Sans Mono",
+      "DejaVu Sans Mono",
+      "Liberation Mono",
+      "FreeMono",
+      "JetBrains Mono",
+      "Fira Code",
+      "Source Code Pro",
+    ].includes(out.uiFontFamily)
   ) {
     delete out.uiFontFamily;
   }
@@ -212,6 +243,9 @@ function sanitize(input: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (out.terminalFontFamily && !MONO_FONT_FAMILIES.includes(out.terminalFontFamily)) {
     delete out.terminalFontFamily;
+  }
+  if (out.terminalTheme && !["match", "dark", "light"].includes(out.terminalTheme)) {
+    delete out.terminalTheme;
   }
   if (typeof out.editorFontSize === "number") {
     out.editorFontSize = clamp(Math.round(out.editorFontSize), 8, 24);

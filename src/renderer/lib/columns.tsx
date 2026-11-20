@@ -7,6 +7,7 @@ import { cn } from "./cn";
 import { ResourceBar } from "../design-system/components/ResourceBar";
 import { Tooltip } from "../design-system/components/Tooltip";
 import { daysUntil, parseCertificate } from "./certificate";
+import { effectivePolicyTypeNames, formatLabelSelector } from "./network-policy";
 import { readJsonPath } from "./jsonpath";
 import type { NodeUsage, PodUsage } from "../features/resource-browser/useResourceMetrics";
 import type { WarningEntry } from "../features/resource-browser/useWarningEvents";
@@ -120,15 +121,16 @@ function NameCell({ object }: { object: AnyObject }) {
   const name = object.metadata?.name ?? "";
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <span
-        className={cn(
-          "truncate text-sm font-medium",
-          terminating ? "text-theme-text-tertiary line-through" : "text-theme-text-primary",
-        )}
-        title={name}
-      >
-        {name}
-      </span>
+      <Tooltip content={name} side="bottom" delay={140} wrapperClassName="min-w-0 flex-1">
+        <span
+          className={cn(
+            "min-w-0 truncate text-sm font-medium",
+            terminating ? "text-theme-text-tertiary line-through" : "text-theme-text-primary",
+          )}
+        >
+          {name}
+        </span>
+      </Tooltip>
       <button
         type="button"
         title="Copy name"
@@ -145,10 +147,18 @@ function NameCell({ object }: { object: AnyObject }) {
 }
 
 function Mono({ children, title }: { children: ReactNode; title?: string }) {
-  return (
-    <span className="mono-nums text-theme-text-secondary" title={title}>
+  const text =
+    title ?? (typeof children === "string" || typeof children === "number" ? String(children) : undefined);
+  const value = (
+    <span className="mono-nums text-theme-text-secondary">
       {children}
     </span>
+  );
+  if (!text) return value;
+  return (
+    <Tooltip content={<span className="whitespace-pre-wrap">{text}</span>} side="bottom" delay={140} wrapperClassName="min-w-0">
+      {value}
+    </Tooltip>
   );
 }
 
@@ -156,10 +166,18 @@ function TextCell({ children, title }: { children: ReactNode; title?: string }) 
   if (children === undefined || children === null || children === "" || children === "–") {
     return <span className="text-sm text-theme-text-tertiary">–</span>;
   }
-  return (
-    <span className="block truncate text-sm text-theme-text-secondary" title={title}>
+  const text =
+    title ?? (typeof children === "string" || typeof children === "number" ? String(children) : undefined);
+  const value = (
+    <span className="block min-w-0 truncate text-sm text-theme-text-secondary">
       {children}
     </span>
+  );
+  if (!text) return value;
+  return (
+    <Tooltip content={<span className="whitespace-pre-wrap">{text}</span>} side="bottom" delay={140} wrapperClassName="flex w-full min-w-0">
+      {value}
+    </Tooltip>
   );
 }
 
@@ -473,7 +491,7 @@ function PodUsageCell({
       <div className="space-y-1.5">
         {shown.map((row) => (
           <div key={row.name} className="space-y-0.5">
-            <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{row.name}</div>asd
+            <div className="truncate text-[calc(11px*var(--font-scale))] text-theme-text-tertiary">{row.name}</div>
             <div className="font-mono text-[calc(11px*var(--font-scale))] text-theme-text-primary">{row.detail}</div>
           </div>
         ))}
@@ -535,17 +553,18 @@ const namespaceColumn: ColumnDef = {
   value: (object) => object.metadata?.namespace ?? "",
   cell: (object, context) =>
     object.metadata?.namespace ? (
-      <button
-        type="button"
-        className="truncate text-left text-accent-text hover:underline"
-        title={`Scope the table to ${object.metadata.namespace}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          context.onSelectNamespace?.(object.metadata.namespace!);
-        }}
-      >
-        {object.metadata.namespace}
-      </button>
+      <Tooltip content={object.metadata.namespace} side="bottom" delay={140} wrapperClassName="max-w-full">
+        <button
+          type="button"
+          className="min-w-0 truncate text-left text-accent-text hover:underline"
+          onClick={(event) => {
+            event.stopPropagation();
+            context.onSelectNamespace?.(object.metadata.namespace!);
+          }}
+        >
+          {object.metadata.namespace}
+        </button>
+      </Tooltip>
     ) : (
       <TextCell>–</TextCell>
     ),
@@ -631,9 +650,11 @@ function secretTypeLabel(type: string | undefined): string {
 function SecretTypeCell({ object }: { object: AnyObject }) {
   const type = (object.type as string | undefined) ?? "Opaque";
   return (
-    <span className={cn("badge-sm", SECRET_TYPE_TONES[type] ?? "status-unknown")} title={type}>
-      {secretTypeLabel(type)}
-    </span>
+    <Tooltip content={type} side="bottom" delay={140}>
+      <span className={cn("badge-sm", SECRET_TYPE_TONES[type] ?? "status-unknown")}>
+        {secretTypeLabel(type)}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -642,12 +663,9 @@ function SecretExpiresCell({ object }: { object: AnyObject }) {
   if (!cert) return <span className="text-sm text-theme-text-tertiary">–</span>;
   if (cert.failed || cert.days === null) {
     return (
-      <span
-        className="text-sm text-amber-600 dark:text-amber-400"
-        title="The certificate in this Secret could not be parsed"
-      >
-        !
-      </span>
+      <Tooltip content="The certificate in this Secret could not be parsed" side="bottom" delay={140}>
+        <span className="text-sm text-amber-600 dark:text-amber-400">!</span>
+      </Tooltip>
     );
   }
   const days = cert.days;
@@ -658,12 +676,15 @@ function SecretExpiresCell({ object }: { object: AnyObject }) {
         ? "text-amber-600 dark:text-amber-400"
         : "text-emerald-600 dark:text-emerald-400";
   return (
-    <span
-      className={cn("mono-nums text-sm", tone)}
-      title={`Certificate expires ${formatTimestamp(cert.expires?.toISOString())}`}
+    <Tooltip
+      content={`Certificate expires ${formatTimestamp(cert.expires?.toISOString())}`}
+      side="bottom"
+      delay={140}
     >
-      {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days}d`}
-    </span>
+      <span className={cn("mono-nums text-sm", tone)}>
+        {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days}d`}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -675,7 +696,11 @@ function ServiceTypeCell({ object }: { object: AnyObject }) {
       : type === "ExternalName"
         ? "status-alert"
         : "status-neutral";
-  return <span className={cn("badge-sm", tone)}>{type}</span>;
+  return (
+    <Tooltip content={type} side="bottom" delay={140}>
+      <span className={cn("badge-sm", tone)}>{type}</span>
+    </Tooltip>
+  );
 }
 
 /** Helm release status → badge tone (helm.sh/release vocabulary). */
@@ -694,7 +719,11 @@ export const HELM_STATUS_TONES: Record<string, string> = {
 
 function HelmStatusCell({ object }: { object: AnyObject }) {
   const phase = String(object.status?.phase ?? "unknown");
-  return <span className={cn("badge-sm", HELM_STATUS_TONES[phase] ?? "status-unknown")}>{phase}</span>;
+  return (
+    <Tooltip content={phase} side="bottom" delay={140}>
+      <span className={cn("badge-sm", HELM_STATUS_TONES[phase] ?? "status-unknown")}>{phase}</span>
+    </Tooltip>
+  );
 }
 
 function externalAddresses(object: AnyObject): string[] {
@@ -722,22 +751,35 @@ function serviceEndpointsValue(object: AnyObject, context?: CellContext): Endpoi
 function ServiceEndpointsCell({ object, context }: { object: AnyObject; context?: CellContext }) {
   const value = serviceEndpointsValue(object, context);
   if (!value.label) return <span className="text-sm text-theme-text-tertiary">–</span>;
-  if (value.label === "External") return <span className="badge-sm status-violet">External</span>;
-  if (value.label === "None") return <span className="badge-sm status-unknown">None</span>;
+  if (value.label === "External") {
+    return (
+      <Tooltip content="ExternalName Service — no endpoints" side="bottom" delay={140}>
+        <span className="badge-sm status-violet">External</span>
+      </Tooltip>
+    );
+  }
+  if (value.label === "None") {
+    return (
+      <Tooltip content="No pod selector — endpoints are managed manually" side="bottom" delay={140}>
+        <span className="badge-sm status-unknown">None</span>
+      </Tooltip>
+    );
+  }
   if (value.label === "No endpoints") {
     return (
-      <span className="badge-sm status-degraded" title="The Endpoints object has no addresses">
-        No endpoints
-      </span>
+      <Tooltip content="The Endpoints object has no addresses" side="bottom" delay={140}>
+        <span className="badge-sm status-degraded">No endpoints</span>
+      </Tooltip>
     );
   }
   return (
-    <span
-      className="badge-sm status-healthy"
-      title={`${value.count ?? 0} address${value.count === 1 ? "" : "es"}`}
+    <Tooltip
+      content={`${value.count ?? 0} address${value.count === 1 ? "" : "es"}`}
+      side="bottom"
+      delay={140}
     >
-      Active
-    </span>
+      <span className="badge-sm status-healthy">Active</span>
+    </Tooltip>
   );
 }
 
@@ -751,10 +793,12 @@ function SubjectsCell({ object }: { object: AnyObject }) {
     .map((subject) => `${subject.kind}:${subject.namespace ? `${subject.namespace}/` : ""}${subject.name}`)
     .join("\n");
   return (
-    <span className="block truncate text-sm text-theme-text-secondary" title={title}>
-      {subjects.slice(0, 2).map((subject) => `${prefix(subject.kind)}${subject.name}`).join(", ")}
-      {subjects.length > 2 ? <span className="text-theme-text-tertiary"> +{subjects.length - 2}</span> : null}
-    </span>
+    <Tooltip content={<span className="whitespace-pre-wrap">{title}</span>} side="bottom" delay={140} wrapperClassName="flex w-full min-w-0">
+      <span className="block min-w-0 truncate text-sm text-theme-text-secondary">
+        {subjects.slice(0, 2).map((subject) => `${prefix(subject.kind)}${subject.name}`).join(", ")}
+        {subjects.length > 2 ? <span className="text-theme-text-tertiary"> +{subjects.length - 2}</span> : null}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -767,9 +811,9 @@ function RoleRefCell({ object }: { object: AnyObject }) {
       <span className={cn("badge-sm shrink-0", cluster ? "status-violet" : "status-neutral")}>
         {cluster ? "CR" : "R"}
       </span>
-      <span className="truncate text-sm text-theme-text-secondary" title={`${role.kind}/${role.name}`}>
-        {role.name}
-      </span>
+      <Tooltip content={`${role.kind}/${role.name}`} side="bottom" delay={140} wrapperClassName="min-w-0">
+        <span className="truncate text-sm text-theme-text-secondary">{role.name}</span>
+      </Tooltip>
     </span>
   );
 }
@@ -1260,9 +1304,11 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           sortable: true,
           value: (object) => object.status?.lastScheduleTime ?? "",
           cell: (object) => (
-            <span className="text-xs text-theme-text-tertiary" title={formatTimestamp(object.status?.lastScheduleTime)}>
-              {formatRelativeTime(object.status?.lastScheduleTime)}
-            </span>
+            <Tooltip content={formatTimestamp(object.status?.lastScheduleTime)} side="bottom" delay={140}>
+              <span className="text-xs text-theme-text-tertiary">
+                {formatRelativeTime(object.status?.lastScheduleTime)}
+              </span>
+            </Tooltip>
           ),
         },
       );
@@ -1394,21 +1440,21 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
           key: "podSelector",
           label: "Pod selector",
           width: 260,
-          value: (object) =>
-            Object.entries((object.spec?.podSelector?.matchLabels ?? {}) as Record<string, string>)
-              .map(([key, value]) => `${key}=${value}`)
-              .join(","),
+          value: (object) => {
+            const text = formatLabelSelector(object.spec?.podSelector ?? {});
+            return text === "all" ? "All pods" : text;
+          },
           cell: (object) => {
-            const labels = Object.entries((object.spec?.podSelector?.matchLabels ?? {}) as Record<string, string>);
-            return <TextCell title={labels.map(([key, value]) => `${key}=${value}`).join("\n")}>{labels.map(([key, value]) => `${key}=${value}`).join(", ") || "All pods"}</TextCell>;
+            const text = formatLabelSelector(object.spec?.podSelector ?? {});
+            return <TextCell title={text}>{text === "all" ? "All pods" : text}</TextCell>;
           },
         },
         {
           key: "types",
           label: "Policy types",
           width: 200,
-          value: (object) => (object.spec?.policyTypes ?? []).join(", "),
-          cell: (object) => <TextCell>{(object.spec?.policyTypes ?? []).join(", ") || "–"}</TextCell>,
+          value: (object) => effectivePolicyTypeNames(object.spec ?? {}).join(", "),
+          cell: (object) => <TextCell>{effectivePolicyTypeNames(object.spec ?? {}).join(", ") || "–"}</TextCell>,
         },
         ageColumn,
       );
@@ -1558,9 +1604,9 @@ export function getColumnsForKind(resource: ApiResourceInfo, showNamespace: bool
               parseQuantityCount(object.status?.capacity?.pods);
             if (count === undefined) {
               return (
-                <span className="text-sm text-theme-text-tertiary" title="Pod count is not loaded yet">
-                  –
-                </span>
+                <Tooltip content="Pod count is not loaded yet" side="bottom" delay={140}>
+                  <span className="text-sm text-theme-text-tertiary">–</span>
+                </Tooltip>
               );
             }
             if (!max || max <= 0) return <Mono>{String(count)}</Mono>;

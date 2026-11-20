@@ -14,6 +14,10 @@ export interface CertificateInfo {
   issuerCn?: string;
   notBefore?: Date;
   notAfter?: Date;
+  serialNumber?: string;
+  /** dNSName, iPAddress, URI and e-mail general names from subjectAltName. */
+  sans?: string[];
+  keyType?: string;
 }
 
 interface Tlv {
@@ -118,6 +122,75 @@ function toBytes(value: string): Uint8Array | null {
   return direct;
 }
 
+function hex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0").toUpperCase()).join("");
+}
+
+/** Decode a DER OBJECT IDENTIFIER into dotted notation. */
+function readOid(bytes: Uint8Array, tlv: Tlv): string | null {
+  if (tlv.tag !== 0x06 || tlv.contentEnd <= tlv.contentStart) return null;
+  const first = bytes[tlv.contentStart];
+  const parts: number[] = [Math.floor(first / 40), first % 40];
+  let value = 0;
+  for (let index = tlv.contentStart + 1; index < tlv.contentEnd; index += 1) {
+    value = (value << 7) | (bytes[index] & 0x7f);
+    if ((bytes[index] & 0x80) === 0) {
+      parts.push(value);
+      value = 0;
+    }
+  }
+  return parts.join(".");
+}
+
+const KEY_TYPES: Record<string, string> = {
+  "1.2.840.113549.1.1.1": "RSA",
+  "1.2.840.113549.1.1.10": "RSA-PSS",
+  "1.2.840.10045.2.1": "ECDSA",
+  "1.3.101.112": "Ed25519",
+  "1.3.101.113": "Ed448",
+};
+
+function formatIp(bytes: Uint8Array): string {
+  if (bytes.length === 4) return [...bytes].join(".");
+  if (bytes.length === 16) {
+    const groups: string[] = [];
+    for (let index = 0; index < 16; index += 2) groups.push(((bytes[index] << 8) | bytes[index + 1]).toString(16));
+    return groups.join(":");
+  }
+  return hex(bytes);
+}
+
+function readSubjectAltNames(bytes: Uint8Array, extensions: Tlv): string[] {
+  const names: string[] = [];
+  let extension = readTlv(bytes, extensions.contentStart);
+  while (extension && extension.contentStart < extension.contentEnd) {
+    if (extension.tag === 0x30) {
+      const oid = readTlv(bytes, extension.contentStart);
+      if (oid && readOid(bytes, oid) === "2.5.29.17") {
+        let value = readTlv(bytes, oid.next);
+        if (value?.tag === 0x01) value = readTlv(bytes, value.next);
+        if (value?.tag === 0x04) {
+          const sequence = readTlv(bytes, value.contentStart);
+          if (sequence?.tag === 0x30) {
+            let name = readTlv(bytes, sequence.contentStart);
+            while (name && name.contentStart < sequence.contentEnd) {
+              const raw = bytes.subarray(name.contentStart, name.contentEnd);
+              if (name.tag === 0x82 || name.tag === 0x81 || name.tag === 0x86) {
+                names.push(new TextDecoder().decode(raw));
+              } else if (name.tag === 0x87) {
+                names.push(formatIp(raw));
+              }
+              name = readTlv(bytes, name.next);
+            }
+          }
+        }
+      }
+    }
+    extension = readTlv(bytes, extension.next);
+  }
+  return names;
+}
+
 export function parseCertificate(value: string): CertificateInfo | null {
   const bytes = toBytes(value);
   if (!bytes) return null;
@@ -137,6 +210,7 @@ export function parseCertificate(value: string): CertificateInfo | null {
   }
   // serialNumber INTEGER
   if (tlv.tag !== 0x02) return null;
+  const serialNumber = hex(bytes.subarray(tlv.contentStart, tlv.contentEnd));
   const signature = readTlv(bytes, tlv.next);
   if (!signature || signature.tag !== 0x30) return null;
   const issuer = readTlv(bytes, signature.next);
@@ -152,9 +226,30 @@ export function parseCertificate(value: string): CertificateInfo | null {
   const info: CertificateInfo = {
     notBefore: readTime(bytes, notBeforeTlv) ?? undefined,
     notAfter: readTime(bytes, notAfterTlv) ?? undefined,
+    serialNumber: serialNumber || undefined,
   };
   if (subject && subject.tag === 0x30) info.subjectCn = readCommonName(bytes, subject);
   info.issuerCn = readCommonName(bytes, issuer);
+
+  // SubjectPublicKeyInfo → algorithm OID → key family label.
+  const spki = subject ? readTlv(bytes, subject.next) : null;
+  if (spki && spki.tag === 0x30) {
+    const algorithm = readTlv(bytes, spki.contentStart);
+    if (algorithm && algorithm.tag === 0x30) {
+      const oidTlv = readTlv(bytes, algorithm.contentStart);
+      const oid = oidTlv ? readOid(bytes, oidTlv) : null;
+      if (oid) info.keyType = KEY_TYPES[oid] ?? oid;
+    }
+  }
+
+  // Extensions live in the optional [3] explicit tag after the SPKI; other
+  // optional fields ([1] issuerUniqueID, [2] subjectUniqueID) may sit between.
+  let afterSpki = spki ? readTlv(bytes, spki.next) : null;
+  while (afterSpki && afterSpki.tag !== 0xa3) afterSpki = readTlv(bytes, afterSpki.next);
+  if (afterSpki && afterSpki.tag === 0xa3) {
+    const sequence = readTlv(bytes, afterSpki.contentStart);
+    if (sequence && sequence.tag === 0x30) info.sans = readSubjectAltNames(bytes, sequence);
+  }
   return info;
 }
 

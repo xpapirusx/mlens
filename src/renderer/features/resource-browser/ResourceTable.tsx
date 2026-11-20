@@ -130,6 +130,7 @@ const TableRow = memo(function TableRow({
       role="row"
       aria-selected={selected}
       data-index={index}
+      data-resource-row="true"
       className={cn(
         "group/row absolute left-0 top-0 grid w-full cursor-pointer transition-colors",
         borders && "border-b-subtle",

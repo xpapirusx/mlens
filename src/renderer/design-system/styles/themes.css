@@ -751,3 +751,536 @@ html.theme-adwaita {
   --scrollbar-thumb: #3d3d3d;
   --scrollbar-thumb-hover: #5e5c64;
 }
+
+/*
+ * Copilot — adapted from benjaminbenais/copilot-theme (colour values only; the
+ * repository carries no license file). Canvas #232a2f, charcoal chrome
+ * #1a2023, cyan text #89ddff and the yellow button #ffea6b.
+ */
+html.theme-copilot {
+  color-scheme: dark;
+
+  --color-brand: #89ddff;
+  --color-brand-light: #a5e8ff;
+  --brand-rgb: 137 221 255;
+
+  --bg-sidebar: #1a2023;
+  --bg-base: #232a2f;
+  --bg-surface: #1f2529;
+  --bg-elevated: #2b333a;
+  --bg-hover: #2f373f;
+  --bg-active: #263037;
+
+  --text-primary: #d4dce4;
+  --text-secondary: #b7c0c8;
+  --text-tertiary: #939da5;
+  --text-disabled: #707a84;
+  --warning-text: #ffea6b;
+
+  --border-default: #3a4349;
+  --border-light: #4a545b;
+  --border-subtle: rgba(212, 220, 228, 0.06);
+  --border-emphasis: #707a84;
+
+  --accent: #89ddff;
+  --accent-light: #a5e8ff;
+  --accent-muted: rgba(137, 221, 255, 0.16);
+  --accent-text: #a5e8ff;
+
+  --selection-bg: rgba(137, 221, 255, 0.16);
+  --selection-bg-strong: rgba(137, 221, 255, 0.28);
+  --selection-text: #eef4f8;
+  --selection-border: rgba(137, 221, 255, 0.45);
+
+  --color-success: #5bec95;
+  --color-warning: #ffea6b;
+  --color-error: #ff6a80;
+  --color-alert: #ffa763;
+  --color-info: #89ddff;
+
+  --color-skyhook-300: #c2f0ff;
+  --color-skyhook-400: #a5e8ff;
+  --color-skyhook-500: #89ddff;
+  --color-skyhook-600: #6fc9ea;
+  --color-skyhook-700: #55b2d4;
+  --color-skyhook-800: #3d94b5;
+
+  --terminal-bg: #232a2f;
+  --terminal-border: #3a4349;
+  --scrollbar-track: #1a2023;
+  --scrollbar-thumb: #3a4349;
+  --scrollbar-thumb-hover: #4a545b;
+}
+
+/*
+ * Min — adapted from miguelsolorio/min-theme (MIT), min-dark. Near-black
+ * grayscale (#1a1a1a/#1f1f1f) with one blue accent (#79b8ff).
+ */
+html.theme-min {
+  color-scheme: dark;
+
+  --color-brand: #79b8ff;
+  --color-brand-light: #a3ccff;
+  --brand-rgb: 121 184 255;
+
+  --bg-sidebar: #1a1a1a;
+  --bg-base: #1f1f1f;
+  --bg-surface: #242424;
+  --bg-elevated: #2a2a2a;
+  --bg-hover: #262626;
+  --bg-active: #212121;
+
+  --text-primary: #fafafa;
+  --text-secondary: #c1c1c1;
+  --text-tertiary: #888888;
+  --text-disabled: #5c5c5c;
+  --warning-text: #ffab70;
+
+  --border-default: #2a2a2a;
+  --border-light: #383838;
+  --border-subtle: rgba(250, 250, 250, 0.05);
+  --border-emphasis: #444444;
+
+  --accent: #79b8ff;
+  --accent-light: #a3ccff;
+  --accent-muted: rgba(121, 184, 255, 0.16);
+  --accent-text: #a3ccff;
+
+  --selection-bg: rgba(121, 184, 255, 0.16);
+  --selection-bg-strong: rgba(121, 184, 255, 0.28);
+  --selection-text: #fafafa;
+  --selection-border: rgba(121, 184, 255, 0.45);
+
+  --color-success: #7ec699;
+  --color-warning: #ffab70;
+  --color-error: #ff7a84;
+  --color-alert: #ff9800;
+  --color-info: #79b8ff;
+
+  --color-skyhook-300: #b8d9ff;
+  --color-skyhook-400: #9ac9ff;
+  --color-skyhook-500: #79b8ff;
+  --color-skyhook-600: #5a9ee6;
+  --color-skyhook-700: #4482c7;
+  --color-skyhook-800: #3366a3;
+
+  --terminal-bg: #1f1f1f;
+  --terminal-border: #2a2a2a;
+  --scrollbar-track: #1a1a1a;
+  --scrollbar-thumb: #2a2a2a;
+  --scrollbar-thumb-hover: #383838;
+}
+
+/*
+ * Aura — adapted from daltonmenezes/aura-theme (MIT), aura-dark.
+ * Ink #15141b, purple #a277ff and mint #61ffca.
+ */
+html.theme-aura {
+  color-scheme: dark;
+
+  --color-brand: #a277ff;
+  --color-brand-light: #bda4ff;
+  --brand-rgb: 162 119 255;
+
+  --bg-sidebar: #110f18;
+  --bg-base: #15141b;
+  --bg-surface: #1d1b26;
+  --bg-elevated: #2e2b38;
+  --bg-hover: #3b334b;
+  --bg-active: #2e2b38;
+
+  --text-primary: #edecee;
+  --text-secondary: #cdccce;
+  --text-tertiary: #8f8c9b;
+  --text-disabled: #6d6d6d;
+  --warning-text: #ffca85;
+
+  --border-default: #2e2b38;
+  --border-light: #3b334b;
+  --border-subtle: rgba(237, 236, 238, 0.06);
+  --border-emphasis: #4a4457;
+
+  --accent: #a277ff;
+  --accent-light: #bda4ff;
+  --accent-muted: rgba(162, 119, 255, 0.16);
+  --accent-text: #c2a8ff;
+
+  --selection-bg: rgba(162, 119, 255, 0.18);
+  --selection-bg-strong: rgba(162, 119, 255, 0.3);
+  --selection-text: #edecee;
+  --selection-border: rgba(162, 119, 255, 0.45);
+
+  --color-success: #61ffca;
+  --color-warning: #ffca85;
+  --color-error: #ff6767;
+  --color-alert: #ffca85;
+  --color-info: #61ffca;
+
+  --color-skyhook-300: #d2bfff;
+  --color-skyhook-400: #bda4ff;
+  --color-skyhook-500: #a277ff;
+  --color-skyhook-600: #8a5ce6;
+  --color-skyhook-700: #7346c7;
+  --color-skyhook-800: #5c35a3;
+
+  --terminal-bg: #15141b;
+  --terminal-border: #2e2b38;
+  --scrollbar-track: #110f18;
+  --scrollbar-thumb: #2e2b38;
+  --scrollbar-thumb-hover: #3b334b;
+}
+
+/*
+ * Slack Aubergine — adapted from slack-theme/visual-studio-code (MIT),
+ * aubergine-dark. Aubergine #3e313c / #4f384a with Slack red and teal.
+ */
+html.theme-slack {
+  color-scheme: dark;
+
+  --color-brand: #f44c5e;
+  --color-brand-light: #ff7380;
+  --brand-rgb: 244 76 94;
+
+  --bg-sidebar: #4f384a;
+  --bg-base: #3e313c;
+  --bg-surface: #493a46;
+  --bg-elevated: #5b4657;
+  --bg-hover: #4f384a;
+  --bg-active: #3e9689;
+
+  --text-primary: #f6f6f4;
+  --text-secondary: #c9b9c5;
+  --text-tertiary: #a08e9c;
+  --text-disabled: #877583;
+  --warning-text: #ffb62c;
+
+  --border-default: #5e4a58;
+  --border-light: #6d5766;
+  --border-subtle: rgba(246, 246, 244, 0.06);
+  --border-emphasis: #958793;
+
+  --accent: #3e9689;
+  --accent-light: #5bb3a6;
+  --accent-muted: rgba(62, 150, 137, 0.18);
+  --accent-text: #6fd0c2;
+
+  --selection-bg: rgba(62, 150, 137, 0.2);
+  --selection-bg-strong: rgba(62, 150, 137, 0.34);
+  --selection-text: #f6f6f4;
+  --selection-border: rgba(62, 150, 137, 0.5);
+
+  --color-success: #91b859;
+  --color-warning: #ffb62c;
+  --color-error: #e53935;
+  --color-alert: #f44c5e;
+  --color-info: #6182b8;
+
+  --color-skyhook-300: #ff9aa4;
+  --color-skyhook-400: #ff7380;
+  --color-skyhook-500: #f44c5e;
+  --color-skyhook-600: #d93a4c;
+  --color-skyhook-700: #b82c3d;
+  --color-skyhook-800: #942231;
+
+  --terminal-bg: #3e313c;
+  --terminal-border: #5e4a58;
+  --scrollbar-track: #261c25;
+  --scrollbar-thumb: #5e4a58;
+  --scrollbar-thumb-hover: #6d5766;
+}
+
+/*
+ * Bluloco Dark — adapted from uloco/theme-bluloco-dark (LGPL-3.0), colour
+ * values only. Slate #282c34 with Bluloco blue #3691ff.
+ */
+html.theme-bluloco {
+  color-scheme: dark;
+
+  --color-brand: #3691ff;
+  --color-brand-light: #6aadff;
+  --brand-rgb: 54 145 255;
+
+  --bg-sidebar: #22252a;
+  --bg-base: #282c34;
+  --bg-surface: #25272d;
+  --bg-elevated: #2d333d;
+  --bg-hover: #2d333d;
+  --bg-active: #37404b;
+
+  --text-primary: #abb2bf;
+  --text-secondary: #9aa3b1;
+  --text-tertiary: #636d83;
+  --text-disabled: #545862;
+  --warning-text: #f9c859;
+
+  --border-default: #3d434f;
+  --border-light: #4d5461;
+  --border-subtle: rgba(171, 178, 191, 0.06);
+  --border-emphasis: #3691ff;
+
+  --accent: #3691ff;
+  --accent-light: #6aadff;
+  --accent-muted: rgba(54, 145, 255, 0.16);
+  --accent-text: #6aadff;
+
+  --selection-bg: rgba(54, 145, 255, 0.18);
+  --selection-bg-strong: rgba(54, 145, 255, 0.3);
+  --selection-text: #ffffff;
+  --selection-border: rgba(54, 145, 255, 0.45);
+
+  --color-success: #3fc56b;
+  --color-warning: #f9c859;
+  --color-error: #fc2f52;
+  --color-alert: #ff936a;
+  --color-info: #10b1fe;
+
+  --color-skyhook-300: #9cc6ff;
+  --color-skyhook-400: #6aadff;
+  --color-skyhook-500: #3691ff;
+  --color-skyhook-600: #2478e0;
+  --color-skyhook-700: #1c60b8;
+  --color-skyhook-800: #164b92;
+
+  --terminal-bg: #282c34;
+  --terminal-border: #3d434f;
+  --scrollbar-track: #22252a;
+  --scrollbar-thumb: #3d434f;
+  --scrollbar-thumb-hover: #4d5461;
+}
+
+/*
+ * GitHub Light — adapted from yunlingz/vscode-theme-github-light
+ * (BSD-2-Clause). White canvas, GitHub red #d73a49 and the classic blue/
+ * green/purple syntax palette.
+ */
+html.theme-github-light {
+  color-scheme: light;
+
+  --color-brand: #d73a49;
+  --color-brand-light: #e8626e;
+  --brand-rgb: 215 58 73;
+
+  --bg-sidebar: #ffffff;
+  --bg-base: #ffffff;
+  --bg-surface: #f6f8fa;
+  --bg-elevated: #eef1f4;
+  --bg-hover: #eaeef2;
+  --bg-active: #fff5b1;
+
+  --text-primary: #24292e;
+  --text-secondary: #586069;
+  --text-tertiary: #6a737d;
+  --text-disabled: #959da5;
+  --warning-text: #b08800;
+
+  --border-default: #e1e4e8;
+  --border-light: #d1d5da;
+  --border-subtle: rgba(36, 41, 46, 0.06);
+  --border-emphasis: #d73a49;
+
+  --accent: #d73a49;
+  --accent-light: #e8626e;
+  --accent-muted: rgba(215, 58, 73, 0.1);
+  --accent-text: #b31d28;
+
+  --selection-bg: rgba(254, 212, 66, 0.35);
+  --selection-bg-strong: rgba(254, 212, 66, 0.6);
+  --selection-text: #24292e;
+  --selection-border: rgba(215, 58, 73, 0.4);
+
+  --color-success: #22863a;
+  --color-warning: #b08800;
+  --color-error: #d73a49;
+  --color-alert: #e36209;
+  --color-info: #005cc5;
+
+  --color-skyhook-300: #f28b94;
+  --color-skyhook-400: #e8626e;
+  --color-skyhook-500: #d73a49;
+  --color-skyhook-600: #b72533;
+  --color-skyhook-700: #951b27;
+  --color-skyhook-800: #74131d;
+
+  --terminal-bg: #0d1117;
+  --terminal-border: #30363d;
+  --scrollbar-track: #f6f8fa;
+  --scrollbar-thumb: #d1d5da;
+  --scrollbar-thumb-hover: #959da5;
+}
+
+/*
+ * Om Theme — adapted from luizomf/omtheme (MIT): Dracula's palette on a
+ * darker ink (#13141f), purple #bd93f9.
+ */
+html.theme-om {
+  color-scheme: dark;
+
+  --color-brand: #bd93f9;
+  --color-brand-light: #d6acff;
+  --brand-rgb: 189 147 249;
+
+  --bg-sidebar: #12131d;
+  --bg-base: #13141f;
+  --bg-surface: #181928;
+  --bg-elevated: #282a36;
+  --bg-hover: #242436;
+  --bg-active: #2b2b3d;
+
+  --text-primary: #f8f8f2;
+  --text-secondary: #d8dae0;
+  --text-tertiary: #9aa3c7;
+  --text-disabled: #6272a4;
+  --warning-text: #f1fa8c;
+
+  --border-default: #44475a;
+  --border-light: #52556b;
+  --border-subtle: rgba(248, 248, 242, 0.06);
+  --border-emphasis: #6272a4;
+
+  --accent: #bd93f9;
+  --accent-light: #d6acff;
+  --accent-muted: rgba(189, 147, 249, 0.16);
+  --accent-text: #d6acff;
+
+  --selection-bg: rgba(189, 147, 249, 0.18);
+  --selection-bg-strong: rgba(189, 147, 249, 0.3);
+  --selection-text: #f8f8f2;
+  --selection-border: rgba(189, 147, 249, 0.45);
+
+  --color-success: #50fa7b;
+  --color-warning: #f1fa8c;
+  --color-error: #ff5555;
+  --color-alert: #ffb86c;
+  --color-info: #8be9fd;
+
+  --color-skyhook-300: #e2cfff;
+  --color-skyhook-400: #d6acff;
+  --color-skyhook-500: #bd93f9;
+  --color-skyhook-600: #a679e8;
+  --color-skyhook-700: #8b5fcf;
+  --color-skyhook-800: #6d44a8;
+
+  --terminal-bg: #13141f;
+  --terminal-border: #44475a;
+  --scrollbar-track: #12131d;
+  --scrollbar-thumb: #44475a;
+  --scrollbar-thumb-hover: #6272a4;
+}
+
+/*
+ * Vim — adapted from Harry-Hopkinson/vim-vscode-theme (MIT), vim-dark-medium
+ * (a Gruvbox palette): #282828 canvas, #ebdbb2 text, yellow #fabd2f accent.
+ */
+html.theme-vim {
+  color-scheme: dark;
+
+  --color-brand: #fabd2f;
+  --color-brand-light: #ffd05a;
+  --brand-rgb: 250 189 47;
+
+  --bg-sidebar: #282828;
+  --bg-base: #282828;
+  --bg-surface: #32302f;
+  --bg-elevated: #3c3836;
+  --bg-hover: #3c3836;
+  --bg-active: #504945;
+
+  --text-primary: #ebdbb2;
+  --text-secondary: #d5c4a1;
+  --text-tertiary: #a89984;
+  --text-disabled: #928374;
+  --warning-text: #fabd2f;
+
+  --border-default: #3c3836;
+  --border-light: #504945;
+  --border-subtle: rgba(235, 219, 178, 0.06);
+  --border-emphasis: #665c54;
+
+  --accent: #fabd2f;
+  --accent-light: #ffd05a;
+  --accent-muted: rgba(250, 189, 47, 0.16);
+  --accent-text: #ffd05a;
+
+  --selection-bg: rgba(104, 157, 106, 0.2);
+  --selection-bg-strong: rgba(104, 157, 106, 0.34);
+  --selection-text: #ebdbb2;
+  --selection-border: rgba(104, 157, 106, 0.5);
+
+  --color-success: #b8bb26;
+  --color-warning: #fabd2f;
+  --color-error: #fb4934;
+  --color-alert: #fe8019;
+  --color-info: #83a598;
+
+  --color-skyhook-300: #ffe08a;
+  --color-skyhook-400: #ffd05a;
+  --color-skyhook-500: #fabd2f;
+  --color-skyhook-600: #d99e18;
+  --color-skyhook-700: #b37f0f;
+  --color-skyhook-800: #8c6208;
+
+  --terminal-bg: #282828;
+  --terminal-border: #3c3836;
+  --scrollbar-track: #282828;
+  --scrollbar-thumb: #3c3836;
+  --scrollbar-thumb-hover: #504945;
+}
+
+/*
+ * White — a clean light shell (no external source): white canvas, grey chrome
+ * and a single blue accent, paired with a white terminal palette.
+ */
+html.theme-white {
+  color-scheme: light;
+
+  --color-brand: #2563eb;
+  --color-brand-light: #3b82f6;
+  --brand-rgb: 37 99 235;
+
+  --bg-sidebar: #f5f6f7;
+  --bg-base: #ffffff;
+  --bg-surface: #fbfbfc;
+  --bg-elevated: #f0f2f4;
+  --bg-hover: #e9ecef;
+  --bg-active: #e2e6ea;
+
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --text-disabled: #9ca3af;
+  --warning-text: #b45309;
+
+  --border-default: #e5e7eb;
+  --border-light: #d1d5db;
+  --border-subtle: rgba(17, 24, 39, 0.06);
+  --border-emphasis: #9ca3af;
+
+  --accent: #2563eb;
+  --accent-light: #3b82f6;
+  --accent-muted: rgba(37, 99, 235, 0.1);
+  --accent-text: #1d4ed8;
+
+  --selection-bg: rgba(37, 99, 235, 0.1);
+  --selection-bg-strong: rgba(37, 99, 235, 0.2);
+  --selection-text: #1d4ed8;
+  --selection-border: rgba(37, 99, 235, 0.3);
+
+  --color-success: #15803d;
+  --color-warning: #b45309;
+  --color-error: #dc2626;
+  --color-alert: #c2410c;
+  --color-info: #2563eb;
+
+  --color-skyhook-300: #93c5fd;
+  --color-skyhook-400: #60a5fa;
+  --color-skyhook-500: #3b82f6;
+  --color-skyhook-600: #2563eb;
+  --color-skyhook-700: #1d4ed8;
+  --color-skyhook-800: #1e40af;
+
+  --terminal-bg: #ffffff;
+  --terminal-border: #e5e7eb;
+  --scrollbar-track: #f5f6f7;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+}

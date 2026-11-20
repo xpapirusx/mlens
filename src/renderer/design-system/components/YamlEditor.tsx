@@ -109,7 +109,7 @@ export const YamlEditor = forwardRef<YamlEditorHandle, YamlEditorProps>(function
           domReadOnly: readOnly,
           minimap: { enabled: Boolean(editorMinimap) },
           fontSize,
-          lineHeight: fontSize * 1.5,
+          lineHeight: 0,
           fontFamily: `"${editorFontFamily ?? "DM Mono"}", ui-monospace, SFMono-Regular, Menlo, monospace`,
           lineNumbers: editorLineNumbers === false ? "off" : "on",
           tabSize: editorTabSize ?? 2,

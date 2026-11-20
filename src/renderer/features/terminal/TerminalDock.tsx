@@ -232,7 +232,7 @@ export function TerminalDock({ clusterId, active }: { clusterId: string; active:
       </div>
 
       {dock.open ? (
-        <div className="relative min-h-0 flex-1 bg-[#0b1322]">
+        <div className="relative min-h-0 flex-1 bg-theme-base">
           {dock.tabs.length === 0 ? (
             <div className="flex h-full items-center justify-center p-4">
               <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-white/12 bg-white/[0.03] px-8 py-6">

@@ -107,6 +107,7 @@ export const EditorArea = memo(function EditorArea({
   return (
     <div
       ref={rootRef}
+      data-editor-area="true"
       className={cn(
         "flex min-h-0 shrink-0 flex-col border-l border-theme-border bg-theme-surface shadow-drawer",
         expanded ? "absolute inset-y-0 right-0 z-30" : "relative",

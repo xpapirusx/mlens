@@ -391,6 +391,213 @@ monaco.editor.defineTheme("mlens-adwaita", {
   },
 });
 
+monaco.editor.defineTheme("mlens-copilot", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "89DDFF" },
+    { token: "key", foreground: "BA8EF7" },
+    { token: "string", foreground: "5BEC95" },
+    { token: "number", foreground: "FFEA6B" },
+    { token: "comment", foreground: "707A84", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#232A2F",
+    "editor.foreground": "#D4DCE4",
+    "editorLineNumber.foreground": "#707A84",
+    "editorLineNumber.activeForeground": "#D4DCE4",
+    "editor.selectionBackground": "#204062",
+    "editor.lineHighlightBackground": "#939DA515",
+    "editorIndentGuide.background1": "#3A4349",
+    "editorGutter.background": "#232A2F",
+  },
+});
+
+monaco.editor.defineTheme("mlens-min", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "79B8FF" },
+    { token: "key", foreground: "B392F0" },
+    { token: "string", foreground: "9DB1C5" },
+    { token: "number", foreground: "FFAB70" },
+    { token: "comment", foreground: "727272", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#1F1F1F",
+    "editor.foreground": "#E0E0E0",
+    "editorLineNumber.foreground": "#727272",
+    "editorLineNumber.activeForeground": "#FAFAFA",
+    "editor.selectionBackground": "#44475A80",
+    "editor.lineHighlightBackground": "#2A2A2A",
+    "editorIndentGuide.background1": "#2A2A2A",
+    "editorGutter.background": "#1F1F1F",
+  },
+});
+
+monaco.editor.defineTheme("mlens-aura", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "A277FF" },
+    { token: "key", foreground: "61FFCA" },
+    { token: "string", foreground: "61FFCA" },
+    { token: "number", foreground: "FFCA85" },
+    { token: "comment", foreground: "6D6D6D", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#15141B",
+    "editor.foreground": "#EDECEE",
+    "editorLineNumber.foreground": "#6D6D6D",
+    "editorLineNumber.activeForeground": "#EDECEE",
+    "editor.selectionBackground": "#3D375E7F",
+    "editor.lineHighlightBackground": "#A394F033",
+    "editorIndentGuide.background1": "#2E2B38",
+    "editorGutter.background": "#15141B",
+  },
+});
+
+monaco.editor.defineTheme("mlens-slack", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "6182B8" },
+    { token: "key", foreground: "E53935" },
+    { token: "string", foreground: "91B859" },
+    { token: "number", foreground: "FFB62C" },
+    { token: "comment", foreground: "877583", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#3E313C",
+    "editor.foreground": "#F6F6F4",
+    "editorLineNumber.foreground": "#B9B9B9",
+    "editorLineNumber.activeForeground": "#F44C5E",
+    "editor.selectionBackground": "#8A7A86",
+    "editor.lineHighlightBackground": "#4F384A",
+    "editorIndentGuide.background1": "#5E4A58",
+    "editorGutter.background": "#3E313C",
+  },
+});
+
+monaco.editor.defineTheme("mlens-bluloco", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "10B1FE" },
+    { token: "key", foreground: "FF78F8" },
+    { token: "string", foreground: "F9C859" },
+    { token: "number", foreground: "FF78F8" },
+    { token: "comment", foreground: "636D83", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#282C34",
+    "editor.foreground": "#ABB2BF",
+    "editorLineNumber.foreground": "#636D83",
+    "editorLineNumber.activeForeground": "#FFCC00",
+    "editor.selectionBackground": "#0084FF4B",
+    "editor.lineHighlightBackground": "#2D333D",
+    "editorIndentGuide.background1": "#3D434F",
+    "editorGutter.background": "#282C34",
+  },
+});
+
+monaco.editor.defineTheme("mlens-github-light", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "005CC5" },
+    { token: "key", foreground: "005CC5" },
+    { token: "string", foreground: "032F62" },
+    { token: "number", foreground: "005CC5" },
+    { token: "comment", foreground: "6A737D", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#FFFFFF",
+    "editor.foreground": "#24292E",
+    "editorLineNumber.foreground": "#BABBBC",
+    "editorLineNumber.activeForeground": "#24292E",
+    "editor.selectionBackground": "#FED442",
+    "editor.lineHighlightBackground": "#FFFBDF",
+    "editorIndentGuide.background1": "#E1E4E8",
+    "editorGutter.background": "#FFFFFF",
+  },
+});
+
+monaco.editor.defineTheme("mlens-om", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "8BE9FD" },
+    { token: "key", foreground: "8BE9FD" },
+    { token: "string", foreground: "F1FA8C" },
+    { token: "number", foreground: "BD93F9" },
+    { token: "comment", foreground: "6272A4", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#13141F",
+    "editor.foreground": "#F8F8F2",
+    "editorLineNumber.foreground": "#6272A4",
+    "editorLineNumber.activeForeground": "#F8F8F2",
+    "editor.selectionBackground": "#44475A",
+    "editor.lineHighlightBackground": "#44475A75",
+    "editorIndentGuide.background1": "#44475A",
+    "editorGutter.background": "#13141F",
+  },
+});
+
+monaco.editor.defineTheme("mlens-vim", {
+  base: "vs-dark",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "FABD2F" },
+    { token: "key", foreground: "83A598" },
+    { token: "string", foreground: "B8BB26" },
+    { token: "number", foreground: "D3869B" },
+    { token: "comment", foreground: "928374", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#282828",
+    "editor.foreground": "#EBDBB2",
+    "editorLineNumber.foreground": "#8A7C71",
+    "editorLineNumber.activeForeground": "#FABD2F",
+    "editor.selectionBackground": "#689D6A40",
+    "editor.lineHighlightBackground": "#3C383660",
+    "editorIndentGuide.background1": "#3C3836",
+    "editorGutter.background": "#282828",
+  },
+});
+
+monaco.editor.defineTheme("mlens-white", {
+  base: "vs",
+  inherit: true,
+  rules: [
+    { token: "type", foreground: "2563EB" },
+    { token: "key", foreground: "1D4ED8" },
+    { token: "string", foreground: "15803D" },
+    { token: "number", foreground: "B45309" },
+    { token: "comment", foreground: "9CA3AF", fontStyle: "italic" },
+  ],
+  colors: {
+    ...DIFF_COLORS,
+    "editor.background": "#FFFFFF",
+    "editor.foreground": "#111827",
+    "editorLineNumber.foreground": "#9CA3AF",
+    "editorLineNumber.activeForeground": "#111827",
+    "editor.selectionBackground": "#BFDBFE",
+    "editor.lineHighlightBackground": "#F3F4F6",
+    "editorIndentGuide.background1": "#E5E7EB",
+    "editorGutter.background": "#FFFFFF",
+  },
+});
+
 /**
  * Theme id for the editor matching the shell's html classes. Read at mount
  * time; the shell re-applies the classes on a theme switch and remounts the
@@ -412,6 +619,15 @@ export function editorThemeName(): string {
   if (root.classList.contains("theme-catppuccin")) return "mlens-catppuccin";
   if (root.classList.contains("theme-jellybeans")) return "mlens-jellybeans";
   if (root.classList.contains("theme-adwaita")) return "mlens-adwaita";
+  if (root.classList.contains("theme-copilot")) return "mlens-copilot";
+  if (root.classList.contains("theme-min")) return "mlens-min";
+  if (root.classList.contains("theme-aura")) return "mlens-aura";
+  if (root.classList.contains("theme-slack")) return "mlens-slack";
+  if (root.classList.contains("theme-bluloco")) return "mlens-bluloco";
+  if (root.classList.contains("theme-github-light")) return "mlens-github-light";
+  if (root.classList.contains("theme-white")) return "mlens-white";
+  if (root.classList.contains("theme-om")) return "mlens-om";
+  if (root.classList.contains("theme-vim")) return "mlens-vim";
   return root.classList.contains("dark") ? "mlens-dark" : "mlens-light";
 }
 

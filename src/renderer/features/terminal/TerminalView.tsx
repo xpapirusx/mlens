@@ -336,7 +336,257 @@ const ADWAITA_TERMINAL_THEME = {
   brightWhite: "#ffffff",
 };
 
-function terminalThemeFor(name: string) {
+/** Copilot ANSI palette (benjaminbenais/copilot-theme). */
+const COPILOT_TERMINAL_THEME = {
+  background: "#232a2f",
+  foreground: "#d4dce4",
+  cursor: "#89ddff",
+  cursorAccent: "#232a2f",
+  selectionBackground: "#89ddff40",
+  black: "#1a2023",
+  red: "#ff6a80",
+  green: "#5bec95",
+  yellow: "#ffea6b",
+  blue: "#89ddff",
+  magenta: "#ba8ef7",
+  cyan: "#89ddff",
+  white: "#d4dce4",
+  brightBlack: "#707a84",
+  brightRed: "#ff8a9b",
+  brightGreen: "#7ff0a8",
+  brightYellow: "#fff29b",
+  brightBlue: "#a5e8ff",
+  brightMagenta: "#cba9ff",
+  brightCyan: "#a5e8ff",
+  brightWhite: "#ffffff",
+};
+
+/** Min ANSI palette (miguelsolorio/min-theme, MIT). */
+const MIN_TERMINAL_THEME = {
+  background: "#1f1f1f",
+  foreground: "#e0e0e0",
+  cursor: "#fafafa",
+  cursorAccent: "#1f1f1f",
+  selectionBackground: "#44475a80",
+  black: "#1a1a1a",
+  red: "#ff7a84",
+  green: "#7ec699",
+  yellow: "#ffab70",
+  blue: "#79b8ff",
+  magenta: "#b392f0",
+  cyan: "#56b6c2",
+  white: "#e0e0e0",
+  brightBlack: "#5c5c5c",
+  brightRed: "#ff9aa2",
+  brightGreen: "#9be3b8",
+  brightYellow: "#ffd08a",
+  brightBlue: "#a3ccff",
+  brightMagenta: "#c9a7ff",
+  brightCyan: "#7cd0da",
+  brightWhite: "#fafafa",
+};
+
+/** Aura ANSI palette (daltonmenezes/aura-theme, MIT). */
+const AURA_TERMINAL_THEME = {
+  background: "#15141b",
+  foreground: "#cdccce",
+  cursor: "#a277ff",
+  cursorAccent: "#15141b",
+  selectionBackground: "#3d375e7f",
+  black: "#15141b",
+  red: "#ff6767",
+  green: "#61ffca",
+  yellow: "#ffca85",
+  blue: "#a277ff",
+  magenta: "#61ffca",
+  cyan: "#a277ff",
+  white: "#cdccce",
+  brightBlack: "#2d2d2d",
+  brightRed: "#ffca85",
+  brightGreen: "#a277ff",
+  brightYellow: "#ffca85",
+  brightBlue: "#a277ff",
+  brightMagenta: "#61ffca",
+  brightCyan: "#61ffca",
+  brightWhite: "#edecee",
+};
+
+/** Slack Aubergine ANSI palette (slack-theme/visual-studio-code, MIT). */
+const SLACK_TERMINAL_THEME = {
+  background: "#3e313c",
+  foreground: "#f6f6f4",
+  cursor: "#3e9689",
+  cursorAccent: "#3e313c",
+  selectionBackground: "#8a7a86",
+  black: "#000000",
+  red: "#e53935",
+  green: "#91b859",
+  yellow: "#ffb62c",
+  blue: "#6182b8",
+  magenta: "#7c4dff",
+  cyan: "#39adb5",
+  white: "#ffffff",
+  brightBlack: "#90a4ae",
+  brightRed: "#e53935",
+  brightGreen: "#91b859",
+  brightYellow: "#ffb62c",
+  brightBlue: "#6182b8",
+  brightMagenta: "#7c4dff",
+  brightCyan: "#39adb5",
+  brightWhite: "#ffffff",
+};
+
+/** Bluloco Dark ANSI palette (uloco/theme-bluloco-dark, LGPL-3.0). */
+const BLULOCO_TERMINAL_THEME = {
+  background: "#282c34",
+  foreground: "#abb2bf",
+  cursor: "#ffcc00",
+  cursorAccent: "#282c34",
+  selectionBackground: "#0084ff4b",
+  black: "#42444d",
+  red: "#fc2f52",
+  green: "#25a45c",
+  yellow: "#ff936a",
+  blue: "#3375fe",
+  magenta: "#9f7efe",
+  cyan: "#4483aa",
+  white: "#cdd3e0",
+  brightBlack: "#8f9aae",
+  brightRed: "#ff6480",
+  brightGreen: "#3fc56b",
+  brightYellow: "#f9c859",
+  brightBlue: "#10b1fe",
+  brightMagenta: "#ff78f8",
+  brightCyan: "#5fb9bc",
+  brightWhite: "#ffffff",
+};
+
+/** Om Theme ANSI palette (luizomf/omtheme, MIT). */
+const OM_TERMINAL_THEME = {
+  background: "#13141f",
+  foreground: "#f8f8f2",
+  cursor: "#bd93f9",
+  cursorAccent: "#13141f",
+  selectionBackground: "#44475a75",
+  black: "#21222c",
+  red: "#ff5555",
+  green: "#50fa7b",
+  yellow: "#f1fa8c",
+  blue: "#bd93f9",
+  magenta: "#ff79c6",
+  cyan: "#8be9fd",
+  white: "#f8f8f2",
+  brightBlack: "#6272a4",
+  brightRed: "#ff6e6e",
+  brightGreen: "#69ff94",
+  brightYellow: "#ffffa5",
+  brightBlue: "#d6acff",
+  brightMagenta: "#ff92df",
+  brightCyan: "#a4ffff",
+  brightWhite: "#ffffff",
+};
+
+/** Vim/Gruvbox ANSI palette (Harry-Hopkinson/vim-vscode-theme, MIT). */
+const VIM_TERMINAL_THEME = {
+  background: "#282828",
+  foreground: "#ebdbb2",
+  cursor: "#ebdbb2",
+  cursorAccent: "#282828",
+  selectionBackground: "#689d6a40",
+  black: "#3c3836",
+  red: "#cc241d",
+  green: "#98971a",
+  yellow: "#d79921",
+  blue: "#458588",
+  magenta: "#b16286",
+  cyan: "#689d6a",
+  white: "#a89984",
+  brightBlack: "#928374",
+  brightRed: "#fb4934",
+  brightGreen: "#b8bb26",
+  brightYellow: "#fabd2f",
+  brightBlue: "#83a598",
+  brightMagenta: "#d3869b",
+  brightCyan: "#8ec07c",
+  brightWhite: "#ebdbb2",
+};
+
+/** Light console palette used by Radar's light mode and forced-light terminal. */
+const LIGHT_TERMINAL_THEME = {
+  background: "#f8fbfe",
+  foreground: "#1a1c20",
+  cursor: "#4a7cc9",
+  cursorAccent: "#f8fbfe",
+  selectionBackground: "#4a7cc933",
+  black: "#1a1c20",
+  red: "#b31d28",
+  green: "#0f7b4a",
+  yellow: "#8a6d00",
+  blue: "#1f5fa8",
+  magenta: "#8b3a9c",
+  cyan: "#0e7490",
+  white: "#e6e9ee",
+  brightBlack: "#6b7080",
+  brightRed: "#d1242f",
+  brightGreen: "#0b8a52",
+  brightYellow: "#a16207",
+  brightBlue: "#2563eb",
+  brightMagenta: "#a21caf",
+  brightCyan: "#0891b2",
+  brightWhite: "#ffffff",
+};
+
+/** White theme's terminal (clean white surfaces, blue cursor). */
+const WHITE_TERMINAL_THEME = {
+  background: "#ffffff",
+  foreground: "#111827",
+  cursor: "#2563eb",
+  cursorAccent: "#ffffff",
+  selectionBackground: "#bfdbfe",
+  black: "#111827",
+  red: "#b91c1c",
+  green: "#15803d",
+  yellow: "#a16207",
+  blue: "#2563eb",
+  magenta: "#a21caf",
+  cyan: "#0e7490",
+  white: "#e5e7eb",
+  brightBlack: "#6b7280",
+  brightRed: "#dc2626",
+  brightGreen: "#16a34a",
+  brightYellow: "#ca8a04",
+  brightBlue: "#3b82f6",
+  brightMagenta: "#c026d3",
+  brightCyan: "#0891b2",
+  brightWhite: "#ffffff",
+};
+
+/** GitHub Light ANSI palette (yunlingz/vscode-theme-github-light, BSD-2-Clause). */
+const GITHUB_LIGHT_TERMINAL_THEME = {
+  background: "#ffffff",
+  foreground: "#24292e",
+  cursor: "#d73a49",
+  cursorAccent: "#ffffff",
+  selectionBackground: "#fed442",
+  black: "#24292e",
+  red: "#d73a49",
+  green: "#22863a",
+  yellow: "#b08800",
+  blue: "#005cc5",
+  magenta: "#6f42c1",
+  cyan: "#1b7c83",
+  white: "#6a737d",
+  brightBlack: "#959da5",
+  brightRed: "#cb2431",
+  brightGreen: "#28a745",
+  brightYellow: "#dbab09",
+  brightBlue: "#2188ff",
+  brightMagenta: "#8a63d2",
+  brightCyan: "#3192aa",
+  brightWhite: "#ffffff",
+};
+
+function darkTerminalFor(name: string) {
   switch (name) {
     case "dracula":
       return DRACULA_TERMINAL_THEME;
@@ -349,6 +599,8 @@ function terminalThemeFor(name: string) {
     case "islands":
       return ISLANDS_TERMINAL_THEME;
     case "github":
+      return GITHUB_TERMINAL_THEME;
+    case "github-light":
       return GITHUB_TERMINAL_THEME;
     case "night-owl":
       return NIGHT_OWL_TERMINAL_THEME;
@@ -364,10 +616,37 @@ function terminalThemeFor(name: string) {
       return JELLYBEANS_TERMINAL_THEME;
     case "adwaita":
       return ADWAITA_TERMINAL_THEME;
+    case "copilot":
+      return COPILOT_TERMINAL_THEME;
+    case "min":
+      return MIN_TERMINAL_THEME;
+    case "aura":
+      return AURA_TERMINAL_THEME;
+    case "slack":
+      return SLACK_TERMINAL_THEME;
+    case "bluloco":
+      return BLULOCO_TERMINAL_THEME;
+    case "om":
+      return OM_TERMINAL_THEME;
+    case "vim":
+      return VIM_TERMINAL_THEME;
     default:
       return RADAR_TERMINAL_THEME;
   }
 }
+
+function lightTerminalFor(name: string) {
+  if (name === "white") return WHITE_TERMINAL_THEME;
+  if (name === "github-light") return GITHUB_LIGHT_TERMINAL_THEME;
+  return LIGHT_TERMINAL_THEME;
+}
+
+function terminalThemeFor(name: string, mode: "match" | "dark" | "light", shellDark: boolean) {
+  if (mode === "light") return lightTerminalFor(name);
+  if (mode === "dark") return darkTerminalFor(name);
+  return shellDark ? darkTerminalFor(name) : lightTerminalFor(name);
+}
+
 
 export function TerminalView({ target, active }: { target: TerminalTarget; active: boolean }) {
   const settings = useCatalogStore((state) => state.settings);
@@ -391,7 +670,24 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
   const fontSize = Math.max(6, Math.round((settings?.terminalFontSize ?? 13) * (settings?.fontScale ?? 1)));
   const fontFamily = settings?.terminalFontFamily ?? "DM Mono";
   const themeName = settings?.colorTheme ?? "radar";
-  const terminalTheme = useMemo(() => terminalThemeFor(themeName), [themeName]);
+  const terminalMode = settings?.terminalTheme ?? "match";
+  // The shell applies `.dark` from AppShell; watch it so "match" follows the
+  // Light/Dark/System button (and OS changes) without remounting the terminal.
+  const [shellDark, setShellDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => setShellDark(root.classList.contains("dark"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+  const terminalTheme = useMemo(
+    () => terminalThemeFor(themeName, terminalMode, shellDark),
+    [themeName, terminalMode, shellDark],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -591,8 +887,11 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
   }, [active]);
 
   return (
-    <div className={cn("terminal-surface absolute inset-0 flex flex-col bg-[#0b1322]", !active && "invisible")}>
-      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-white/10 bg-[#111b2e] px-2 text-[calc(10px*var(--font-scale))] text-slate-500">
+    <div
+      className={cn("terminal-surface absolute inset-0 flex flex-col", !active && "invisible")}
+      style={{ backgroundColor: terminalTheme.background }}
+    >
+      <div className="flex h-6 shrink-0 items-center gap-2 border-b border-theme-border bg-theme-surface px-2 text-[calc(10px*var(--font-scale))] text-theme-text-tertiary">
         <span
           className={cn(
             "h-1.5 w-1.5 rounded-full",
@@ -613,14 +912,14 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
         <span className="ml-auto">{status}</span>
         <button
           type="button"
-          className="rounded p-0.5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+          className="rounded p-0.5 text-theme-text-tertiary hover:bg-theme-hover hover:text-theme-text-primary"
           title="Search terminal"
           onClick={() => setSearchOpen((value) => !value)}
         >
           <Search className="h-3 w-3" />
         </button>
         {searchOpen ? (
-          <div className="absolute right-2 top-1 z-20 flex items-center gap-1 rounded border border-white/15 bg-[#111b2e] px-1 py-0.5 shadow-lg">
+          <div className="absolute right-2 top-1 z-20 flex items-center gap-1 rounded border border-theme-border bg-theme-surface px-1 py-0.5 shadow-lg">
             <input
               autoFocus
               value={searchTerm}
@@ -636,25 +935,25 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
                 if (event.key === "Escape") setSearchOpen(false);
               }}
               placeholder="Find…"
-              className="h-5 w-40 bg-transparent px-1 text-[calc(11px*var(--font-scale))] text-slate-200 placeholder:text-slate-500 focus:outline-none"
+              className="h-5 w-40 bg-transparent px-1 text-[calc(11px*var(--font-scale))] text-theme-text-primary placeholder:text-theme-text-tertiary focus:outline-none"
             />
             <button
               type="button"
-              className="rounded p-0.5 text-slate-400 hover:text-slate-100"
+              className="rounded p-0.5 text-theme-text-tertiary hover:text-theme-text-primary"
               onClick={() => searchRef.current?.findPrevious(searchTerm)}
             >
               <ChevronUp className="h-3 w-3" />
             </button>
             <button
               type="button"
-              className="rounded p-0.5 text-slate-400 hover:text-slate-100"
+              className="rounded p-0.5 text-theme-text-tertiary hover:text-theme-text-primary"
               onClick={() => searchRef.current?.findNext(searchTerm)}
             >
               <ChevronDown className="h-3 w-3" />
             </button>
             <button
               type="button"
-              className="rounded p-0.5 text-slate-400 hover:text-slate-100"
+              className="rounded p-0.5 text-theme-text-tertiary hover:text-theme-text-primary"
               onClick={() => setSearchOpen(false)}
             >
               <X className="h-3 w-3" />
@@ -664,7 +963,8 @@ export function TerminalView({ target, active }: { target: TerminalTarget; activ
       </div>
       <div
         ref={containerRef}
-        className="min-h-0 flex-1 bg-[#0b1322] p-1 [&_.xterm-viewport]:!bg-[#0b1322]"
+        className="min-h-0 flex-1 p-1"
+        style={{ backgroundColor: terminalTheme.background }}
       />
     </div>
   );

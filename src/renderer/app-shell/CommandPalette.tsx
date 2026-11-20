@@ -6,6 +6,7 @@ import {
   Download,
   Keyboard,
   Loader2,
+  Minimize2,
   Moon,
   Search,
   Server,
@@ -61,6 +62,9 @@ export function CommandPalette({
   const openTerminal = useSessionStore((state) => state.openTerminal);
   const closeDetails = useSessionStore((state) => state.closeDetails);
   const openDetails = useSessionStore((state) => state.openDetails);
+  const editorMinimized = useSessionStore((state) =>
+    activeClusterId ? (state.sessions[activeClusterId]?.editor.minimized ?? false) : false,
+  );
 
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);
@@ -125,6 +129,14 @@ export function CommandPalette({
         icon: <X className="h-3.5 w-3.5" />,
         run: () => closeDetails(activeClusterId),
       });
+      output.push({
+        id: "toggle-editor-area",
+        label: editorMinimized ? "Restore editor area" : "Minimize editor area",
+        group: "Actions",
+        hint: "⌘⇧B",
+        icon: <Minimize2 className="h-3.5 w-3.5" />,
+        run: () => useSessionStore.getState().toggleDetails(activeClusterId),
+      });
     }
 
     output.push(
@@ -181,6 +193,7 @@ export function CommandPalette({
   }, [
     clusters,
     activeClusterId,
+    editorMinimized,
     resources,
     selectKind,
     openTerminal,

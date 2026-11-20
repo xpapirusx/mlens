@@ -29,6 +29,7 @@ export function AppShell() {
   const openSettings = useCatalogStore((state) => state.openSettings);
   const updateSettings = useCatalogStore((state) => state.updateSettings);
   const splitClusterId = useCatalogStore((state) => state.splitClusterId);
+  const splitDirection = useCatalogStore((state) => state.splitDirection);
   const splitRatio = useCatalogStore((state) => state.splitRatio);
   const setSplitRatio = useCatalogStore((state) => state.setSplitRatio);
   const setActiveCluster = useCatalogStore((state) => state.setActiveCluster);
@@ -69,10 +70,14 @@ export function AppShell() {
     if (!splitResizing) return;
     const onMove = (event: PointerEvent) => {
       const rect = mainRef.current?.getBoundingClientRect();
-      if (!rect || rect.height === 0) return;
-      const next = Math.min(0.8, Math.max(0.2, (event.clientY - rect.top) / rect.height));
-      ratioRef.current = next;
-      setRatio(next);
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+      const next =
+        splitDirection === "right"
+          ? (event.clientX - rect.left) / rect.width
+          : (event.clientY - rect.top) / rect.height;
+      const clamped = Math.min(0.8, Math.max(0.2, next));
+      ratioRef.current = clamped;
+      setRatio(clamped);
     };
     const onUp = () => {
       setSplitResizing(false);
@@ -84,12 +89,50 @@ export function AppShell() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [splitResizing, setSplitRatio]);
+  }, [splitResizing, splitDirection, setSplitRatio]);
 
   useEffect(() => {
     void loadSettings();
     void loadCatalog();
   }, [loadSettings, loadCatalog]);
+
+  // ⌘⇧B toggles the editor area. Capture phase so it also fires while Monaco,
+  // a log viewer, or the terminal owns the keyboard, and independent of the
+  // larger navigation handler below.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.repeat || event.altKey) return;
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
+      if (event.code !== "KeyB" && event.key.toLowerCase() !== "b") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (activeClusterId) useSessionStore.getState().toggleDetails(activeClusterId);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [activeClusterId]);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      // Keep the editor open while interacting with itself, the restore tray,
+      // a resource row (which opens a resource instead), dialogs and menus.
+      if (
+        !target ||
+        target.closest("[data-editor-area], [data-editor-tray], [data-resource-row], [role='dialog'], .menu-surface")
+      ) {
+        return;
+      }
+      if (!activeClusterId) return;
+      const store = useSessionStore.getState();
+      const session = store.sessions[activeClusterId];
+      if (!session || session.editor.minimized || !hasEditorTab(session)) return;
+      store.minimizeDetails(activeClusterId);
+    };
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [activeClusterId]);
 
   // Theme: `.dark` on <html> + color-scheme, following the OS in system mode.
   useEffect(() => {
@@ -111,15 +154,26 @@ export function AppShell() {
         "catppuccin",
         "jellybeans",
         "adwaita",
+        "copilot",
+        "min",
+        "aura",
+        "slack",
+        "bluloco",
+        "github-light",
+        "om",
+        "vim",
+        "white",
       ] as const;
       for (const name of themed) {
         document.documentElement.classList.toggle(`theme-${name}`, themeName === name);
       }
-      const forcedDark = themeName !== "radar";
+      const forcedLight = themeName === "github-light" || themeName === "white";
+      const forcedDark = themeName !== "radar" && !forcedLight;
       const dark =
-        forcedDark ||
-        settings.theme === "dark" ||
-        (settings.theme === "system" && media.matches);
+        !forcedLight &&
+        (forcedDark ||
+          settings.theme === "dark" ||
+          (settings.theme === "system" && media.matches));
       document.documentElement.classList.toggle("dark", dark);
       document.documentElement.style.colorScheme = dark ? "dark" : "light";
       // CSS var consumed by the font-size calc()s; spacing stays rem-anchored and unscaled.
@@ -161,7 +215,7 @@ export function AppShell() {
         setActiveCluster(null);
         return;
       }
-      if (mod && event.key.toLowerCase() === "b") {
+      if (mod && !event.shiftKey && event.key.toLowerCase() === "b") {
         // VS Code-style sidebar toggle; shared by the catalog page and every
         // cluster's resource catalog.
         event.preventDefault();
@@ -291,14 +345,17 @@ export function AppShell() {
         <Hotbar activeClusterId={activeClusterId} />
         <main
           ref={mainRef}
-          className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          className={cn(
+            "relative flex min-h-0 min-w-0 flex-1 overflow-hidden",
+            secondaryId && splitDirection === "right" ? "flex-row" : "flex-col",
+          )}
         >
           {/* Freelens keeps cluster frames alive when switching. mLens keeps a
               mounted workspace per cluster (hidden with CSS) so table scroll,
-              open drawers and terminal PTYs all survive a switch. A split
-              stacks the active cluster above the chosen one (top/bottom), so
-              each pane keeps the full width and the catalog/sidebar size is
-              unchanged; every other workspace stays mounted but hidden. */}
+              open drawers and terminal PTYs all survive a switch. A split can
+              place the active cluster beside the chosen one (right) or above
+              it (down), like the editor area's split actions; every other
+              workspace stays mounted but hidden. */}
           {!activeClusterId ? (
             <div className="flex min-h-0 flex-1">
               <CatalogPage />
@@ -315,7 +372,7 @@ export function AppShell() {
                   "flex min-h-0 min-w-0",
                   !visible && "hidden",
                   visible && !secondaryId && "flex-1",
-                  isSecondary && "border-t border-theme-border",
+                  isSecondary && (splitDirection === "right" ? "border-l border-theme-border" : "border-t border-theme-border"),
                 )}
                 style={
                   visible && secondaryId
@@ -332,20 +389,37 @@ export function AppShell() {
             );
           })}
           {secondaryId ? (
-            <div
-              role="separator"
-              aria-orientation="horizontal"
-              title="Resize the split"
-              className={cn(
-                "absolute inset-x-0 z-40 h-1.5 -translate-y-1/2 cursor-row-resize hover:bg-skyhook-500/40",
-                splitResizing && "bg-skyhook-500/40",
-              )}
-              style={{ top: `${ratio * 100}%` }}
-              onPointerDown={(event) => {
-                event.preventDefault();
-                setSplitResizing(true);
-              }}
-            />
+            splitDirection === "right" ? (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                title="Resize the split"
+                className={cn(
+                  "absolute inset-y-0 z-40 w-1.5 -translate-x-1/2 cursor-col-resize hover:bg-skyhook-500/40",
+                  splitResizing && "bg-skyhook-500/40",
+                )}
+                style={{ left: `${ratio * 100}%` }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  setSplitResizing(true);
+                }}
+              />
+            ) : (
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                title="Resize the split"
+                className={cn(
+                  "absolute inset-x-0 z-40 h-1.5 -translate-y-1/2 cursor-row-resize hover:bg-skyhook-500/40",
+                  splitResizing && "bg-skyhook-500/40",
+                )}
+                style={{ top: `${ratio * 100}%` }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  setSplitResizing(true);
+                }}
+              />
+            )
           ) : null}
         </main>
       </div>

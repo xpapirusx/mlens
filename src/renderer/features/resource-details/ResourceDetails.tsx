@@ -457,7 +457,7 @@ export function ResourceDetails({
                 type="button"
                 className="shell-icon-button h-[34px] w-[34px]"
                 onClick={() => minimizeDetails(clusterId)}
-                title="Minimize the editor area (open tabs stay)"
+                title="Minimize the editor area (open tabs stay) — ⌘⇧B"
               >
                 <ChevronDown className="h-5 w-5" />
               </button>
